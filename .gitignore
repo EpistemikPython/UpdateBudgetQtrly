@@ -1,0 +1,13 @@
+.*
+!.gitignore
+*.gnc
+*.gnucash
+*.log
+*.out
+*.L[NC]K
+**/in
+**/out
+**/logs
+/bindings
+**/examples
+**/test*
