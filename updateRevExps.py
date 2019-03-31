@@ -15,8 +15,16 @@ from bisect import bisect_right
 from decimal import Decimal
 from math import log10
 import csv
-import json
 from gnucash import Session, GncNumeric
+
+import pickle
+import os.path as osp
+import datetime as dt
+import json
+import copy
+from googleapiclient.discovery import build
+from google_auth_oauthlib.flow import InstalledAppFlow
+from google.auth.transport.requests import Request
 
 # constant strings
 QTR   = 'quarterly'
@@ -42,6 +50,8 @@ EXP_ACCTS = {
     DEDNS : ["EXP_Salary"]
 }
 
+# for One Quarter or for Four Quarters if updating an entire Year
+results = list()
 # store the sub-totals needed to update the document
 REV_EXP_RESULTS = {
     INV   : '0',
@@ -62,6 +72,49 @@ PERIODS = {
 NUM_MONTHS = 12
 ONE_DAY = timedelta(days=1)
 ZERO = Decimal(0)
+
+CREDENTIALS = 'secrets/credentials.json'
+
+SHEETS_RW_SCOPE = ['https://www.googleapis.com/auth/spreadsheets']
+
+SHEETS_EPISTEMIK_RW_TOKEN = {
+    'P2' : 'secrets/token.sheets.epistemik.rw.pickle2' ,
+    'P3' : 'secrets/token.sheets.epistemik.rw.pickle3' ,
+    'P4' : 'secrets/token.sheets.epistemik.rw.pickle4'
+}
+
+BUDGET_QTRLY_SPRD_SHEET = '1YbHb7RjZUlA2gyaGDVgRoQYhjs9I8gndKJ0f1Cn-Zr0'
+# sheet ids in Budget Quarterly
+BUDQTR_ALL_INC_SHEET  = '1581653901'
+BUDQTR_ALL_INC_PRAC_SHEET  = '1684660496'
+BUDQTR_NEC_INC_SHEET  = '352534630'
+BUDQTR_NEC_INC_PRAC_SHEET  = '317111001'
+BUDQTR_BALANCE_SHEET  = '1092295261'
+BUDQTR_QTR_ASTS_SHEET = '1868004173'
+BUDQTR_ML_WORK_SHEET  = '1366666149'
+BUDQTR_CALCULNS_SHEET = '1533312865'
+
+TOKEN = SHEETS_EPISTEMIK_RW_TOKEN['P4']
+
+now = dt.datetime.strftime(dt.datetime.now(), "%Y-%m-%dT%H-%M-%S")
+
+# for One Quarter or for Four Quarters if updating an entire Year
+data = list()
+cell_data = {
+    'range': 'HELLO',
+    'values': [ [ 'WORLD!' ] ]
+}
+
+# cell locations in Budget-qtrly.gsht
+REV_EXP_LOCATIONS = {
+    INV   : '0',
+    OTH   : '0',
+    SAL   : '0',
+    BAL   : '0',
+    CONT  : '0',
+    NEC   : '0',
+    DEDNS : '0'
+}
 
 
 # noinspection PyUnresolvedReferences
@@ -159,7 +212,18 @@ def get_splits(acct, period_starts, period_list):
             period[4] += split_amount
 
 
-def get_revenue(root_account, period_starts, period_list, re_year, str_quarter):
+def csv_write_period_list(period_list):
+    # write out the column headers
+    csv_writer = csv.writer(stdout)
+    # csv_writer.writerow('')
+    csv_writer.writerow(('period start', 'period end', 'debits', 'credits', 'TOTAL'))
+
+    # write out the overall totals for the account of interest
+    for start_date, end_date, debit_sum, credit_sum, total in period_list:
+        csv_writer.writerow((start_date, end_date, debit_sum, credit_sum, total))
+
+
+def get_revenue(root_account, period_starts, period_list, re_year, qtr):
     for item in REV_ACCTS:
         # reset the debit and credit totals for each individual account
         period_list[0][2] = 0
@@ -182,21 +246,14 @@ def get_revenue(root_account, period_starts, period_list, re_year, str_quarter):
                 # print("{} balance = {}".format(subAcct.GetName(), gnc_numeric_to_python_decimal(subAcct.GetBalance())))
                 get_splits(subAcct, period_starts, period_list)
 
-        # write out the column headers
-        csv_writer = csv.writer(stdout)
-        # csv_writer.writerow('')
-        csv_writer.writerow(('period start', 'period end', 'debits', 'credits', 'TOTAL'))
-
-        # write out the overall totals for the account of interest
-        for start_date, end_date, debit_sum, credit_sum, total in period_list:
-            csv_writer.writerow((start_date, end_date, debit_sum, credit_sum, total))
+        csv_write_period_list(period_list)
 
         sum_revenue = (period_list[0][2] + period_list[0][3]) * (-1)
         REV_EXP_RESULTS[item] = sum_revenue.to_eng_string()
-        print("{} Revenue for {}{} = ${}".format(acct_name, re_year, str_quarter, sum_revenue))
+        print("{} Revenue for {}-Q{} = ${}".format(acct_name, re_year, qtr, sum_revenue))
 
 
-def get_expenses(root_account, period_starts, period_list, re_year, str_quarter):
+def get_expenses(root_account, period_starts, period_list, re_year, qtr):
     for item in EXP_ACCTS:
         # reset the debit and credit totals for each individual account
         period_list[0][2] = 0
@@ -220,21 +277,120 @@ def get_expenses(root_account, period_starts, period_list, re_year, str_quarter)
                 # print("{} balance = {}".format(subAcct.GetName(), gnc_numeric_to_python_decimal(subAcct.GetBalance())))
                 get_splits(subAcct, period_starts, period_list)
 
-        # write out the column headers
-        csv_writer = csv.writer(stdout)
-        # csv_writer.writerow('')
-        csv_writer.writerow(('period start', 'period end', 'debits', 'credits', 'TOTAL'))
-
-        # write out the overall totals for the account of interest
-        for start_date, end_date, debit_sum, credit_sum, total in period_list:
-            csv_writer.writerow((start_date, end_date, debit_sum, credit_sum, total))
+        csv_write_period_list(period_list)
 
         sum_expenses = (period_list[0][2] + period_list[0][3])
         REV_EXP_RESULTS[item] = sum_expenses.to_eng_string()
-        print("{} Expenses for {}{} = ${}".format(acct_name.split('_')[-1], re_year, str_quarter, sum_expenses))
+        print("{} Expenses for {}-Q{} = ${}".format(acct_name.split('_')[-1], re_year, qtr, sum_expenses))
 
 
 # noinspection PyUnboundLocalVariable,PyUnresolvedReferences
+def get_rev_exps(gnucash_file, re_year, re_quarter):
+    num_quarters = 1 if re_quarter else 4
+    print("find Revenue & Expenses in {} for {}{}".format(gnucash_file, re_year, ('-Q' + str(re_quarter)) if re_quarter else ''))
+
+    try:
+        gnucash_session = Session(gnucash_file, is_new=False)
+        root_account = gnucash_session.book.get_root_account()
+
+        for i in range(num_quarters):
+            qtr = re_quarter if re_quarter else i + 1
+
+            start_month = (qtr * 3) - 2
+
+            # for each period keep the start date, end date, debits and credits sums and overall total
+            period_list = [
+                [
+                    start_date, end_date,
+                    ZERO, # debits sum
+                    ZERO, # credits sum
+                    ZERO  # TOTAL
+                ]
+                for start_date, end_date in generate_period_boundaries(re_year, start_month, QTR, 1)
+            ]
+            # print(period_list)
+            # a copy of the above list with just the period start dates
+            period_starts = [e[0] for e in period_list]
+            # print(period_starts)
+
+            get_revenue(root_account, period_starts, period_list, re_year, qtr)
+            tot_revenue = period_list[0][4] * (-1)
+            print("\n{} Revenue for {}-Q{} = ${}".format("TOTAL", re_year, qtr, tot_revenue))
+
+            period_list[0][4] = 0
+            get_expenses(root_account, period_starts, period_list, re_year, qtr)
+            tot_expenses = period_list[0][4]
+            print("\n{} Expenses for {}-Q{} = ${}\n".format("TOTAL", re_year, qtr, tot_expenses))
+
+            results.append(copy.deepcopy(REV_EXP_RESULTS))
+            period_list[0][4] = 0
+            print(json.dumps(REV_EXP_RESULTS, indent=4))
+
+        # no save needed, we're just reading...
+        gnucash_session.end()
+
+    except Exception as qe:
+        print("Exception: {}!".format(qe))
+        if "gnucash_session" in locals() and gnucash_session is not None:
+            gnucash_session.end()
+
+
+def fill_rev_exps_data(re_year, re_quarter):
+    """
+    Either update ONE specified Quarter or ALL four Quarters for a specified Year
+    """
+    print("\nfill_rev_exps_data({}, {})".format(re_year, re_quarter))
+
+
+def send_rev_exps(re_year, re_quarter):
+    """
+    Either update ONE specified Quarter or ALL four Quarters for a specified Year
+    """
+    print("\nsend_rev_exps({}, {})".format(re_year, re_quarter))
+    print("cell_data['range'] = {}".format(cell_data['range']))
+    print("cell_data['values'][0][0] = {}".format(cell_data['values'][0][0]))
+    return
+
+    num_quarters = 1 if re_quarter else 4
+
+    for i in range(num_quarters):
+        print("i = {}".format(i))
+
+    fill_rev_exps_data(re_year, re_quarter)
+
+    creds = None
+    # The file token.pickle stores the user's access and refresh tokens, and is
+    # created automatically when the authorization flow completes for the first time.
+    if osp.exists(TOKEN):
+        with open(TOKEN, 'rb') as token:
+            creds = pickle.load(token)
+
+    # If there are no (valid) credentials available, let the user log in.
+    if not creds or not creds.valid:
+        if creds and creds.expired and creds.refresh_token:
+            creds.refresh(Request())
+        else:
+            flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS, SHEETS_RW_SCOPE)
+            creds = flow.run_local_server()
+        # Save the credentials for the next run
+        with open(TOKEN, 'wb') as token:
+            pickle.dump(creds, token, pickle.HIGHEST_PROTOCOL)
+
+    # Call the Sheets API
+    service = build('sheets', 'v4', credentials=creds)
+    srv_sheets = service.spreadsheets()
+
+    my_body = {
+        'valueInputOption': 'USER_ENTERED',
+        'data': data
+    }
+    vals = srv_sheets.values()
+    response = vals.batchUpdate(spreadsheetId=BUDGET_QTRLY_SPRD_SHEET, body=my_body).execute()
+
+    print('{} cells updated!'.format(response.get('totalUpdatedCells')))
+    print(json.dumps(response, indent=4))
+
+
 def update_rev_exps_main():
     exe = argv[0].split('/')[-1]
     if len(argv) < 3:
@@ -245,55 +401,15 @@ def update_rev_exps_main():
 
     print("\nrunning {} at run-time: {}\n".format(exe, str(datetime.now())))
 
-    try:
-        gnucash_file = argv[1]
-        re_year = int(argv[2])
-        period_type = QTR if len(argv) > 3 else YR
+    gnucash_file = argv[1]
+    re_year = int(argv[2])
+    re_quarter = int(argv[3]) if len(argv) > 3 else 0
 
-        re_quarter = int(argv[3]) if len(argv) > 3 else 0
-        start_month = (re_quarter * 3) - 2 if len(argv) > 3 else 1
-        str_quarter = '-Q' + str(re_quarter) if re_quarter else ''
+    get_rev_exps(gnucash_file, re_year, re_quarter)
+    print('\nresults:')
+    print(json.dumps(results, indent=4))
 
-        print("find Revenue & Expenses in {} for {}{}".format(gnucash_file, re_year, str_quarter))
-
-        # a list of all the periods of interest
-        # for each period keep the start date, end date, debits and credits sums and overall total
-        period_list = [
-            [
-                start_date, end_date,
-                ZERO,  # debits sum
-                ZERO,  # credits sum
-                ZERO  # TOTAL
-            ]
-            for start_date, end_date in generate_period_boundaries(re_year, start_month, period_type, 1)
-        ]
-        # print(period_list)
-        # a copy of the above list with just the period start dates
-        period_starts = [e[0] for e in period_list]
-        # print(period_starts)
-
-        gnucash_session = Session(gnucash_file, is_new=False)
-        root_account = gnucash_session.book.get_root_account()
-
-        get_revenue(root_account, period_starts, period_list, re_year, str_quarter)
-        tot_revenue = period_list[0][4] * (-1)
-        print("\n{} Revenue for {}{} = ${}".format("TOTAL", re_year, str_quarter, tot_revenue))
-
-        period_list[0][4] = 0
-        get_expenses(root_account, period_starts, period_list, re_year, str_quarter)
-        tot_expenses = period_list[0][4]
-        print("\n{} Expenses for {}{} = ${}".format("TOTAL", re_year, str_quarter, tot_expenses))
-
-        print(json.dumps(REV_EXP_RESULTS, indent=4))
-        # no save needed, we're just reading..
-
-        gnucash_session.end()
-
-    except Exception as qe:
-        print("Exception: {}!".format(qe))
-        if "gnucash_session" in locals() and gnucash_session is not None:
-            gnucash_session.end()
-        raise
+    send_rev_exps(re_year, re_quarter)
 
     print("\n >>> PROGRAM ENDED.")
 
