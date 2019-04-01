@@ -29,6 +29,7 @@ from google.auth.transport.requests import Request
 # constant strings
 QTR   = 'quarterly'
 YR    = 'yearly'
+REV   = 'Revenue'
 INV   = 'Invest'
 OTH   = 'Other'
 SAL   = 'Salary'
@@ -50,7 +51,7 @@ EXP_ACCTS = {
     DEDNS : ["EXP_Salary"]
 }
 
-# for One Quarter or for Four Quarters if updating an entire Year
+# either for One Quarter or for Four Quarters if updating an entire Year
 results = list()
 # store the sub-totals needed to update the document
 REV_EXP_RESULTS = {
@@ -83,16 +84,17 @@ SHEETS_EPISTEMIK_RW_TOKEN = {
     'P4' : 'secrets/token.sheets.epistemik.rw.pickle4'
 }
 
+# Spreadsheet ID
 BUDGET_QTRLY_SPRD_SHEET = '1YbHb7RjZUlA2gyaGDVgRoQYhjs9I8gndKJ0f1Cn-Zr0'
-# sheet ids in Budget Quarterly
-BUDQTR_ALL_INC_SHEET  = '1581653901'
-BUDQTR_ALL_INC_PRAC_SHEET  = '1684660496'
-BUDQTR_NEC_INC_SHEET  = '352534630'
-BUDQTR_NEC_INC_PRAC_SHEET  = '317111001'
-BUDQTR_BALANCE_SHEET  = '1092295261'
-BUDQTR_QTR_ASTS_SHEET = '1868004173'
-BUDQTR_ML_WORK_SHEET  = '1366666149'
-BUDQTR_CALCULNS_SHEET = '1533312865'
+# sheet names in Budget Quarterly
+BUDQTR_ALL_INC_SHEET      = 'All Inc Quarterly'
+BUDQTR_ALL_INC_PRAC_SHEET = 'All Inc Practice'
+BUDQTR_NEC_INC_SHEET      = 'Nec Inc Quarterly'
+BUDQTR_NEC_INC_PRAC_SHEET = 'Nec Inc Practice'
+BUDQTR_BALANCE_SHEET      = 'Balance Sheet'
+BUDQTR_QTR_ASTS_SHEET     = 'Quarterly Assets'
+BUDQTR_ML_WORK_SHEET      = 'ML Work'
+BUDQTR_CALCULNS_SHEET     = 'Calculations'
 
 TOKEN = SHEETS_EPISTEMIK_RW_TOKEN['P4']
 
@@ -101,20 +103,24 @@ now = dt.datetime.strftime(dt.datetime.now(), "%Y-%m-%dT%H-%M-%S")
 # for One Quarter or for Four Quarters if updating an entire Year
 data = list()
 cell_data = {
-    'range': 'HELLO',
-    'values': [ [ 'WORLD!' ] ]
+    # sample data
+    'range': 'Calculations!P47',
+    'values': [ [ '$9033.66' ] ]
 }
 
-# cell locations in Budget-qtrly.gsht
+# base cell (2012-Q1) locations in Budget-qtrly.gsht
 REV_EXP_LOCATIONS = {
-    INV   : '0',
-    OTH   : '0',
-    SAL   : '0',
-    BAL   : '0',
-    CONT  : '0',
-    NEC   : '0',
-    DEDNS : '0'
+    REV   : 'D3',
+    BAL   : 'P3',
+    CONT  : 'O3',
+    NEC   : 'G3',
+    DEDNS : 'D3'
 }
+BASE_YEAR = 2012
+# number of rows between quarters in the same year
+QTR_SPAN = 2
+# number of rows between years
+YEAR_SPAN = 11
 
 
 # noinspection PyUnresolvedReferences
@@ -286,6 +292,9 @@ def get_expenses(root_account, period_starts, period_list, re_year, qtr):
 
 # noinspection PyUnboundLocalVariable,PyUnresolvedReferences
 def get_rev_exps(gnucash_file, re_year, re_quarter):
+    """
+    Either get data for ONE specified Quarter or ALL four Quarters for the specified Year
+    """
     num_quarters = 1 if re_quarter else 4
     print("find Revenue & Expenses in {} for {}{}".format(gnucash_file, re_year, ('-Q' + str(re_quarter)) if re_quarter else ''))
 
@@ -337,26 +346,35 @@ def get_rev_exps(gnucash_file, re_year, re_quarter):
 
 def fill_rev_exps_data(re_year, re_quarter):
     """
-    Either update ONE specified Quarter or ALL four Quarters for a specified Year
+    for each item in results, either 1 for one quarter or 4 for four quarters:
+    create 5 cell_data's, one each for REV, BAL, CONT, NEC, DEDNS:
+    fill in the range based on the year and quarter
+    range = SHEET_NAME + '!' + calculated cell
+    fill in the values based on the sheet being updated and the type of cell_data
+    REV string is '= ${INV} + ${OTH} + ${SAL}'
+    others are just the string from the item
+    :param re_year: year to update
+    :param re_quarter: 1-4 for quarter to update or 0 if updating entire year
     """
     print("\nfill_rev_exps_data({}, {})".format(re_year, re_quarter))
+
+    for item in results:
+        for key in item:
+            print("{} = {}".format(key, item[key]))
+        print('')
 
 
 def send_rev_exps(re_year, re_quarter):
     """
-    Either update ONE specified Quarter or ALL four Quarters for a specified Year
+    Take all the information in the results list and put as cell_data structs in the data list
     """
     print("\nsend_rev_exps({}, {})".format(re_year, re_quarter))
     print("cell_data['range'] = {}".format(cell_data['range']))
-    print("cell_data['values'][0][0] = {}".format(cell_data['values'][0][0]))
-    return
-
-    num_quarters = 1 if re_quarter else 4
-
-    for i in range(num_quarters):
-        print("i = {}".format(i))
+    print("cell_data['values'][0][0] = {}\n".format(cell_data['values'][0][0]))
 
     fill_rev_exps_data(re_year, re_quarter)
+
+    return
 
     creds = None
     # The file token.pickle stores the user's access and refresh tokens, and is
