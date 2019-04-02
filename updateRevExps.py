@@ -55,9 +55,8 @@ EXP_ACCTS = {
 results = list()
 # store the sub-totals needed to update the document
 REV_EXP_RESULTS = {
-    INV   : '0',
-    OTH   : '0',
-    SAL   : '0',
+    QTR   : '0',
+    REV   : '0',
     BAL   : '0',
     CONT  : '0',
     NEC   : '0',
@@ -230,6 +229,7 @@ def csv_write_period_list(period_list):
 
 
 def get_revenue(root_account, period_starts, period_list, re_year, qtr):
+    str_rev = '= '
     for item in REV_ACCTS:
         # reset the debit and credit totals for each individual account
         period_list[0][2] = 0
@@ -255,8 +255,10 @@ def get_revenue(root_account, period_starts, period_list, re_year, qtr):
         csv_write_period_list(period_list)
 
         sum_revenue = (period_list[0][2] + period_list[0][3]) * (-1)
-        REV_EXP_RESULTS[item] = sum_revenue.to_eng_string()
+        str_rev += sum_revenue.to_eng_string() + (' + ' if item != SAL else '')
         print("{} Revenue for {}-Q{} = ${}".format(acct_name, re_year, qtr, sum_revenue))
+
+    REV_EXP_RESULTS[REV] = str_rev
 
 
 def get_expenses(root_account, period_starts, period_list, re_year, qtr):
@@ -304,6 +306,7 @@ def get_rev_exps(gnucash_file, re_year, re_quarter):
 
         for i in range(num_quarters):
             qtr = re_quarter if re_quarter else i + 1
+            REV_EXP_RESULTS[QTR] = str(qtr)
 
             start_month = (qtr * 3) - 2
 
