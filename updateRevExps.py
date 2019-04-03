@@ -15,6 +15,7 @@ from bisect import bisect_right
 from decimal import Decimal
 from math import log10
 import csv
+import copy
 from gnucash import Session, GncNumeric
 
 import pickle
@@ -367,7 +368,7 @@ def get_rev_exps(gnucash_file, re_year, re_quarter):
             gnucash_session.end()
 
 
-def fill_rev_exps_data(all_inc_dest, nec_inc_dest, re_year):
+def fill_rev_exps_data(mode, re_year):
     """
     for each item in results, either 1 for one quarter or 4 for four quarters:
     create 5 cell_data's, one each for REV, BAL, CONT, NEC, DEDNS:
@@ -376,33 +377,56 @@ def fill_rev_exps_data(all_inc_dest, nec_inc_dest, re_year):
     fill in the values based on the sheet being updated and the type of cell_data
     REV string is '= ${INV} + ${OTH} + ${SAL}'
     others are just the string from the item
-    :param all_inc_dest: string: sheet location for REV, CONT & BAL
-    :param nec_inc_dest: string: sheet location for DEDNS & NEC
+    :param mode: string: 'prod' or 'test'
     :param re_year: int: year to update
     """
-    print("\nfill_rev_exps_data({}, {}, {})\n".format(all_inc_dest, nec_inc_dest, re_year))
+    print("\nfill_rev_exps_data({}, {})\n".format(mode, re_year))
+
+    all_inc_dest = ALL_INC_PRAC_SHEET
+    nec_inc_dest = NEC_INC_PRAC_SHEET
+    if argv[2].lower() == 'prod':
+        all_inc_dest = ALL_INC_SHEET
+        nec_inc_dest = NEC_INC_SHEET
+    print("all_inc_dest = {}".format(all_inc_dest))
+    print("nec_inc_dest = {}\n".format(nec_inc_dest))
 
     year_location = BASE_ROW + ((re_year - BASE_YEAR) * YEAR_SPAN)
     # get exact row from qtr value in each item
     for item in results:
-        print("{} = {}\n".format(QTR, item[QTR]))
-        int_qtr = int(item[QTR])
-        qtr_location = year_location + ((int_qtr - 1) * QTR_SPAN)
-        print("qtr_location = {}\n".format(qtr_location))
+        for key in item:
+            if key == QTR:
+                print("{} = {}".format(QTR, item[QTR]))
+                int_qtr = int(item[QTR])
+                dest_row = year_location + ((int_qtr - 1) * QTR_SPAN)
+                print("dest_row = {}\n".format(dest_row))
+            else:
+                cell = copy.copy(cell_data)
+                dest = nec_inc_dest
+                if key in (REV, BAL, CONT):
+                    dest = all_inc_dest
+                col = REV_EXP_COLS[key]
+                val = item[key]
+                cell_locn = dest + '!' + col + str(dest_row)
+                cell['range']  = cell_locn
+                cell['values'] = val
+                print("cell = {}".format(cell))
+                data.append(cell)
 
 
-def send_rev_exps(all_inc_dest, nec_inc_dest, re_year):
+def send_rev_exps(mode, re_year):
     """
     Send the data to the document
-    :param all_inc_dest: string: sheet location for REV, CONT & BAL
-    :param nec_inc_dest: string: sheet location for DEDNS & NEC
+    :param mode: string: 'prod' or 'test'
     :param re_year: int: year to update
     """
-    print("\nsend_rev_exps({}, {}, {})".format(all_inc_dest, nec_inc_dest, re_year))
+    print("\nsend_rev_exps({}, {})".format(mode, re_year))
     print("cell_data['range'] = {}".format(cell_data['range']))
     print("cell_data['values'][0][0] = {}\n".format(cell_data['values'][0][0]))
 
-    fill_rev_exps_data(all_inc_dest, nec_inc_dest, re_year)
+    fill_rev_exps_data(mode, re_year)
+
+    print("data:")
+    print(json.dumps(data, indent=4))
 
     return
 
@@ -450,14 +474,7 @@ def update_rev_exps_main():
     print("\nrunning {} at run-time: {}\n".format(exe, str(datetime.now())))
 
     gnucash_file = argv[1]
-
-    all_inc_dest = ALL_INC_PRAC_SHEET
-    nec_inc_dest = NEC_INC_PRAC_SHEET
-    if argv[2].lower() == 'prod':
-        all_inc_dest = ALL_INC_SHEET
-        nec_inc_dest = NEC_INC_SHEET
-    print("all_inc_dest = {}".format(all_inc_dest))
-    print("nec_inc_dest = {}\n".format(nec_inc_dest))
+    mode = argv[2].lower()
 
     re_year = int(argv[3])
     re_quarter = int(argv[4]) if len(argv) > 4 else 0
@@ -466,7 +483,7 @@ def update_rev_exps_main():
     print('\nresults:')
     print(json.dumps(results, indent=4))
 
-    send_rev_exps(all_inc_dest, nec_inc_dest, re_year)
+    send_rev_exps(mode, re_year)
 
     print("\n >>> PROGRAM ENDED.")
 
