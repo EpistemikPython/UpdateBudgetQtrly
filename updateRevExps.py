@@ -27,8 +27,8 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 
 # constant strings
-QTR   = 'quarterly'
-YR    = 'yearly'
+QTR   = 'Quarter'
+YR    = 'Year'
 REV   = 'Revenue'
 INV   = 'Invest'
 OTH   = 'Other'
@@ -53,7 +53,7 @@ EXP_ACCTS = {
 
 # either for One Quarter or for Four Quarters if updating an entire Year
 results = list()
-# store the sub-totals needed to update the document
+# store the values needed to update the document
 REV_EXP_RESULTS = {
     QTR   : '0',
     REV   : '0',
@@ -86,14 +86,14 @@ SHEETS_EPISTEMIK_RW_TOKEN = {
 # Spreadsheet ID
 BUDGET_QTRLY_SPRD_SHEET = '1YbHb7RjZUlA2gyaGDVgRoQYhjs9I8gndKJ0f1Cn-Zr0'
 # sheet names in Budget Quarterly
-BUDQTR_ALL_INC_SHEET      = 'All Inc Quarterly'
-BUDQTR_ALL_INC_PRAC_SHEET = 'All Inc Practice'
-BUDQTR_NEC_INC_SHEET      = 'Nec Inc Quarterly'
-BUDQTR_NEC_INC_PRAC_SHEET = 'Nec Inc Practice'
-BUDQTR_BALANCE_SHEET      = 'Balance Sheet'
-BUDQTR_QTR_ASTS_SHEET     = 'Quarterly Assets'
-BUDQTR_ML_WORK_SHEET      = 'ML Work'
-BUDQTR_CALCULNS_SHEET     = 'Calculations'
+ALL_INC_SHEET      = 'All Inc Quarterly'
+ALL_INC_PRAC_SHEET = 'All Inc Practice'
+NEC_INC_SHEET      = 'Nec Inc Quarterly'
+NEC_INC_PRAC_SHEET = 'Nec Inc Practice'
+BALANCE_SHEET      = 'Balance Sheet'
+QTR_ASTS_SHEET     = 'Quarterly Assets'
+ML_WORK_SHEET      = 'ML Work'
+CALCULNS_SHEET     = 'Calculations'
 
 TOKEN = SHEETS_EPISTEMIK_RW_TOKEN['P4']
 
@@ -108,12 +108,13 @@ cell_data = {
 }
 
 # base cell (2012-Q1) locations in Budget-qtrly.gsht
-REV_EXP_LOCATIONS = {
-    REV   : 'D3',
-    BAL   : 'P3',
-    CONT  : 'O3',
-    NEC   : 'G3',
-    DEDNS : 'D3'
+BASE_ROW = 3
+REV_EXP_COLS = {
+    REV   : 'D',
+    BAL   : 'P',
+    CONT  : 'O',
+    NEC   : 'G',
+    DEDNS : 'D'
 }
 BASE_YEAR = 2012
 # number of rows between quarters in the same year
@@ -229,6 +230,14 @@ def csv_write_period_list(period_list):
 
 
 def get_revenue(root_account, period_starts, period_list, re_year, qtr):
+    """
+    Get REVENUE data for the specified Quarter
+    :param root_account: string: root account of the gnucash book
+    :param period_starts: struct: store the dates and amounts for each quarter
+    :param period_list: list: start date for each period
+    :param re_year: int: year to read
+    :param qtr: int: quarter to read: 1-4
+    """
     str_rev = '= '
     for item in REV_ACCTS:
         # reset the debit and credit totals for each individual account
@@ -262,6 +271,14 @@ def get_revenue(root_account, period_starts, period_list, re_year, qtr):
 
 
 def get_expenses(root_account, period_starts, period_list, re_year, qtr):
+    """
+    Get EXPENSE data for the specified Quarter
+    :param root_account: string: root account of the gnucash book
+    :param period_starts: struct: store the dates and amounts for each quarter
+    :param period_list: list: start date for each period
+    :param re_year: int: year to read
+    :param qtr: int: quarter to read: 1-4
+    """
     for item in EXP_ACCTS:
         # reset the debit and credit totals for each individual account
         period_list[0][2] = 0
@@ -295,7 +312,10 @@ def get_expenses(root_account, period_starts, period_list, re_year, qtr):
 # noinspection PyUnboundLocalVariable,PyUnresolvedReferences
 def get_rev_exps(gnucash_file, re_year, re_quarter):
     """
-    Either get data for ONE specified Quarter or ALL four Quarters for the specified Year
+    Get revenue and expense data for ONE specified Quarter or ALL four Quarters for the specified Year
+    :param gnucash_file: string: name of file used to read the values
+    :param re_year: int: year to update
+    :param re_quarter: int: 1-4 for quarter to update or 0 if updating entire year
     """
     num_quarters = 1 if re_quarter else 4
     print("find Revenue & Expenses in {} for {}{}".format(gnucash_file, re_year, ('-Q' + str(re_quarter)) if re_quarter else ''))
@@ -347,7 +367,7 @@ def get_rev_exps(gnucash_file, re_year, re_quarter):
             gnucash_session.end()
 
 
-def fill_rev_exps_data(re_year, re_quarter):
+def fill_rev_exps_data(all_inc_dest, nec_inc_dest, re_year):
     """
     for each item in results, either 1 for one quarter or 4 for four quarters:
     create 5 cell_data's, one each for REV, BAL, CONT, NEC, DEDNS:
@@ -356,26 +376,32 @@ def fill_rev_exps_data(re_year, re_quarter):
     fill in the values based on the sheet being updated and the type of cell_data
     REV string is '= ${INV} + ${OTH} + ${SAL}'
     others are just the string from the item
-    :param re_year: year to update
-    :param re_quarter: 1-4 for quarter to update or 0 if updating entire year
+    :param all_inc_dest: string: sheet location for REV, CONT & BAL
+    :param nec_inc_dest: string: sheet location for DEDNS & NEC
+    :param re_year: int: year to update
     """
-    print("\nfill_rev_exps_data({}, {})".format(re_year, re_quarter))
+    print("\nfill_rev_exps_data({}, {}, {})\n".format(all_inc_dest, nec_inc_dest, re_year))
 
+    year_location = (re_year - BASE_YEAR) * YEAR_SPAN
+    # get exact row from qtr value in each item
     for item in results:
-        for key in item:
-            print("{} = {}".format(key, item[key]))
-        print('')
+        int_qtr = int(item[QTR])
+        qtr_location = year_location + ((int_qtr - 1) * QTR_SPAN)
+        print("{} = {}\n".format(QTR, item[QTR]))
 
 
-def send_rev_exps(re_year, re_quarter):
+def send_rev_exps(all_inc_dest, nec_inc_dest, re_year):
     """
-    Take all the information in the results list and put as cell_data structs in the data list
+    Send the data to the document
+    :param all_inc_dest: string: sheet location for REV, CONT & BAL
+    :param nec_inc_dest: string: sheet location for DEDNS & NEC
+    :param re_year: int: year to update
     """
-    print("\nsend_rev_exps({}, {})".format(re_year, re_quarter))
+    print("\nsend_rev_exps({}, {}, {})".format(all_inc_dest, nec_inc_dest, re_year))
     print("cell_data['range'] = {}".format(cell_data['range']))
     print("cell_data['values'][0][0] = {}\n".format(cell_data['values'][0][0]))
 
-    fill_rev_exps_data(re_year, re_quarter)
+    fill_rev_exps_data(all_inc_dest, nec_inc_dest, re_year)
 
     return
 
@@ -414,23 +440,30 @@ def send_rev_exps(re_year, re_quarter):
 
 def update_rev_exps_main():
     exe = argv[0].split('/')[-1]
-    if len(argv) < 3:
+    if len(argv) < 4:
         print("NOT ENOUGH parameters!")
-        print("usage: {} <book url> <year> [quarter]".format(exe))
+        print("usage: {} <book url> <mode=prod|test> <year> [quarter]".format(exe))
         print("PROGRAM EXIT!")
         return
 
     print("\nrunning {} at run-time: {}\n".format(exe, str(datetime.now())))
 
     gnucash_file = argv[1]
-    re_year = int(argv[2])
-    re_quarter = int(argv[3]) if len(argv) > 3 else 0
+    
+    all_inc_dest = ALL_INC_PRAC_SHEET
+    nec_inc_dest = NEC_INC_PRAC_SHEET
+    if argv[2].lower() == 'prod':
+        all_inc_dest = ALL_INC_SHEET
+        nec_inc_dest = NEC_INC_SHEET
+        
+    re_year = int(argv[3])
+    re_quarter = int(argv[4]) if len(argv) > 4 else 0
 
     get_rev_exps(gnucash_file, re_year, re_quarter)
     print('\nresults:')
     print(json.dumps(results, indent=4))
 
-    send_rev_exps(re_year, re_quarter)
+    send_rev_exps(all_inc_dest, nec_inc_dest, re_year)
 
     print("\n >>> PROGRAM ENDED.")
 
