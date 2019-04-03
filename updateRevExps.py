@@ -382,12 +382,13 @@ def fill_rev_exps_data(all_inc_dest, nec_inc_dest, re_year):
     """
     print("\nfill_rev_exps_data({}, {}, {})\n".format(all_inc_dest, nec_inc_dest, re_year))
 
-    year_location = (re_year - BASE_YEAR) * YEAR_SPAN
+    year_location = BASE_ROW + ((re_year - BASE_YEAR) * YEAR_SPAN)
     # get exact row from qtr value in each item
     for item in results:
+        print("{} = {}\n".format(QTR, item[QTR]))
         int_qtr = int(item[QTR])
         qtr_location = year_location + ((int_qtr - 1) * QTR_SPAN)
-        print("{} = {}\n".format(QTR, item[QTR]))
+        print("qtr_location = {}\n".format(qtr_location))
 
 
 def send_rev_exps(all_inc_dest, nec_inc_dest, re_year):
@@ -449,13 +450,15 @@ def update_rev_exps_main():
     print("\nrunning {} at run-time: {}\n".format(exe, str(datetime.now())))
 
     gnucash_file = argv[1]
-    
+
     all_inc_dest = ALL_INC_PRAC_SHEET
     nec_inc_dest = NEC_INC_PRAC_SHEET
     if argv[2].lower() == 'prod':
         all_inc_dest = ALL_INC_SHEET
         nec_inc_dest = NEC_INC_SHEET
-        
+    print("all_inc_dest = {}".format(all_inc_dest))
+    print("nec_inc_dest = {}\n".format(nec_inc_dest))
+
     re_year = int(argv[3])
     re_quarter = int(argv[4]) if len(argv) > 4 else 0
 
