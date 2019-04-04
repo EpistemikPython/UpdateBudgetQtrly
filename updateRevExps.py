@@ -408,7 +408,7 @@ def fill_rev_exps_data(mode, re_year):
                 val = item[key]
                 cell_locn = dest + '!' + col + str(dest_row)
                 cell['range']  = cell_locn
-                cell['values'] = val
+                cell['values'] = [[val]]
                 print("cell = {}".format(cell))
                 data.append(cell)
 
@@ -427,8 +427,6 @@ def send_rev_exps(mode, re_year):
 
     print("data:")
     print(json.dumps(data, indent=4))
-
-    return
 
     creds = None
     # The file token.pickle stores the user's access and refresh tokens, and is
@@ -459,7 +457,7 @@ def send_rev_exps(mode, re_year):
     vals = srv_sheets.values()
     response = vals.batchUpdate(spreadsheetId=BUDGET_QTRLY_SPRD_SHEET, body=my_body).execute()
 
-    print('{} cells updated!'.format(response.get('totalUpdatedCells')))
+    print('\n{} cells updated!'.format(response.get('totalUpdatedCells')))
     print(json.dumps(response, indent=4))
 
 
