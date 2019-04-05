@@ -48,8 +48,12 @@ REV_ACCTS = {
 EXP_ACCTS = {
     BAL   : ["EXP_Balance"],
     CONT  : ["EXP_CONTINGENT"],
-    NEC   : ["EXP_NECESSARY"],
-    DEDNS : ["EXP_Salary"]
+    NEC   : ["EXP_NECESSARY"]
+}
+DEDN_ACCTS = {
+    "Mark" : ["Mk-Dedns"],
+    "Lulu" : ["Lu-Dedns"],
+    "ML"   : ["ML-Dedns"]
 }
 
 # either for One Quarter or for Four Quarters if updating an entire Year
@@ -188,6 +192,13 @@ def account_from_path(top_account, account_path, original_path=None):
 
 
 def get_splits(acct, period_starts, period_list):
+    """
+    get the splits for the account and each sub-account
+    :param acct: 
+    :param period_starts: 
+    :param period_list: 
+    :return: 
+    """
     # insert and add all splits in the periods of interest
     for split in acct.GetSplitList():
         trans = split.parent
@@ -219,6 +230,33 @@ def get_splits(acct, period_starts, period_list):
             period[4] += split_amount
 
 
+def fill_splits(root_acct, target_acct, period_list, period_starts):
+    """
+    fill the period list for each account
+    :param root_acct: Gnucash account: from the Gnucash book
+    :param target_acct: string
+    :param period_list: list: start date for each period
+    :param period_starts: struct: store the dates and amounts for each quarter
+    :return: acct_name: string: name of target_acct
+    """
+    account_of_interest = account_from_path(root_acct, target_acct)
+    acct_name = account_of_interest.GetName()
+    print("\naccount_of_interest = {}".format(acct_name))
+
+    # get the split amounts for the parent account
+    get_splits(account_of_interest, period_starts, period_list)
+    descendants = account_of_interest.get_descendants()
+    if len(descendants) > 0:
+        # for EACH sub-account add to the overall total
+        # print("Descendants of {}:".format(account_of_interest.GetName()))
+        for subAcct in descendants:
+            # print("{} balance = {}".format(subAcct.GetName(), gnc_numeric_to_python_decimal(subAcct.GetBalance())))
+            get_splits(subAcct, period_starts, period_list)
+
+    csv_write_period_list(period_list)
+    return acct_name
+
+
 def csv_write_period_list(period_list):
     # write out the column headers
     csv_writer = csv.writer(stdout)
@@ -233,7 +271,7 @@ def csv_write_period_list(period_list):
 def get_revenue(root_account, period_starts, period_list, re_year, qtr):
     """
     Get REVENUE data for the specified Quarter
-    :param root_account: string: root account of the gnucash book
+    :param root_account: Gnucash account: from the Gnucash book
     :param period_starts: struct: store the dates and amounts for each quarter
     :param period_list: list: start date for each period
     :param re_year: int: year to read
@@ -248,21 +286,7 @@ def get_revenue(root_account, period_starts, period_list, re_year, qtr):
         acct_base = REV_ACCTS[item]
         # print("acct = {}".format(acct_base))
 
-        account_of_interest = account_from_path(root_account, acct_base)
-        acct_name = account_of_interest.GetName()
-        print("\naccount_of_interest = {}".format(acct_name))
-        # get the split amounts for the parent account
-        get_splits(account_of_interest, period_starts, period_list)
-
-        descendants = account_of_interest.get_descendants()
-        if len(descendants) > 0:
-            # for EACH sub-account add to the overall total
-            # print("Descendants of {}:".format(account_of_interest.GetName()))
-            for subAcct in descendants:
-                # print("{} balance = {}".format(subAcct.GetName(), gnc_numeric_to_python_decimal(subAcct.GetBalance())))
-                get_splits(subAcct, period_starts, period_list)
-
-        csv_write_period_list(period_list)
+        acct_name = fill_splits(root_account, acct_base, period_list, period_starts)
 
         sum_revenue = (period_list[0][2] + period_list[0][3]) * (-1)
         str_rev += sum_revenue.to_eng_string() + (' + ' if item != SAL else '')
@@ -271,14 +295,41 @@ def get_revenue(root_account, period_starts, period_list, re_year, qtr):
     REV_EXP_RESULTS[REV] = str_rev
 
 
-def get_expenses(root_account, period_starts, period_list, re_year, qtr):
+def get_deductions(root_account, period_starts, period_list, re_year, qtr):
     """
-    Get EXPENSE data for the specified Quarter
-    :param root_account: string: root account of the gnucash book
+    Get SALARY DEDUCTIONS data for the specified Quarter
+    :param root_account: Gnucash account: from the Gnucash book
     :param period_starts: struct: store the dates and amounts for each quarter
     :param period_list: list: start date for each period
     :param re_year: int: year to read
     :param qtr: int: quarter to read: 1-4
+    """
+    str_dedns = '= '
+    for item in DEDN_ACCTS:
+        # reset the debit and credit totals for each individual account
+        period_list[0][2] = 0
+        period_list[0][3] = 0
+
+        acct_base = DEDN_ACCTS[item]
+        # print("acct = {}".format(acct_base))
+
+        acct_name = fill_splits(root_account, acct_base, period_list, period_starts)
+
+        sum_deductions = period_list[0][2] + period_list[0][3]
+        str_dedns += sum_deductions.to_eng_string() + (' + ' if item != "ML" else '')
+        print("{} Salary Deductions for {}-Q{} = ${}".format(acct_name, re_year, qtr, sum_deductions))
+
+    REV_EXP_RESULTS[DEDNS] = str_dedns
+
+
+def get_expenses(root_account, period_starts, period_list, re_year, qtr):
+    """
+    Get EXPENSE data for the specified Quarter
+    :param root_account: Gnucash account: from the Gnucash book
+    :param period_starts: struct: store the dates and amounts for each quarter
+    :param period_list: list: start date for each period
+    :param re_year: int: year to read
+    :param qtr: int: quarter to read = 1..4
     """
     for item in EXP_ACCTS:
         # reset the debit and credit totals for each individual account
@@ -288,26 +339,13 @@ def get_expenses(root_account, period_starts, period_list, re_year, qtr):
         acct_base = EXP_ACCTS[item]
         # print("acct = {}".format(acct_base))
 
-        account_of_interest = account_from_path(root_account, acct_base)
-        acct_name = account_of_interest.GetName()
-        print("\naccount_of_interest = {}".format(acct_name))
+        acct_name = fill_splits(root_account, acct_base, period_list, period_starts)
 
-        # get the split amounts for the parent account
-        get_splits(account_of_interest, period_starts, period_list)
-
-        descendants = account_of_interest.get_descendants()
-        if len(descendants) > 0:
-            # for EACH sub-account add to the overall total
-            # print("Descendants of {}:".format(account_of_interest.GetName()))
-            for subAcct in descendants:
-                # print("{} balance = {}".format(subAcct.GetName(), gnc_numeric_to_python_decimal(subAcct.GetBalance())))
-                get_splits(subAcct, period_starts, period_list)
-
-        csv_write_period_list(period_list)
-
-        sum_expenses = (period_list[0][2] + period_list[0][3])
+        sum_expenses = period_list[0][2] + period_list[0][3]
         REV_EXP_RESULTS[item] = sum_expenses.to_eng_string()
         print("{} Expenses for {}-Q{} = ${}".format(acct_name.split('_')[-1], re_year, qtr, sum_expenses))
+
+    get_deductions(root_account, period_starts, period_list, re_year, qtr)
 
 
 # noinspection PyUnboundLocalVariable,PyUnresolvedReferences
@@ -324,6 +362,7 @@ def get_rev_exps(gnucash_file, re_year, re_quarter):
     try:
         gnucash_session = Session(gnucash_file, is_new=False)
         root_account = gnucash_session.book.get_root_account()
+        print("type root_account = {}".format(type(root_account)))
 
         for i in range(num_quarters):
             qtr = re_quarter if re_quarter else i + 1
@@ -362,6 +401,9 @@ def get_rev_exps(gnucash_file, re_year, re_quarter):
         # no save needed, we're just reading...
         gnucash_session.end()
 
+        print('\nresults:')
+        print(json.dumps(results, indent=4))
+
     except Exception as qe:
         print("Exception: {}!".format(qe))
         if "gnucash_session" in locals() and gnucash_session is not None:
@@ -376,6 +418,7 @@ def fill_rev_exps_data(mode, re_year):
     range = SHEET_NAME + '!' + calculated cell
     fill in the values based on the sheet being updated and the type of cell_data
     REV string is '= ${INV} + ${OTH} + ${SAL}'
+    DEDNS string is '= ${Mk-Dedns} + ${Lu-Dedns} + ${ML-Dedns}'
     others are just the string from the item
     :param mode: string: 'prod' or 'test'
     :param re_year: int: year to update
@@ -390,16 +433,15 @@ def fill_rev_exps_data(mode, re_year):
     print("all_inc_dest = {}".format(all_inc_dest))
     print("nec_inc_dest = {}\n".format(nec_inc_dest))
 
-    year_location = BASE_ROW + ((re_year - BASE_YEAR) * YEAR_SPAN)
-    # get exact row from qtr value in each item
+    year_row = BASE_ROW + ((re_year - BASE_YEAR) * YEAR_SPAN)
+    # get exact row from Quarter value in each item
     for item in results:
+        print("{} = {}".format(QTR, item[QTR]))
+        int_qtr = int(item[QTR])
+        dest_row = year_row + ((int_qtr - 1) * QTR_SPAN)
+        print("dest_row = {}\n".format(dest_row))
         for key in item:
-            if key == QTR:
-                print("{} = {}".format(QTR, item[QTR]))
-                int_qtr = int(item[QTR])
-                dest_row = year_location + ((int_qtr - 1) * QTR_SPAN)
-                print("dest_row = {}\n".format(dest_row))
-            else:
+            if key != QTR:
                 cell = copy.copy(cell_data)
                 dest = nec_inc_dest
                 if key in (REV, BAL, CONT):
@@ -421,13 +463,13 @@ def send_rev_exps(mode, re_year):
     """
     print("\nsend_rev_exps({}, {})".format(mode, re_year))
     print("cell_data['range'] = {}".format(cell_data['range']))
-    print("cell_data['values'][0][0] = {}\n".format(cell_data['values'][0][0]))
+    print("cell_data['values'][0][0] = {}".format(cell_data['values'][0][0]))
 
     fill_rev_exps_data(mode, re_year)
 
-    print("data:")
+    print("\ndata:")
     print(json.dumps(data, indent=4))
-
+    
     creds = None
     # The file token.pickle stores the user's access and refresh tokens, and is
     # created automatically when the authorization flow completes for the first time.
@@ -478,8 +520,6 @@ def update_rev_exps_main():
     re_quarter = int(argv[4]) if len(argv) > 4 else 0
 
     get_rev_exps(gnucash_file, re_year, re_quarter)
-    print('\nresults:')
-    print(json.dumps(results, indent=4))
 
     send_rev_exps(mode, re_year)
 
