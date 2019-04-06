@@ -230,16 +230,16 @@ def get_splits(acct, period_starts, period_list):
             period[4] += split_amount
 
 
-def fill_splits(root_acct, target_acct, period_list, period_starts):
+def fill_splits(root_acct, target_path, period_list, period_starts):
     """
     fill the period list for each account
     :param root_acct: Gnucash account: from the Gnucash book
-    :param target_acct: string
+    :param target_path: list: account hierarchy from root account to target account
     :param period_list: list: start date for each period
     :param period_starts: struct: store the dates and amounts for each quarter
     :return: acct_name: string: name of target_acct
     """
-    account_of_interest = account_from_path(root_acct, target_acct)
+    account_of_interest = account_from_path(root_acct, target_path)
     acct_name = account_of_interest.GetName()
     print("\naccount_of_interest = {}".format(acct_name))
 
@@ -275,7 +275,7 @@ def get_revenue(root_account, period_starts, period_list, re_year, qtr):
     :param period_starts: struct: store the dates and amounts for each quarter
     :param period_list: list: start date for each period
     :param re_year: int: year to read
-    :param qtr: int: quarter to read: 1-4
+    :param qtr: int: quarter to read: 1..4
     """
     str_rev = '= '
     for item in REV_ACCTS:
@@ -284,8 +284,6 @@ def get_revenue(root_account, period_starts, period_list, re_year, qtr):
         period_list[0][3] = 0
 
         acct_base = REV_ACCTS[item]
-        # print("acct = {}".format(acct_base))
-
         acct_name = fill_splits(root_account, acct_base, period_list, period_starts)
 
         sum_revenue = (period_list[0][2] + period_list[0][3]) * (-1)
@@ -302,7 +300,7 @@ def get_deductions(root_account, period_starts, period_list, re_year, qtr):
     :param period_starts: struct: store the dates and amounts for each quarter
     :param period_list: list: start date for each period
     :param re_year: int: year to read
-    :param qtr: int: quarter to read: 1-4
+    :param qtr: int: quarter to read: 1..4
     """
     str_dedns = '= '
     for item in DEDN_ACCTS:
@@ -311,8 +309,6 @@ def get_deductions(root_account, period_starts, period_list, re_year, qtr):
         period_list[0][3] = 0
 
         acct_base = DEDN_ACCTS[item]
-        # print("acct = {}".format(acct_base))
-
         acct_name = fill_splits(root_account, acct_base, period_list, period_starts)
 
         sum_deductions = period_list[0][2] + period_list[0][3]
@@ -337,8 +333,6 @@ def get_expenses(root_account, period_starts, period_list, re_year, qtr):
         period_list[0][3] = 0
 
         acct_base = EXP_ACCTS[item]
-        # print("acct = {}".format(acct_base))
-
         acct_name = fill_splits(root_account, acct_base, period_list, period_starts)
 
         sum_expenses = period_list[0][2] + period_list[0][3]
@@ -427,7 +421,7 @@ def fill_rev_exps_data(mode, re_year):
 
     all_inc_dest = ALL_INC_PRAC_SHEET
     nec_inc_dest = NEC_INC_PRAC_SHEET
-    if argv[2].lower() == 'prod':
+    if 'prod' in mode:
         all_inc_dest = ALL_INC_SHEET
         nec_inc_dest = NEC_INC_SHEET
     print("all_inc_dest = {}".format(all_inc_dest))
@@ -469,7 +463,7 @@ def send_rev_exps(mode, re_year):
 
     print("\ndata:")
     print(json.dumps(data, indent=4))
-    
+
     creds = None
     # The file token.pickle stores the user's access and refresh tokens, and is
     # created automatically when the authorization flow completes for the first time.
@@ -496,18 +490,20 @@ def send_rev_exps(mode, re_year):
         'valueInputOption': 'USER_ENTERED',
         'data': data
     }
-    vals = srv_sheets.values()
-    response = vals.batchUpdate(spreadsheetId=BUDGET_QTRLY_SPRD_SHEET, body=my_body).execute()
 
-    print('\n{} cells updated!'.format(response.get('totalUpdatedCells')))
-    print(json.dumps(response, indent=4))
+    if 'send' in mode:
+        vals = srv_sheets.values()
+        response = vals.batchUpdate(spreadsheetId=BUDGET_QTRLY_SPRD_SHEET, body=my_body).execute()
+
+        print('\n{} cells updated!'.format(response.get('totalUpdatedCells')))
+        print(json.dumps(response, indent=4))
 
 
 def update_rev_exps_main():
     exe = argv[0].split('/')[-1]
     if len(argv) < 4:
         print("NOT ENOUGH parameters!")
-        print("usage: {} <book url> <mode=prod|test> <year> [quarter]".format(exe))
+        print("usage: {} <book url> <mode=prod[send]|test[send]> <year> [quarter]".format(exe))
         print("PROGRAM EXIT!")
         return
 
