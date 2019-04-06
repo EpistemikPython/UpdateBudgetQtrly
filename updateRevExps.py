@@ -3,12 +3,12 @@
 #                     in my BudgetQtrly document for a specified year or quarter
 #
 # some code from account_analysis.py by Mark Jenkins, ParIT Worker Co-operative <mark@parit.ca>
-# some code from Google quickstart example
+# some code from Google quickstart spreadsheets example
 #
 # @author Mark Sattolo <epistemik@gmail.com>
 # @version Python 3.6
 # @created 2019-03-30
-# @updated 2019-04-05
+# @updated 2019-04-06
 
 from sys import argv, stdout
 from datetime import date, timedelta, datetime as dt
@@ -189,42 +189,42 @@ def account_from_path(top_account, account_path, original_path=None):
         return account
 
 
-def save_to_json(title, datax):
+def save_to_json(title, json_data):
     """
     print json data to a file -- add a timestamp to get a unique file name each run
+    :param title: string
+    :param json_data: json compatible struct
+    :return: file name
     """
     out_file = title + '.' + now + ".json"
     print("\njson file is '{}'".format(out_file))
     fp = open(out_file, 'w')
-    json.dump(datax, fp, indent=4)
+    json.dump(json_data, fp, indent=4)
     fp.close()
+    return out_file
 
 
 def get_splits(acct, period_starts, period_list):
     """
     get the splits for the account and each sub-account
-    :param acct: 
-    :param period_starts: 
-    :param period_list: 
-    :return: 
+    :param acct: Gnucash account
+    :param period_starts: list: start date for each period
+    :param period_list: list of structs: store the dates and amounts for each quarter
+    :return: nil
     """
     # insert and add all splits in the periods of interest
     for split in acct.GetSplitList():
         trans = split.parent
-        # GetDate() returns a datetime
-        tx_datetm = trans.GetDate()
-        # convert to a date
-        trans_date = tx_datetm.date()
+        # GetDate() returns a datetime but need a date
+        trans_date = trans.GetDate().date()
 
         # use binary search to find the period that starts before or on the transaction date
         period_index = bisect_right(period_starts, trans_date) - 1
 
         # ignore transactions with a date before the matching period start and after the last period_end
         if period_index >= 0 and trans_date <= period_list[len(period_list) - 1][1]:
-
             # get the period bucket appropriate for the split in question
             period = period_list[period_index]
-
             assert( period[1] >= trans_date >= period[0] )
 
             split_amount = gnc_numeric_to_python_decimal(split.GetAmount())
@@ -239,13 +239,13 @@ def get_splits(acct, period_starts, period_list):
             period[4] += split_amount
 
 
-def fill_splits(root_acct, target_path, period_list, period_starts):
+def fill_splits(root_acct, target_path, period_starts, period_list):
     """
     fill the period list for each account
     :param root_acct: Gnucash account: from the Gnucash book
     :param target_path: list: account hierarchy from root account to target account
-    :param period_list: list: start date for each period
-    :param period_starts: struct: store the dates and amounts for each quarter
+    :param period_starts: list: start date for each period
+    :param period_list: list of structs: store the dates and amounts for each quarter
     :return: acct_name: string: name of target_acct
     """
     account_of_interest = account_from_path(root_acct, target_path)
@@ -267,6 +267,11 @@ def fill_splits(root_acct, target_path, period_list, period_starts):
 
 
 def csv_write_period_list(period_list):
+    """
+    Write out the details of the submitted period list in csv format
+    :param period_list: list of structs: store the dates and amounts for each quarter
+    :return: nil
+    """
     # write out the column headers
     csv_writer = csv.writer(stdout)
     # csv_writer.writerow('')
@@ -281,10 +286,11 @@ def get_revenue(root_account, period_starts, period_list, re_year, qtr):
     """
     Get REVENUE data for the specified Quarter
     :param root_account: Gnucash account: from the Gnucash book
-    :param period_starts: struct: store the dates and amounts for each quarter
-    :param period_list: list: start date for each period
+    :param period_starts: list: start date for each period
+    :param period_list: list of structs: store the dates and amounts for each quarter
     :param re_year: int: year to read
     :param qtr: int: quarter to read: 1..4
+    :return: string with revenue
     """
     str_rev = '= '
     for item in REV_ACCTS:
@@ -293,23 +299,25 @@ def get_revenue(root_account, period_starts, period_list, re_year, qtr):
         period_list[0][3] = 0
 
         acct_base = REV_ACCTS[item]
-        acct_name = fill_splits(root_account, acct_base, period_list, period_starts)
+        acct_name = fill_splits(root_account, acct_base, period_starts, period_list)
 
         sum_revenue = (period_list[0][2] + period_list[0][3]) * (-1)
         str_rev += sum_revenue.to_eng_string() + (' + ' if item != SAL else '')
         print("{} Revenue for {}-Q{} = ${}".format(acct_name, re_year, qtr, sum_revenue))
 
     REV_EXP_RESULTS[REV] = str_rev
+    return str_rev
 
 
 def get_deductions(root_account, period_starts, period_list, re_year, qtr):
     """
     Get SALARY DEDUCTIONS data for the specified Quarter
     :param root_account: Gnucash account: from the Gnucash book
-    :param period_starts: struct: store the dates and amounts for each quarter
-    :param period_list: list: start date for each period
+    :param period_starts: list: start date for each period
+    :param period_list: list of structs: store the dates and amounts for each quarter
     :param re_year: int: year to read
     :param qtr: int: quarter to read: 1..4
+    :return: string with deductions
     """
     str_dedns = '= '
     for item in DEDN_ACCTS:
@@ -318,23 +326,25 @@ def get_deductions(root_account, period_starts, period_list, re_year, qtr):
         period_list[0][3] = 0
 
         acct_base = DEDN_ACCTS[item]
-        acct_name = fill_splits(root_account, acct_base, period_list, period_starts)
+        acct_name = fill_splits(root_account, acct_base, period_starts, period_list)
 
         sum_deductions = period_list[0][2] + period_list[0][3]
         str_dedns += sum_deductions.to_eng_string() + (' + ' if item != "ML" else '')
         print("{} Salary Deductions for {}-Q{} = ${}".format(acct_name, re_year, qtr, sum_deductions))
 
     REV_EXP_RESULTS[DEDNS] = str_dedns
+    return str_dedns
 
 
 def get_expenses(root_account, period_starts, period_list, re_year, qtr):
     """
     Get EXPENSE data for the specified Quarter
     :param root_account: Gnucash account: from the Gnucash book
-    :param period_starts: struct: store the dates and amounts for each quarter
-    :param period_list: list: start date for each period
+    :param period_starts: list: start date for each period
+    :param period_list: list of structs: store the dates and amounts for each quarter
     :param re_year: int: year to read
     :param qtr: int: quarter to read = 1..4
+    :return: string with expenses
     """
     for item in EXP_ACCTS:
         # reset the debit and credit totals for each individual account
@@ -342,22 +352,26 @@ def get_expenses(root_account, period_starts, period_list, re_year, qtr):
         period_list[0][3] = 0
 
         acct_base = EXP_ACCTS[item]
-        acct_name = fill_splits(root_account, acct_base, period_list, period_starts)
+        acct_name = fill_splits(root_account, acct_base, period_starts, period_list)
 
         sum_expenses = period_list[0][2] + period_list[0][3]
-        REV_EXP_RESULTS[item] = sum_expenses.to_eng_string()
-        print("{} Expenses for {}-Q{} = ${}".format(acct_name.split('_')[-1], re_year, qtr, sum_expenses))
+        str_expenses = sum_expenses.to_eng_string()
+        REV_EXP_RESULTS[item] = str_expenses
+        print("{} Expenses for {}-Q{} = ${}".format(acct_name.split('_')[-1], re_year, qtr, str_expenses))
 
     get_deductions(root_account, period_starts, period_list, re_year, qtr)
+
+    return str_expenses
 
 
 # noinspection PyUnboundLocalVariable,PyUnresolvedReferences
 def get_rev_exps(gnucash_file, re_year, re_quarter):
     """
-    Get revenue and expense data for ONE specified Quarter or ALL four Quarters for the specified Year
+    Get REVENUE and EXPENSE data for ONE specified Quarter or ALL four Quarters for the specified Year
     :param gnucash_file: string: name of file used to read the values
     :param re_year: int: year to update
-    :param re_quarter: int: 1-4 for quarter to update or 0 if updating entire year
+    :param re_quarter: int: 1..4 for quarter to update or 0 if updating entire year
+    :return: nil
     """
     num_quarters = 1 if re_quarter else 4
     print("find Revenue & Expenses in {} for {}{}".format(gnucash_file, re_year, ('-Q' + str(re_quarter)) if re_quarter else ''))
@@ -404,7 +418,7 @@ def get_rev_exps(gnucash_file, re_year, re_quarter):
         # no save needed, we're just reading...
         gnucash_session.end()
 
-        save_to_json('updateRevExps_results', results)
+        save_to_json('out/updateRevExps_results', results)
 
     except Exception as qe:
         print("Exception: {}!".format(qe))
@@ -423,8 +437,9 @@ def fill_rev_exps_data(mode, re_year):
     REV string is '= ${INV} + ${OTH} + ${SAL}'
     DEDNS string is '= ${Mk-Dedns} + ${Lu-Dedns} + ${ML-Dedns}'
     others are just the string from the item
-    :param mode: string: 'prod[send]' or 'test[send]'
+    :param mode: string: 'xxx[prod][send]'
     :param re_year: int: year to update
+    :return: data list
     """
     print("\nfill_rev_exps_data({}, {})\n".format(mode, re_year))
 
@@ -456,13 +471,15 @@ def fill_rev_exps_data(mode, re_year):
                 cell['values'] = [[val]]
                 print("cell = {}".format(cell))
                 data.append(cell)
+    return data
 
 
 def send_rev_exps(mode, re_year):
     """
     Fill the data list and send to the document
-    :param mode: string: 'prod[send]' or 'test[send]'
+    :param mode: string: 'xxx[prod][send]'
     :param re_year: int: year to update
+    :return: server response
     """
     print("\nsend_rev_exps({}, {})".format(mode, re_year))
     print("cell_data['range'] = {}".format(cell_data['range']))
@@ -470,7 +487,7 @@ def send_rev_exps(mode, re_year):
 
     fill_rev_exps_data(mode, re_year)
 
-    save_to_json('updateRevExps_data', data)
+    save_to_json('out/updateRevExps_data', data)
 
     creds = None
     # The file token.pickle stores the user's access and refresh tokens, and is
@@ -499,26 +516,32 @@ def send_rev_exps(mode, re_year):
         'data': data
     }
 
+    response = 'NO SEND.'
     if 'send' in mode:
         vals = srv_sheets.values()
         response = vals.batchUpdate(spreadsheetId=BUDGET_QTRLY_SPRD_SHEET, body=my_body).execute()
 
         print('\n{} cells updated!'.format(response.get('totalUpdatedCells')))
-        save_to_json('updateRevExps_response', response)
+        save_to_json('out/updateRevExps_response', response)
+
+    return response
 
 
 def update_rev_exps_main():
+    """
+    Main: check command line and call functions to get the data from Gnucash book and send to Google document
+    :return: nil
+    """
     exe = argv[0].split('/')[-1]
     if len(argv) < 4:
         print("NOT ENOUGH parameters!")
-        print("usage: {} <book url> <mode=prod[send]|test[send]> <year> [quarter]".format(exe))
+        print("usage: {} <book url> <mode=xxx[prod][send]> <year> [quarter]".format(exe))
         print("PROGRAM EXIT!")
         return
 
-    print("\nrunning {} at run-time: {}\n".format(exe, now))
-
     gnucash_file = argv[1]
     mode = argv[2].lower()
+    print("\nrunning '{}' on '{}' in mode '{}' at run-time: {}\n".format(exe, gnucash_file, mode, now))
 
     re_year = int(argv[3])
     re_quarter = int(argv[4]) if len(argv) > 4 else 0
