@@ -1,26 +1,24 @@
 #
-# updateRevExps.py -- use the Gnucash and Google APIs to update my BudgetQtrly document for a specified year
-#                     in the 'All Inc' and 'Nec Inc' sheets
+# updateRevExps.py -- use the Gnucash and Google APIs to update the Revenue and Expenses
+#                     in my BudgetQtrly document for a specified year or quarter
 #
 # some code from account_analysis.py by Mark Jenkins, ParIT Worker Co-operative <mark@parit.ca>
+# some code from Google quickstart example
 #
 # @author Mark Sattolo <epistemik@gmail.com>
 # @version Python 3.6
 # @created 2019-03-30
-# @updated 2019-03-31
+# @updated 2019-04-05
 
 from sys import argv, stdout
-from datetime import date, timedelta, datetime
+from datetime import date, timedelta, datetime as dt
 from bisect import bisect_right
 from decimal import Decimal
 from math import log10
 import csv
-import copy
 from gnucash import Session, GncNumeric
-
 import pickle
 import os.path as osp
-import datetime as dt
 import json
 import copy
 from googleapiclient.discovery import build
@@ -102,7 +100,7 @@ CALCULNS_SHEET     = 'Calculations'
 
 TOKEN = SHEETS_EPISTEMIK_RW_TOKEN['P4']
 
-now = dt.datetime.strftime(dt.datetime.now(), "%Y-%m-%dT%H-%M-%S")
+now = dt.now().strftime("%Y-%m-%dT%H-%M-%S")
 
 # for One Quarter or for Four Quarters if updating an entire Year
 data = list()
@@ -133,13 +131,13 @@ def gnc_numeric_to_python_decimal(numeric):
     negative = numeric.negative_p()
     sign = 1 if negative else 0
 
-    copy = GncNumeric(numeric.num(), numeric.denom())
-    result = copy.to_decimal(None)
+    val = GncNumeric(numeric.num(), numeric.denom())
+    result = val.to_decimal(None)
     if not result:
-        raise Exception("GncNumeric value '{}' CANNOT be converted to decimal!".format(copy.to_string()))
+        raise Exception("GncNumeric value '{}' CANNOT be converted to decimal!".format(val.to_string()))
 
-    digit_tuple = tuple(int(char) for char in str(copy.num()) if char != '-')
-    denominator = copy.denom()
+    digit_tuple = tuple(int(char) for char in str(val.num()) if char != '-')
+    denominator = val.denom()
     exponent = int(log10(denominator))
     assert( (10 ** exponent) == denominator )
     return Decimal((sign, digit_tuple, -exponent))
@@ -189,6 +187,17 @@ def account_from_path(top_account, account_path, original_path=None):
         return account_from_path(account, account_path, original_path)
     else:
         return account
+
+
+def save_to_json(title, datax):
+    """
+    print json data to a file -- add a timestamp to get a unique file name each run
+    """
+    out_file = title + '.' + now + ".json"
+    print("\njson file is '{}'".format(out_file))
+    fp = open(out_file, 'w')
+    json.dump(datax, fp, indent=4)
+    fp.close()
 
 
 def get_splits(acct, period_starts, period_list):
@@ -356,7 +365,7 @@ def get_rev_exps(gnucash_file, re_year, re_quarter):
     try:
         gnucash_session = Session(gnucash_file, is_new=False)
         root_account = gnucash_session.book.get_root_account()
-        print("type root_account = {}".format(type(root_account)))
+        # print("type root_account = {}".format(type(root_account)))
 
         for i in range(num_quarters):
             qtr = re_quarter if re_quarter else i + 1
@@ -395,8 +404,7 @@ def get_rev_exps(gnucash_file, re_year, re_quarter):
         # no save needed, we're just reading...
         gnucash_session.end()
 
-        print('\nresults:')
-        print(json.dumps(results, indent=4))
+        save_to_json('updateRevExps_results', results)
 
     except Exception as qe:
         print("Exception: {}!".format(qe))
@@ -406,6 +414,7 @@ def get_rev_exps(gnucash_file, re_year, re_quarter):
 
 def fill_rev_exps_data(mode, re_year):
     """
+    Fill the data list:
     for each item in results, either 1 for one quarter or 4 for four quarters:
     create 5 cell_data's, one each for REV, BAL, CONT, NEC, DEDNS:
     fill in the range based on the year and quarter
@@ -414,7 +423,7 @@ def fill_rev_exps_data(mode, re_year):
     REV string is '= ${INV} + ${OTH} + ${SAL}'
     DEDNS string is '= ${Mk-Dedns} + ${Lu-Dedns} + ${ML-Dedns}'
     others are just the string from the item
-    :param mode: string: 'prod' or 'test'
+    :param mode: string: 'prod[send]' or 'test[send]'
     :param re_year: int: year to update
     """
     print("\nfill_rev_exps_data({}, {})\n".format(mode, re_year))
@@ -451,8 +460,8 @@ def fill_rev_exps_data(mode, re_year):
 
 def send_rev_exps(mode, re_year):
     """
-    Send the data to the document
-    :param mode: string: 'prod' or 'test'
+    Fill the data list and send to the document
+    :param mode: string: 'prod[send]' or 'test[send]'
     :param re_year: int: year to update
     """
     print("\nsend_rev_exps({}, {})".format(mode, re_year))
@@ -461,8 +470,7 @@ def send_rev_exps(mode, re_year):
 
     fill_rev_exps_data(mode, re_year)
 
-    print("\ndata:")
-    print(json.dumps(data, indent=4))
+    save_to_json('updateRevExps_data', data)
 
     creds = None
     # The file token.pickle stores the user's access and refresh tokens, and is
@@ -496,7 +504,7 @@ def send_rev_exps(mode, re_year):
         response = vals.batchUpdate(spreadsheetId=BUDGET_QTRLY_SPRD_SHEET, body=my_body).execute()
 
         print('\n{} cells updated!'.format(response.get('totalUpdatedCells')))
-        print(json.dumps(response, indent=4))
+        save_to_json('updateRevExps_response', response)
 
 
 def update_rev_exps_main():
@@ -507,7 +515,7 @@ def update_rev_exps_main():
         print("PROGRAM EXIT!")
         return
 
-    print("\nrunning {} at run-time: {}\n".format(exe, str(datetime.now())))
+    print("\nrunning {} at run-time: {}\n".format(exe, now))
 
     gnucash_file = argv[1]
     mode = argv[2].lower()
