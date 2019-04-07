@@ -11,5 +11,6 @@
 /bindings
 **/examples
 **/test*
+**__pycache*
 **/secret*
 
