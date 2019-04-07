@@ -12,7 +12,7 @@
 
 from sys import argv
 from datetime import datetime as dt
-from gnucash import Session, GncNumeric
+from gnucash import Session
 import pickle
 import os.path as osp
 import copy
@@ -20,6 +20,58 @@ from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from updateCommon import *
+
+# constant strings
+QTR   = 'Quarter'
+YR    = 'Year'
+REV   = 'Revenue'
+INV   = 'Invest'
+OTH   = 'Other'
+SAL   = 'Salary'
+BAL   = 'Balance'
+CONT  = 'Contingent'
+NEC   = 'Necessary'
+DEDNS = 'Sal_Dedns'
+
+# find the proper path to the accounts in the gnucash file
+REV_ACCTS = {
+    INV : ["REV_Invest"],
+    OTH : ["REV_Other"],
+    SAL : ["REV_Salary"]
+}
+EXP_ACCTS = {
+    BAL   : ["EXP_Balance"],
+    CONT  : ["EXP_CONTINGENT"],
+    NEC   : ["EXP_NECESSARY"]
+}
+DEDN_ACCTS = {
+    "Mark" : ["Mk-Dedns"],
+    "Lulu" : ["Lu-Dedns"],
+    "ML"   : ["ML-Dedns"]
+}
+
+# store the values needed to update the document
+REV_EXP_RESULTS = {
+    QTR   : '0',
+    REV   : '0',
+    BAL   : '0',
+    CONT  : '0',
+    NEC   : '0',
+    DEDNS : '0'
+}
+
+REV_EXP_COLS = {
+    REV   : 'D',
+    BAL   : 'P',
+    CONT  : 'O',
+    NEC   : 'G',
+    DEDNS : 'D'
+}
+BASE_YEAR = 2012
+# number of rows between quarters in the same year
+QTR_SPAN = 2
+# number of rows between years
+YEAR_SPAN = 11
 
 now = dt.now().strftime("%Y-%m-%dT%H-%M-%S")
 
@@ -168,7 +220,7 @@ def get_rev_exps(gnucash_file, re_year, re_quarter):
         print("Exception: {}!".format(ge))
         if "gnucash_session" in locals() and gnucash_session is not None:
             gnucash_session.end()
-        exit()
+        exit(223)
 
 
 def fill_rev_exps_data(mode, re_year):
@@ -196,12 +248,12 @@ def fill_rev_exps_data(mode, re_year):
     print("all_inc_dest = {}".format(all_inc_dest))
     print("nec_inc_dest = {}\n".format(nec_inc_dest))
 
-    year_row = BASE_ROW + ((re_year - RE_BASE_YEAR) * RE_YEAR_SPAN)
+    year_row = BASE_ROW + ((re_year - BASE_YEAR) * YEAR_SPAN)
     # get exact row from Quarter value in each item
     for item in results:
         print("{} = {}".format(QTR, item[QTR]))
         int_qtr = int(item[QTR])
-        dest_row = year_row + ((int_qtr - 1) * RE_QTR_SPAN)
+        dest_row = year_row + ((int_qtr - 1) * QTR_SPAN)
         print("dest_row = {}\n".format(dest_row))
         for key in item:
             if key != QTR:
@@ -237,24 +289,21 @@ def send_rev_exps(mode, re_year):
         save_to_json('out/updateRevExps_data', now, data)
 
         creds = None
-        # The file token.pickle stores the user's access and refresh tokens, and is
-        # created automatically when the authorization flow completes for the first time.
         if osp.exists(TOKEN):
             with open(TOKEN, 'rb') as token:
                 creds = pickle.load(token)
 
-        # If there are no (valid) credentials available, let the user log in.
+        # if there are no (valid) credentials available, let the user log in.
         if not creds or not creds.valid:
             if creds and creds.expired and creds.refresh_token:
                 creds.refresh(Request())
             else:
                 flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS, SHEETS_RW_SCOPE)
                 creds = flow.run_local_server()
-            # Save the credentials for the next run
+            # save the credentials for the next run
             with open(TOKEN, 'wb') as token:
                 pickle.dump(creds, token, pickle.HIGHEST_PROTOCOL)
 
-        # Call the Sheets API
         service = build('sheets', 'v4', credentials=creds)
         srv_sheets = service.spreadsheets()
 
@@ -269,11 +318,11 @@ def send_rev_exps(mode, re_year):
             response = vals.batchUpdate(spreadsheetId=BUDGET_QTRLY_SPRD_SHEET, body=my_body).execute()
 
             print('\n{} cells updated!'.format(response.get('totalUpdatedCells')))
-            save_to_json('out/updateRevExps_response', response)
+            save_to_json('out/updateRevExps_response', now, response)
 
     except Exception as se:
         print("Exception: {}!".format(se))
-        exit()
+        exit(325)
 
     return response
 
