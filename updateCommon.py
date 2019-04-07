@@ -1,6 +1,9 @@
 #
 # updateCommon.py -- common methods and variables for updates
 #
+# some code from account_analysis.py by Mark Jenkins, ParIT Worker Co-operative <mark@parit.ca>
+# some code from Google quickstart spreadsheets example
+#
 # @author Mark Sattolo <epistemik@gmail.com>
 # @version Python 3.6
 # @created 2019-04-07
@@ -14,82 +17,51 @@ from math import log10
 import csv
 from gnucash import GncNumeric
 import json
+import inspect
 
-# constant strings
-QTR   = 'Quarter'
-YR    = 'Year'
-REV   = 'Revenue'
-INV   = 'Invest'
-OTH   = 'Other'
-SAL   = 'Salary'
-BAL   = 'Balance'
-CONT  = 'Contingent'
-NEC   = 'Necessary'
-DEDNS = 'Sal_Dedns'
-AU    = 'Gold'
-AG    = 'Silver'
-CASH  = 'Cash'
-BANK  = 'Bank'
-RWRDS = 'Rewards'
-OPEN  = 'OPEN'
-RRSP  = 'RRSP'
-TFSA  = 'TFSA'
-HOUSE = 'House'
+COLOR_FLAG = '\x1b['
+BLACK   = COLOR_FLAG + '30m'
+RED     = COLOR_FLAG + '91m'
+GREEN   = COLOR_FLAG + '92m'
+YELLOW  = COLOR_FLAG + '93m'
+BLUE    = COLOR_FLAG + '94m'
+MAGENTA = COLOR_FLAG + '95m'
+CYAN    = COLOR_FLAG + '96m'
+WHITE   = COLOR_FLAG + '97m'
+COLOR_OFF = COLOR_FLAG + '0m'
 
-# find the proper path to the accounts in the gnucash file
-REV_ACCTS = {
-    INV : ["REV_Invest"],
-    OTH : ["REV_Other"],
-    SAL : ["REV_Salary"]
-}
-EXP_ACCTS = {
-    BAL   : ["EXP_Balance"],
-    CONT  : ["EXP_CONTINGENT"],
-    NEC   : ["EXP_NECESSARY"]
-}
-DEDN_ACCTS = {
-    "Mark" : ["Mk-Dedns"],
-    "Lulu" : ["Lu-Dedns"],
-    "ML"   : ["ML-Dedns"]
-}
 
-# find the proper path to the accounts in the gnucash file
-ASSET_ACCTS = {
-    AU    : ["FAMILY", "Precious Metals", "Au"],
-    AG    : ["FAMILY", "Precious Metals", "Ag"],
-    CASH  : ["FAMILY", "LIQUID", "$&"],
-    BANK  : ["FAMILY", "LIQUID", BANK],
-    RWRDS : ["FAMILY", RWRDS],
-    OPEN  : ["FAMILY", "INVEST", OPEN],
-    RRSP  : ["FAMILY", "INVEST", RRSP],
-    TFSA  : ["FAMILY", "INVEST", TFSA],
-    HOUSE : ["FAMILY", HOUSE]
-}
+def print_info(text, color='', inspector=True, newline=True):
+    """
+    Print information with choices of color, inspection info, newline
+    """
+    inspect_line = ''
+    if text is None:
+        text = '================================================================================================================='
+        inspector = False
+    if inspector:
+        calling_frame = inspect.currentframe().f_back
+        calling_file  = inspect.getfile(calling_frame).split('/')[-1]
+        calling_line  = str(inspect.getlineno(calling_frame))
+        inspect_line  = '[' + calling_file + '@' + calling_line + ']: '
+    print(inspect_line + color + text + COLOR_OFF, end=('\n' if newline else ''))
+
+
+def print_error(text, newline=True):
+    """
+    Print Error information in RED with inspection info
+    """
+    calling_frame = inspect.currentframe().f_back
+    parent_frame = calling_frame.f_back
+    calling_file = inspect.getfile(calling_frame).split('/')[-1]
+    calling_line = str(inspect.getlineno(calling_frame))
+    parent_line = str(inspect.getlineno(parent_frame))
+    inspect_line = '[' + calling_file + '@' + calling_line + '/' + parent_line + ']: '
+    print(inspect_line + RED + text + COLOR_OFF, end=('\n' if newline else ''))
+
 
 # either for One Quarter or for Four Quarters if updating an entire Year
 results = list()
-# store the values needed to update the document
-REV_EXP_RESULTS = {
-    QTR   : '0',
-    REV   : '0',
-    BAL   : '0',
-    CONT  : '0',
-    NEC   : '0',
-    DEDNS : '0'
-}
-# store the values needed to update the document
-ASSET_RESULTS = {
-    QTR   : '0',
-    AU    : '0',
-    AG    : '0',
-    CASH  : '0',
-    BANK  : '0',
-    RWRDS : '0',
-    OPEN  : '0',
-    RRSP  : '0',
-    TFSA  : '0',
-    HOUSE : '0'
-}
 
 # number of months in the period
 PERIOD_QTR = 3
@@ -133,46 +105,6 @@ cell_data = {
 
 # base cell (Q1) locations in Budget-qtrly.gsht
 BASE_ROW = 3
-
-REV_EXP_COLS = {
-    REV   : 'D',
-    BAL   : 'P',
-    CONT  : 'O',
-    NEC   : 'G',
-    DEDNS : 'D'
-}
-RE_BASE_YEAR = 2012
-# number of rows between quarters in the same year
-RE_QTR_SPAN = 2
-# number of rows between years
-RE_YEAR_SPAN = 11
-
-ASSET_COLS = {
-    AU    : 'U',
-    AG    : 'T',
-    CASH  : 'R',
-    BANK  : 'Q',
-    RWRDS : 'O',
-    OPEN  : 'L',
-    RRSP  : 'M',
-    TFSA  : 'N',
-    HOUSE : 'I'
-}
-AST_BASE_YEAR = 2007
-# number of rows between quarters in the same year
-AST_QTR_SPAN = 1
-# number of rows between years
-AST_BASE_YEAR_SPAN = 4
-
-
-def year_span(year):
-    """
-    For Asset rows, have to factor in the header row placed every three years
-    :param year: int: year to calculate for
-    :return: int: year span to use in figuring out which row to update
-    """
-    diff = year - AST_BASE_YEAR
-    return diff + (diff // 3)
 
 
 # noinspection PyUnresolvedReferences
@@ -235,18 +167,19 @@ def account_from_path(top_account, account_path, original_path=None):
         return account
 
 
-def save_to_json(title, time, json_data):
+def save_to_json(fname, t_str, json_data, indt=4):
     """
     print json data to a file -- add a time string to get a unique file name each run
-    :param title: string
-    :param time: string
+    :param fname: string
+    :param t_str: string
     :param json_data: json compatible struct
+    :param indt: int: indentation amount
     :return: file name
     """
-    out_file = title + '.' + time + ".json"
-    print("\njson file is '{}'".format(out_file))
+    out_file = fname + '.' + t_str + ".json"
+    print_info("\njson file is '{}'".format(out_file))
     fp = open(out_file, 'w')
-    json.dump(json_data, fp, indent=4)
+    json.dump(json_data, fp, indent=indt)
     fp.close()
     return out_file
 
