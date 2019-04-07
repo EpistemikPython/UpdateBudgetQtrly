@@ -8,278 +8,20 @@
 # @author Mark Sattolo <epistemik@gmail.com>
 # @version Python 3.6
 # @created 2019-03-30
-# @updated 2019-04-06
+# @updated 2019-04-07
 
-from sys import argv, stdout
-from datetime import date, timedelta, datetime as dt
-from bisect import bisect_right
-from decimal import Decimal
-from math import log10
-import csv
+from sys import argv
+from datetime import datetime as dt
 from gnucash import Session, GncNumeric
 import pickle
 import os.path as osp
-import json
 import copy
 from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
-
-# constant strings
-QTR   = 'Quarter'
-YR    = 'Year'
-REV   = 'Revenue'
-INV   = 'Invest'
-OTH   = 'Other'
-SAL   = 'Salary'
-BAL   = 'Balance'
-CONT  = 'Contingent'
-NEC   = 'Necessary'
-DEDNS = 'Sal_Dedns'
-
-# find the proper path to the accounts in the gnucash file
-REV_ACCTS = {
-    INV : ["REV_Invest"],
-    OTH : ["REV_Other"],
-    SAL : ["REV_Salary"]
-}
-EXP_ACCTS = {
-    BAL   : ["EXP_Balance"],
-    CONT  : ["EXP_CONTINGENT"],
-    NEC   : ["EXP_NECESSARY"]
-}
-DEDN_ACCTS = {
-    "Mark" : ["Mk-Dedns"],
-    "Lulu" : ["Lu-Dedns"],
-    "ML"   : ["ML-Dedns"]
-}
-
-# either for One Quarter or for Four Quarters if updating an entire Year
-results = list()
-# store the values needed to update the document
-REV_EXP_RESULTS = {
-    QTR   : '0',
-    REV   : '0',
-    BAL   : '0',
-    CONT  : '0',
-    NEC   : '0',
-    DEDNS : '0'
-}
-
-# a dictionary with a period name as key, and number of months in that kind of period as the value
-PERIODS = {
-    QTR :  3 ,
-    YR  : 12
-}
-
-NUM_MONTHS = 12
-ONE_DAY = timedelta(days=1)
-ZERO = Decimal(0)
-
-CREDENTIALS = 'secrets/credentials.json'
-
-SHEETS_RW_SCOPE = ['https://www.googleapis.com/auth/spreadsheets']
-
-SHEETS_EPISTEMIK_RW_TOKEN = {
-    'P2' : 'secrets/token.sheets.epistemik.rw.pickle2' ,
-    'P3' : 'secrets/token.sheets.epistemik.rw.pickle3' ,
-    'P4' : 'secrets/token.sheets.epistemik.rw.pickle4'
-}
-
-# Spreadsheet ID
-BUDGET_QTRLY_SPRD_SHEET = '1YbHb7RjZUlA2gyaGDVgRoQYhjs9I8gndKJ0f1Cn-Zr0'
-# sheet names in Budget Quarterly
-ALL_INC_SHEET      = 'All Inc Quarterly'
-ALL_INC_PRAC_SHEET = 'All Inc Practice'
-NEC_INC_SHEET      = 'Nec Inc Quarterly'
-NEC_INC_PRAC_SHEET = 'Nec Inc Practice'
-BALANCE_SHEET      = 'Balance Sheet'
-QTR_ASTS_SHEET     = 'Quarterly Assets'
-ML_WORK_SHEET      = 'ML Work'
-CALCULNS_SHEET     = 'Calculations'
-
-TOKEN = SHEETS_EPISTEMIK_RW_TOKEN['P4']
+from updateCommon import *
 
 now = dt.now().strftime("%Y-%m-%dT%H-%M-%S")
-
-# for One Quarter or for Four Quarters if updating an entire Year
-data = list()
-cell_data = {
-    # sample data
-    'range': 'Calculations!P47',
-    'values': [ [ '$9033.66' ] ]
-}
-
-# base cell (2012-Q1) locations in Budget-qtrly.gsht
-BASE_ROW = 3
-REV_EXP_COLS = {
-    REV   : 'D',
-    BAL   : 'P',
-    CONT  : 'O',
-    NEC   : 'G',
-    DEDNS : 'D'
-}
-BASE_YEAR = 2012
-# number of rows between quarters in the same year
-QTR_SPAN = 2
-# number of rows between years
-YEAR_SPAN = 11
-
-
-# noinspection PyUnresolvedReferences
-def gnc_numeric_to_python_decimal(numeric):
-    negative = numeric.negative_p()
-    sign = 1 if negative else 0
-
-    val = GncNumeric(numeric.num(), numeric.denom())
-    result = val.to_decimal(None)
-    if not result:
-        raise Exception("GncNumeric value '{}' CANNOT be converted to decimal!".format(val.to_string()))
-
-    digit_tuple = tuple(int(char) for char in str(val.num()) if char != '-')
-    denominator = val.denom()
-    exponent = int(log10(denominator))
-    assert( (10 ** exponent) == denominator )
-    return Decimal((sign, digit_tuple, -exponent))
-
-
-def next_period_start(start_year, start_month, period_type):
-    # add numbers of months for the period length
-    end_month = start_month + PERIODS[period_type]
-
-    # use integer division to find out if the new end month is in a different year,
-    # what year it is, and what the end month number should be changed to.
-    end_year = start_year + ((end_month - 1) // NUM_MONTHS)
-    end_month = ((end_month - 1) % NUM_MONTHS) + 1
-
-    return end_year, end_month
-
-
-def period_end(start_year, start_month, period_type):
-    if period_type not in PERIODS:
-        raise Exception("'{}' is NOT a valid period >> MUST be one of '{}'!".format(period_type, str(PERIODS.keys())))
-
-    end_year, end_month = next_period_start(start_year, start_month, period_type)
-
-    # last step, the end date is one day back from the start of the next period
-    # so we get a period end like 2010-03-31 instead of 2010-04-01
-    return date(end_year, end_month, 1) - ONE_DAY
-
-
-def generate_period_boundaries(start_year, start_month, period_type, periods):
-    for i in range(periods):
-        yield( date(start_year, start_month, 1), period_end(start_year, start_month, period_type) )
-        start_year, start_month = next_period_start(start_year, start_month, period_type)
-
-
-def account_from_path(top_account, account_path, original_path=None):
-    # print("top_account = %s, account_path = %s, original_path = %s" % (top_account, account_path, original_path))
-    if original_path is None:
-        original_path = account_path
-    account, account_path = account_path[0], account_path[1:]
-    # print("account = %s, account_path = %s" % (account, account_path))
-
-    account = top_account.lookup_by_name(account)
-    # print("account = " + str(account))
-    if account is None:
-        raise Exception("Path '" + str(original_path) + "' could NOT be found!")
-    if len(account_path) > 0:
-        return account_from_path(account, account_path, original_path)
-    else:
-        return account
-
-
-def save_to_json(title, json_data):
-    """
-    print json data to a file -- add a timestamp to get a unique file name each run
-    :param title: string
-    :param json_data: json compatible struct
-    :return: file name
-    """
-    out_file = title + '.' + now + ".json"
-    print("\njson file is '{}'".format(out_file))
-    fp = open(out_file, 'w')
-    json.dump(json_data, fp, indent=4)
-    fp.close()
-    return out_file
-
-
-def get_splits(acct, period_starts, period_list):
-    """
-    get the splits for the account and each sub-account
-    :param acct: Gnucash account
-    :param period_starts: list: start date for each period
-    :param period_list: list of structs: store the dates and amounts for each quarter
-    :return: nil
-    """
-    # insert and add all splits in the periods of interest
-    for split in acct.GetSplitList():
-        trans = split.parent
-        # GetDate() returns a datetime but need a date
-        trans_date = trans.GetDate().date()
-
-        # use binary search to find the period that starts before or on the transaction date
-        period_index = bisect_right(period_starts, trans_date) - 1
-
-        # ignore transactions with a date before the matching period start and after the last period_end
-        if period_index >= 0 and trans_date <= period_list[len(period_list) - 1][1]:
-            # get the period bucket appropriate for the split in question
-            period = period_list[period_index]
-            assert( period[1] >= trans_date >= period[0] )
-
-            split_amount = gnc_numeric_to_python_decimal(split.GetAmount())
-
-            # if the amount is negative this is a credit, else a debit
-            debit_credit_offset = 1 if split_amount < ZERO else 0
-
-            # add the debit or credit to the sum, using the offset to get in the right bucket
-            period[2 + debit_credit_offset] += split_amount
-
-            # add the debit or credit to the overall total
-            period[4] += split_amount
-
-
-def fill_splits(root_acct, target_path, period_starts, period_list):
-    """
-    fill the period list for each account
-    :param root_acct: Gnucash account: from the Gnucash book
-    :param target_path: list: account hierarchy from root account to target account
-    :param period_starts: list: start date for each period
-    :param period_list: list of structs: store the dates and amounts for each quarter
-    :return: acct_name: string: name of target_acct
-    """
-    account_of_interest = account_from_path(root_acct, target_path)
-    acct_name = account_of_interest.GetName()
-    print("\naccount_of_interest = {}".format(acct_name))
-
-    # get the split amounts for the parent account
-    get_splits(account_of_interest, period_starts, period_list)
-    descendants = account_of_interest.get_descendants()
-    if len(descendants) > 0:
-        # for EACH sub-account add to the overall total
-        # print("Descendants of {}:".format(account_of_interest.GetName()))
-        for subAcct in descendants:
-            # print("{} balance = {}".format(subAcct.GetName(), gnc_numeric_to_python_decimal(subAcct.GetBalance())))
-            get_splits(subAcct, period_starts, period_list)
-
-    csv_write_period_list(period_list)
-    return acct_name
-
-
-def csv_write_period_list(period_list):
-    """
-    Write out the details of the submitted period list in csv format
-    :param period_list: list of structs: store the dates and amounts for each quarter
-    :return: nil
-    """
-    # write out the column headers
-    csv_writer = csv.writer(stdout)
-    # csv_writer.writerow('')
-    csv_writer.writerow(('period start', 'period end', 'debits', 'credits', 'TOTAL'))
-
-    # write out the overall totals for the account of interest
-    for start_date, end_date, debit_sum, credit_sum, total in period_list:
-        csv_writer.writerow((start_date, end_date, debit_sum, credit_sum, total))
 
 
 def get_revenue(root_account, period_starts, period_list, re_year, qtr):
@@ -344,8 +86,9 @@ def get_expenses(root_account, period_starts, period_list, re_year, qtr):
     :param period_list: list of structs: store the dates and amounts for each quarter
     :param re_year: int: year to read
     :param qtr: int: quarter to read = 1..4
-    :return: string with expenses
+    :return: string with total expenses
     """
+    str_total = ''
     for item in EXP_ACCTS:
         # reset the debit and credit totals for each individual account
         period_list[0][2] = 0
@@ -358,10 +101,11 @@ def get_expenses(root_account, period_starts, period_list, re_year, qtr):
         str_expenses = sum_expenses.to_eng_string()
         REV_EXP_RESULTS[item] = str_expenses
         print("{} Expenses for {}-Q{} = ${}".format(acct_name.split('_')[-1], re_year, qtr, str_expenses))
+        str_total += str_expenses + ' + '
 
     get_deductions(root_account, period_starts, period_list, re_year, qtr)
 
-    return str_expenses
+    return str_total
 
 
 # noinspection PyUnboundLocalVariable,PyUnresolvedReferences
@@ -395,7 +139,7 @@ def get_rev_exps(gnucash_file, re_year, re_quarter):
                     ZERO, # credits sum
                     ZERO  # TOTAL
                 ]
-                for start_date, end_date in generate_period_boundaries(re_year, start_month, QTR, 1)
+                for start_date, end_date in generate_period_boundaries(re_year, start_month, 1)
             ]
             # print(period_list)
             # a copy of the above list with just the period start dates
@@ -418,12 +162,13 @@ def get_rev_exps(gnucash_file, re_year, re_quarter):
         # no save needed, we're just reading...
         gnucash_session.end()
 
-        save_to_json('out/updateRevExps_results', results)
+        save_to_json('out/updateRevExps_results', now, results)
 
-    except Exception as qe:
-        print("Exception: {}!".format(qe))
+    except Exception as ge:
+        print("Exception: {}!".format(ge))
         if "gnucash_session" in locals() and gnucash_session is not None:
             gnucash_session.end()
+        exit()
 
 
 def fill_rev_exps_data(mode, re_year):
@@ -451,12 +196,12 @@ def fill_rev_exps_data(mode, re_year):
     print("all_inc_dest = {}".format(all_inc_dest))
     print("nec_inc_dest = {}\n".format(nec_inc_dest))
 
-    year_row = BASE_ROW + ((re_year - BASE_YEAR) * YEAR_SPAN)
+    year_row = BASE_ROW + ((re_year - RE_BASE_YEAR) * RE_YEAR_SPAN)
     # get exact row from Quarter value in each item
     for item in results:
         print("{} = {}".format(QTR, item[QTR]))
         int_qtr = int(item[QTR])
-        dest_row = year_row + ((int_qtr - 1) * QTR_SPAN)
+        dest_row = year_row + ((int_qtr - 1) * RE_QTR_SPAN)
         print("dest_row = {}\n".format(dest_row))
         for key in item:
             if key != QTR:
@@ -485,44 +230,50 @@ def send_rev_exps(mode, re_year):
     print("cell_data['range'] = {}".format(cell_data['range']))
     print("cell_data['values'][0][0] = {}".format(cell_data['values'][0][0]))
 
-    fill_rev_exps_data(mode, re_year)
+    response = 'EMPTY'
+    try:
+        fill_rev_exps_data(mode, re_year)
 
-    save_to_json('out/updateRevExps_data', data)
+        save_to_json('out/updateRevExps_data', now, data)
 
-    creds = None
-    # The file token.pickle stores the user's access and refresh tokens, and is
-    # created automatically when the authorization flow completes for the first time.
-    if osp.exists(TOKEN):
-        with open(TOKEN, 'rb') as token:
-            creds = pickle.load(token)
+        creds = None
+        # The file token.pickle stores the user's access and refresh tokens, and is
+        # created automatically when the authorization flow completes for the first time.
+        if osp.exists(TOKEN):
+            with open(TOKEN, 'rb') as token:
+                creds = pickle.load(token)
 
-    # If there are no (valid) credentials available, let the user log in.
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
-            flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS, SHEETS_RW_SCOPE)
-            creds = flow.run_local_server()
-        # Save the credentials for the next run
-        with open(TOKEN, 'wb') as token:
-            pickle.dump(creds, token, pickle.HIGHEST_PROTOCOL)
+        # If there are no (valid) credentials available, let the user log in.
+        if not creds or not creds.valid:
+            if creds and creds.expired and creds.refresh_token:
+                creds.refresh(Request())
+            else:
+                flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS, SHEETS_RW_SCOPE)
+                creds = flow.run_local_server()
+            # Save the credentials for the next run
+            with open(TOKEN, 'wb') as token:
+                pickle.dump(creds, token, pickle.HIGHEST_PROTOCOL)
 
-    # Call the Sheets API
-    service = build('sheets', 'v4', credentials=creds)
-    srv_sheets = service.spreadsheets()
+        # Call the Sheets API
+        service = build('sheets', 'v4', credentials=creds)
+        srv_sheets = service.spreadsheets()
 
-    my_body = {
-        'valueInputOption': 'USER_ENTERED',
-        'data': data
-    }
+        my_body = {
+            'valueInputOption': 'USER_ENTERED',
+            'data': data
+        }
 
-    response = 'NO SEND.'
-    if 'send' in mode:
-        vals = srv_sheets.values()
-        response = vals.batchUpdate(spreadsheetId=BUDGET_QTRLY_SPRD_SHEET, body=my_body).execute()
+        response = 'NO SEND.'
+        if 'send' in mode:
+            vals = srv_sheets.values()
+            response = vals.batchUpdate(spreadsheetId=BUDGET_QTRLY_SPRD_SHEET, body=my_body).execute()
 
-        print('\n{} cells updated!'.format(response.get('totalUpdatedCells')))
-        save_to_json('out/updateRevExps_response', response)
+            print('\n{} cells updated!'.format(response.get('totalUpdatedCells')))
+            save_to_json('out/updateRevExps_response', response)
+
+    except Exception as se:
+        print("Exception: {}!".format(se))
+        exit()
 
     return response
 
