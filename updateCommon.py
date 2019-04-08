@@ -17,6 +17,10 @@ from math import log10
 import csv
 from gnucash import GncNumeric
 import json
+import pickle
+import os.path as osp
+from google_auth_oauthlib.flow import InstalledAppFlow
+from google.auth.transport.requests import Request
 import inspect
 
 COLOR_FLAG = '\x1b['
@@ -60,6 +64,9 @@ def print_error(text, newline=True):
     print(inspect_line + RED + text + COLOR_OFF, end=('\n' if newline else ''))
 
 
+# constant strings
+QTR = 'Quarter'
+
 # either for One Quarter or for Four Quarters if updating an entire Year
 results = list()
 
@@ -81,17 +88,17 @@ SHEETS_EPISTEMIK_RW_TOKEN = {
 }
 
 # Spreadsheet ID
-BUDGET_QTRLY_SPRD_SHEET = '1YbHb7RjZUlA2gyaGDVgRoQYhjs9I8gndKJ0f1Cn-Zr0'
+BUDGET_QTRLY_ID = '1YbHb7RjZUlA2gyaGDVgRoQYhjs9I8gndKJ0f1Cn-Zr0'
 # sheet names in Budget Quarterly
-ALL_INC_SHEET       = 'All Inc Quarterly'
-ALL_INC_PRAC_SHEET  = 'All Inc Practice'
-NEC_INC_SHEET       = 'Nec Inc Quarterly'
-NEC_INC_PRAC_SHEET  = 'Nec Inc Practice'
-BALANCE_SHEET       = 'Balance Sheet'
-QTR_ASTS_SHEET      = 'Quarterly Assets'
-QTR_ASTS_PRAC_SHEET = 'Qtrly Assets Practice'
-ML_WORK_SHEET       = 'ML Work'
-CALCULNS_SHEET      = 'Calculations'
+ALL_INC_SHEET    = 'All Inc 1'
+ALL_INC_2_SHEET  = 'All Inc 2'
+NEC_INC_SHEET    = 'Nec Inc 1'
+NEC_INC_2_SHEET  = 'Nec Inc 2'
+BALANCE_SHEET    = 'Balance 1'
+QTR_ASTS_SHEET   = 'Assets 1'
+QTR_ASTS_2_SHEET = 'Assets 2'
+ML_WORK_SHEET    = 'ML Work'
+CALCULNS_SHEET   = 'Calculations'
 
 TOKEN = SHEETS_EPISTEMIK_RW_TOKEN['P4']
 
@@ -105,6 +112,26 @@ cell_data = {
 
 # base cell (Q1) locations in Budget-qtrly.gsht
 BASE_ROW = 3
+
+
+def get_credentials():
+    creds = None
+    if osp.exists(TOKEN):
+        with open(TOKEN, 'rb') as token:
+            creds = pickle.load(token)
+
+    # if there are no (valid) credentials available, let the user log in.
+    if not creds or not creds.valid:
+        if creds and creds.expired and creds.refresh_token:
+            creds.refresh(Request())
+        else:
+            flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS, SHEETS_RW_SCOPE)
+            creds = flow.run_local_server()
+        # save the credentials for the next run
+        with open(TOKEN, 'wb') as token:
+            pickle.dump(creds, token, pickle.HIGHEST_PROTOCOL)
+
+    return creds
 
 
 # noinspection PyUnresolvedReferences

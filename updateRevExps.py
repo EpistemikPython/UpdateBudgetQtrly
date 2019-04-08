@@ -13,17 +13,11 @@
 from sys import argv
 from datetime import datetime as dt
 from gnucash import Session
-import pickle
-import os.path as osp
 import copy
 from googleapiclient.discovery import build
-from google_auth_oauthlib.flow import InstalledAppFlow
-from google.auth.transport.requests import Request
 from updateCommon import *
 
 # constant strings
-QTR   = 'Quarter'
-YR    = 'Year'
 REV   = 'Revenue'
 INV   = 'Invest'
 OTH   = 'Other'
@@ -89,8 +83,8 @@ def get_revenue(root_account, period_starts, period_list, re_year, qtr):
     str_rev = '= '
     for item in REV_ACCTS:
         # reset the debit and credit totals for each individual account
-        period_list[0][2] = 0
-        period_list[0][3] = 0
+        period_list[0][2] = ZERO
+        period_list[0][3] = ZERO
 
         acct_base = REV_ACCTS[item]
         acct_name = fill_splits(root_account, acct_base, period_starts, period_list)
@@ -116,8 +110,8 @@ def get_deductions(root_account, period_starts, period_list, re_year, qtr):
     str_dedns = '= '
     for item in DEDN_ACCTS:
         # reset the debit and credit totals for each individual account
-        period_list[0][2] = 0
-        period_list[0][3] = 0
+        period_list[0][2] = ZERO
+        period_list[0][3] = ZERO
 
         acct_base = DEDN_ACCTS[item]
         acct_name = fill_splits(root_account, acct_base, period_starts, period_list)
@@ -143,8 +137,8 @@ def get_expenses(root_account, period_starts, period_list, re_year, qtr):
     str_total = ''
     for item in EXP_ACCTS:
         # reset the debit and credit totals for each individual account
-        period_list[0][2] = 0
-        period_list[0][3] = 0
+        period_list[0][2] = ZERO
+        period_list[0][3] = ZERO
 
         acct_base = EXP_ACCTS[item]
         acct_name = fill_splits(root_account, acct_base, period_starts, period_list)
@@ -193,22 +187,17 @@ def get_rev_exps(gnucash_file, re_year, re_quarter):
                 ]
                 for start_date, end_date in generate_period_boundaries(re_year, start_month, 1)
             ]
-            # print(period_list)
             # a copy of the above list with just the period start dates
             period_starts = [e[0] for e in period_list]
-            # print(period_starts)
 
             get_revenue(root_account, period_starts, period_list, re_year, qtr)
-            tot_revenue = period_list[0][4] * (-1)
-            print("\n{} Revenue for {}-Q{} = ${}".format("TOTAL", re_year, qtr, tot_revenue))
+            print("\n{} Revenue for {}-Q{} = ${}".format("TOTAL", re_year, qtr, period_list[0][4] * (-1)))
 
-            period_list[0][4] = 0
+            period_list[0][4] = ZERO
             get_expenses(root_account, period_starts, period_list, re_year, qtr)
-            tot_expenses = period_list[0][4]
-            print("\n{} Expenses for {}-Q{} = ${}\n".format("TOTAL", re_year, qtr, tot_expenses))
+            print("\n{} Expenses for {}-Q{} = ${}\n".format("TOTAL", re_year, qtr, period_list[0][4]))
 
             results.append(copy.deepcopy(REV_EXP_RESULTS))
-            period_list[0][4] = 0
             print(json.dumps(REV_EXP_RESULTS, indent=4))
 
         # no save needed, we're just reading...
@@ -240,8 +229,8 @@ def fill_rev_exps_data(mode, re_year):
     """
     print("\nfill_rev_exps_data({}, {})\n".format(mode, re_year))
 
-    all_inc_dest = ALL_INC_PRAC_SHEET
-    nec_inc_dest = NEC_INC_PRAC_SHEET
+    all_inc_dest = ALL_INC_2_SHEET
+    nec_inc_dest = NEC_INC_2_SHEET
     if 'prod' in mode:
         all_inc_dest = ALL_INC_SHEET
         nec_inc_dest = NEC_INC_SHEET
@@ -282,27 +271,13 @@ def send_rev_exps(mode, re_year):
     print("cell_data['range'] = {}".format(cell_data['range']))
     print("cell_data['values'][0][0] = {}".format(cell_data['values'][0][0]))
 
-    response = 'EMPTY'
+    response = 'NO SEND'
     try:
         fill_rev_exps_data(mode, re_year)
 
         save_to_json('out/updateRevExps_data', now, data)
 
-        creds = None
-        if osp.exists(TOKEN):
-            with open(TOKEN, 'rb') as token:
-                creds = pickle.load(token)
-
-        # if there are no (valid) credentials available, let the user log in.
-        if not creds or not creds.valid:
-            if creds and creds.expired and creds.refresh_token:
-                creds.refresh(Request())
-            else:
-                flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS, SHEETS_RW_SCOPE)
-                creds = flow.run_local_server()
-            # save the credentials for the next run
-            with open(TOKEN, 'wb') as token:
-                pickle.dump(creds, token, pickle.HIGHEST_PROTOCOL)
+        creds = get_credentials()
 
         service = build('sheets', 'v4', credentials=creds)
         srv_sheets = service.spreadsheets()
@@ -312,10 +287,9 @@ def send_rev_exps(mode, re_year):
             'data': data
         }
 
-        response = 'NO SEND.'
         if 'send' in mode:
             vals = srv_sheets.values()
-            response = vals.batchUpdate(spreadsheetId=BUDGET_QTRLY_SPRD_SHEET, body=my_body).execute()
+            response = vals.batchUpdate(spreadsheetId=BUDGET_QTRLY_ID, body=my_body).execute()
 
             print('\n{} cells updated!'.format(response.get('totalUpdatedCells')))
             save_to_json('out/updateRevExps_response', now, response)
