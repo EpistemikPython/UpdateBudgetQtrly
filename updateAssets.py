@@ -227,28 +227,22 @@ def send_assets(mode, re_year):
     :return: server response
     """
     print_info("\nsend_assets({}, {})".format(mode, re_year))
-    print_info("cell_data['range'] = {}".format(cell_data['range']))
-    print_info("cell_data['values'][0][0] = {}".format(cell_data['values'][0][0]))
 
     response = 'NO SEND'
     try:
         fill_assets_data(mode, re_year)
-
         save_to_json('out/updateAssets_data', now, data)
 
-        creds = get_credentials()
-
-        service = build('sheets', 'v4', credentials=creds)
-        srv_sheets = service.spreadsheets()
-
-        my_body = {
+        assets_body = {
             'valueInputOption': 'USER_ENTERED',
             'data': data
         }
 
         if 'send' in mode:
-            vals = srv_sheets.values()
-            response = vals.batchUpdate(spreadsheetId=BUDGET_QTRLY_ID, body=my_body).execute()
+            creds = get_credentials()
+            service = build('sheets', 'v4', credentials=creds)
+            vals = service.spreadsheets().values()
+            response = vals.batchUpdate(spreadsheetId=BUDGET_QTRLY_ID, body=assets_body).execute()
 
             print_info('\n{} cells updated!'.format(response.get('totalUpdatedCells')))
             save_to_json('out/updateAssets_response', now, response)

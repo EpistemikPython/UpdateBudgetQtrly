@@ -268,28 +268,22 @@ def send_rev_exps(mode, re_year):
     :return: server response
     """
     print("\nsend_rev_exps({}, {})".format(mode, re_year))
-    print("cell_data['range'] = {}".format(cell_data['range']))
-    print("cell_data['values'][0][0] = {}".format(cell_data['values'][0][0]))
 
     response = 'NO SEND'
     try:
         fill_rev_exps_data(mode, re_year)
-
         save_to_json('out/updateRevExps_data', now, data)
 
-        creds = get_credentials()
-
-        service = build('sheets', 'v4', credentials=creds)
-        srv_sheets = service.spreadsheets()
-
-        my_body = {
+        rev_exps_body = {
             'valueInputOption': 'USER_ENTERED',
             'data': data
         }
 
         if 'send' in mode:
-            vals = srv_sheets.values()
-            response = vals.batchUpdate(spreadsheetId=BUDGET_QTRLY_ID, body=my_body).execute()
+            creds = get_credentials()
+            service = build('sheets', 'v4', credentials=creds)
+            vals = service.spreadsheets().values()
+            response = vals.batchUpdate(spreadsheetId=BUDGET_QTRLY_ID, body=rev_exps_body).execute()
 
             print('\n{} cells updated!'.format(response.get('totalUpdatedCells')))
             save_to_json('out/updateRevExps_response', now, response)
