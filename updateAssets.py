@@ -86,6 +86,13 @@ def year_span(year):
 
 
 def get_acct_bal(acct, idate, cur):
+    """
+    get the balance in the account on this date in this currency
+    :param acct: Gnucash account
+    :param idate: Date
+    :param cur: Gnucash commodity
+    :return: python Decimal with balance
+    """
     # CALLS ARE RETRIEVING ASSET VALUES FROM DAY BEFORE!!??
     idate += ONE_DAY
 

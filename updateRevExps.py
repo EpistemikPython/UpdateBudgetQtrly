@@ -91,7 +91,7 @@ def get_revenue(root_account, period_starts, period_list, re_year, qtr):
 
         sum_revenue = (period_list[0][2] + period_list[0][3]) * (-1)
         str_rev += sum_revenue.to_eng_string() + (' + ' if item != SAL else '')
-        print("{} Revenue for {}-Q{} = ${}".format(acct_name, re_year, qtr, sum_revenue))
+        print_info("{} Revenue for {}-Q{} = ${}".format(acct_name, re_year, qtr, sum_revenue))
 
     REV_EXP_RESULTS[REV] = str_rev
     return str_rev
@@ -118,7 +118,7 @@ def get_deductions(root_account, period_starts, period_list, re_year, qtr):
 
         sum_deductions = period_list[0][2] + period_list[0][3]
         str_dedns += sum_deductions.to_eng_string() + (' + ' if item != "ML" else '')
-        print("{} Salary Deductions for {}-Q{} = ${}".format(acct_name, re_year, qtr, sum_deductions))
+        print_info("{} Salary Deductions for {}-Q{} = ${}".format(acct_name, re_year, qtr, sum_deductions))
 
     REV_EXP_RESULTS[DEDNS] = str_dedns
     return str_dedns
@@ -146,7 +146,7 @@ def get_expenses(root_account, period_starts, period_list, re_year, qtr):
         sum_expenses = period_list[0][2] + period_list[0][3]
         str_expenses = sum_expenses.to_eng_string()
         REV_EXP_RESULTS[item] = str_expenses
-        print("{} Expenses for {}-Q{} = ${}".format(acct_name.split('_')[-1], re_year, qtr, str_expenses))
+        print_info("{} Expenses for {}-Q{} = ${}".format(acct_name.split('_')[-1], re_year, qtr, str_expenses))
         str_total += str_expenses + ' + '
 
     get_deductions(root_account, period_starts, period_list, re_year, qtr)
@@ -164,12 +164,12 @@ def get_rev_exps(gnucash_file, re_year, re_quarter):
     :return: nil
     """
     num_quarters = 1 if re_quarter else 4
-    print("find Revenue & Expenses in {} for {}{}".format(gnucash_file, re_year, ('-Q' + str(re_quarter)) if re_quarter else ''))
+    print_info("find Revenue & Expenses in {} for {}{}".format(gnucash_file, re_year, ('-Q' + str(re_quarter)) if re_quarter else ''))
 
     try:
         gnucash_session = Session(gnucash_file, is_new=False)
         root_account = gnucash_session.book.get_root_account()
-        # print("type root_account = {}".format(type(root_account)))
+        # print_info("type root_account = {}".format(type(root_account)))
 
         for i in range(num_quarters):
             qtr = re_quarter if re_quarter else i + 1
@@ -191,14 +191,14 @@ def get_rev_exps(gnucash_file, re_year, re_quarter):
             period_starts = [e[0] for e in period_list]
 
             get_revenue(root_account, period_starts, period_list, re_year, qtr)
-            print("\n{} Revenue for {}-Q{} = ${}".format("TOTAL", re_year, qtr, period_list[0][4] * (-1)))
+            print_info("\n{} Revenue for {}-Q{} = ${}".format("TOTAL", re_year, qtr, period_list[0][4] * (-1)))
 
             period_list[0][4] = ZERO
             get_expenses(root_account, period_starts, period_list, re_year, qtr)
-            print("\n{} Expenses for {}-Q{} = ${}\n".format("TOTAL", re_year, qtr, period_list[0][4]))
+            print_info("\n{} Expenses for {}-Q{} = ${}\n".format("TOTAL", re_year, qtr, period_list[0][4]))
 
             results.append(copy.deepcopy(REV_EXP_RESULTS))
-            print(json.dumps(REV_EXP_RESULTS, indent=4))
+            print_info(json.dumps(REV_EXP_RESULTS, indent=4))
 
         # no save needed, we're just reading...
         gnucash_session.end()
@@ -206,7 +206,7 @@ def get_rev_exps(gnucash_file, re_year, re_quarter):
         save_to_json('out/updateRevExps_results', now, results)
 
     except Exception as ge:
-        print("Exception: {}!".format(ge))
+        print_error("Exception: {}!".format(ge))
         if "gnucash_session" in locals() and gnucash_session is not None:
             gnucash_session.end()
         exit(223)
@@ -227,23 +227,23 @@ def fill_rev_exps_data(mode, re_year):
     :param re_year: int: year to update
     :return: data list
     """
-    print("\nfill_rev_exps_data({}, {})\n".format(mode, re_year))
+    print_info("\nfill_rev_exps_data({}, {})\n".format(mode, re_year))
 
     all_inc_dest = ALL_INC_2_SHEET
     nec_inc_dest = NEC_INC_2_SHEET
     if 'prod' in mode:
         all_inc_dest = ALL_INC_SHEET
         nec_inc_dest = NEC_INC_SHEET
-    print("all_inc_dest = {}".format(all_inc_dest))
-    print("nec_inc_dest = {}\n".format(nec_inc_dest))
+    print_info("all_inc_dest = {}".format(all_inc_dest))
+    print_info("nec_inc_dest = {}\n".format(nec_inc_dest))
 
     year_row = BASE_ROW + ((re_year - BASE_YEAR) * YEAR_SPAN)
     # get exact row from Quarter value in each item
     for item in results:
-        print("{} = {}".format(QTR, item[QTR]))
+        print_info("{} = {}".format(QTR, item[QTR]))
         int_qtr = int(item[QTR])
         dest_row = year_row + ((int_qtr - 1) * QTR_SPAN)
-        print("dest_row = {}\n".format(dest_row))
+        print_info("dest_row = {}\n".format(dest_row))
         for key in item:
             if key != QTR:
                 cell = copy.copy(cell_data)
@@ -255,7 +255,7 @@ def fill_rev_exps_data(mode, re_year):
                 cell_locn = dest + '!' + col + str(dest_row)
                 cell['range']  = cell_locn
                 cell['values'] = [[val]]
-                print("cell = {}".format(cell))
+                print_info("cell = {}".format(cell))
                 data.append(cell)
     return data
 
@@ -267,7 +267,7 @@ def send_rev_exps(mode, re_year):
     :param re_year: int: year to update
     :return: server response
     """
-    print("\nsend_rev_exps({}, {})".format(mode, re_year))
+    print_info("\nsend_rev_exps({}, {})".format(mode, re_year))
 
     response = 'NO SEND'
     try:
@@ -285,11 +285,11 @@ def send_rev_exps(mode, re_year):
             vals = service.spreadsheets().values()
             response = vals.batchUpdate(spreadsheetId=BUDGET_QTRLY_ID, body=rev_exps_body).execute()
 
-            print('\n{} cells updated!'.format(response.get('totalUpdatedCells')))
+            print_info('\n{} cells updated!'.format(response.get('totalUpdatedCells')))
             save_to_json('out/updateRevExps_response', now, response)
 
     except Exception as se:
-        print("Exception: {}!".format(se))
+        print_error("Exception: {}!".format(se))
         exit(325)
 
     return response
@@ -302,14 +302,14 @@ def update_rev_exps_main():
     """
     exe = argv[0].split('/')[-1]
     if len(argv) < 4:
-        print("NOT ENOUGH parameters!")
-        print("usage: {} <book url> <mode=xxx[prod][send]> <year> [quarter]".format(exe))
-        print("PROGRAM EXIT!")
+        print_error("NOT ENOUGH parameters!")
+        print_info("usage: {} <book url> <mode=xxx[prod][send]> <year> [quarter]".format(exe), GREEN)
+        print_info("PROGRAM EXIT!", MAGENTA)
         return
 
     gnucash_file = argv[1]
     mode = argv[2].lower()
-    print("\nrunning '{}' on '{}' in mode '{}' at run-time: {}\n".format(exe, gnucash_file, mode, now))
+    print_info("\nrunning '{}' on '{}' in mode '{}' at run-time: {}\n".format(exe, gnucash_file, mode, now))
 
     re_year = int(argv[3])
     re_quarter = int(argv[4]) if len(argv) > 4 else 0
@@ -318,7 +318,7 @@ def update_rev_exps_main():
 
     send_rev_exps(mode, re_year)
 
-    print("\n >>> PROGRAM ENDED.")
+    print_info("\n >>> PROGRAM ENDED.")
 
 
 if __name__ == "__main__":
