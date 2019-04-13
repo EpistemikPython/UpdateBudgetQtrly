@@ -202,7 +202,7 @@ def fill_assets_data(mode, re_year):
     print_info("\nfill_assets_data({}, {})\n".format(mode, re_year), CYAN)
 
     dest = QTR_ASTS_2_SHEET
-    if 'prod' in mode:
+    if '1' in mode:
         dest = QTR_ASTS_SHEET
     print_info("dest = {}\n".format(dest))
 
@@ -249,7 +249,7 @@ def send_assets(mode, re_year):
             creds = get_credentials()
             service = build('sheets', 'v4', credentials=creds)
             vals = service.spreadsheets().values()
-            response = vals.batchUpdate(spreadsheetId=BUDGET_QTRLY_ID, body=assets_body).execute()
+            response = vals.batchUpdate(spreadsheetId=get_budget_id(), body=assets_body).execute()
 
             print_info('\n{} cells updated!'.format(response.get('totalUpdatedCells')))
             save_to_json('out/updateAssets_response', now, response)
@@ -269,7 +269,7 @@ def update_assets_main():
     exe = argv[0].split('/')[-1]
     if len(argv) < 4:
         print_error("NOT ENOUGH parameters!")
-        print_info("usage: {} <book url> <mode=xxx[prod][send]> <year> [quarter]".format(exe), GREEN)
+        print_info("usage: {} <book url> mode=<[send]1|2> <year> [quarter]".format(exe), GREEN)
         print_error("PROGRAM EXIT!")
         return
 

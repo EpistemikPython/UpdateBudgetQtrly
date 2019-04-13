@@ -88,7 +88,7 @@ SHEETS_EPISTEMIK_RW_TOKEN = {
 }
 
 # Spreadsheet ID
-BUDGET_QTRLY_ID = '1YbHb7RjZUlA2gyaGDVgRoQYhjs9I8gndKJ0f1Cn-Zr0'
+BUDGET_QTRLY_ID_FILE = 'secrets/Budget-qtrly.id'
 # sheet names in Budget Quarterly
 ALL_INC_SHEET    = 'All Inc 1'
 ALL_INC_2_SHEET  = 'All Inc 2'
@@ -112,6 +112,14 @@ cell_data = {
 
 # base cell (Q1) locations in Budget-qtrly.gsht
 BASE_ROW = 3
+
+
+def get_budget_id():
+    fp = open(BUDGET_QTRLY_ID_FILE, "r")
+    fid = fp.readline().strip()
+    print_info("Budget Id = '{}'".format(fid), CYAN)
+    return fid
+    fp.close()
 
 
 def get_credentials():

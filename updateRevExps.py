@@ -231,7 +231,7 @@ def fill_rev_exps_data(mode, re_year):
 
     all_inc_dest = ALL_INC_2_SHEET
     nec_inc_dest = NEC_INC_2_SHEET
-    if 'prod' in mode:
+    if '1' in mode:
         all_inc_dest = ALL_INC_SHEET
         nec_inc_dest = NEC_INC_SHEET
     print_info("all_inc_dest = {}".format(all_inc_dest))
@@ -283,7 +283,7 @@ def send_rev_exps(mode, re_year):
             creds = get_credentials()
             service = build('sheets', 'v4', credentials=creds)
             vals = service.spreadsheets().values()
-            response = vals.batchUpdate(spreadsheetId=BUDGET_QTRLY_ID, body=rev_exps_body).execute()
+            response = vals.batchUpdate(spreadsheetId=get_budget_id(), body=rev_exps_body).execute()
 
             print_info('\n{} cells updated!'.format(response.get('totalUpdatedCells')))
             save_to_json('out/updateRevExps_response', now, response)
@@ -303,7 +303,7 @@ def update_rev_exps_main():
     exe = argv[0].split('/')[-1]
     if len(argv) < 4:
         print_error("NOT ENOUGH parameters!")
-        print_info("usage: {} <book url> <mode=xxx[prod][send]> <year> [quarter]".format(exe), GREEN)
+        print_info("usage: {} <book url> mode=<[send]1|2> <year> [quarter]".format(exe), GREEN)
         print_info("PROGRAM EXIT!", MAGENTA)
         return
 
