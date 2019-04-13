@@ -23,6 +23,7 @@ AG    = 'Silver'
 CASH  = 'Cash'
 BANK  = 'Bank'
 RWRDS = 'Rewards'
+RESP  = 'RESP'
 OPEN  = 'OPEN'
 RRSP  = 'RRSP'
 TFSA  = 'TFSA'
@@ -35,6 +36,7 @@ ASSET_ACCTS = {
     CASH  : ["FAMILY", "LIQUID", "$&"],
     BANK  : ["FAMILY", "LIQUID", BANK],
     RWRDS : ["FAMILY", RWRDS],
+    RESP  : ["FAMILY", "INVEST", "xRESP"],
     OPEN  : ["FAMILY", "INVEST", OPEN],
     RRSP  : ["FAMILY", "INVEST", RRSP],
     TFSA  : ["FAMILY", "INVEST", TFSA],
@@ -42,18 +44,7 @@ ASSET_ACCTS = {
 }
 
 # store the values needed to update the document
-ASSET_RESULTS = {
-    QTR   : '0',
-    AU    : '0',
-    AG    : '0',
-    CASH  : '0',
-    BANK  : '0',
-    RWRDS : '0',
-    OPEN  : '0',
-    RRSP  : '0',
-    TFSA  : '0',
-    HOUSE : '0'
-}
+ASSET_RESULTS = {}
 
 ASSET_COLS = {
     AU    : 'U',
@@ -61,6 +52,7 @@ ASSET_COLS = {
     CASH  : 'R',
     BANK  : 'Q',
     RWRDS : 'O',
+    RESP  : 'O',
     OPEN  : 'L',
     RRSP  : 'M',
     TFSA  : 'N',
@@ -199,6 +191,7 @@ def fill_assets_data(mode, re_year):
     :param re_year: int: year to update
     :return: data list
     """
+    # FOR YEAR 2015 OR EARLIER: GET RESP INSTEAD OF Rewards for COLUMN O
     print_info("\nfill_assets_data({}, {})\n".format(mode, re_year), CYAN)
 
     dest = QTR_ASTS_2_SHEET
@@ -215,6 +208,10 @@ def fill_assets_data(mode, re_year):
         print_info("dest_row = {}\n".format(dest_row))
         for key in item:
             if key != QTR:
+                if key == RESP and re_year > 2015:
+                    continue
+                if key == RWRDS and re_year < 2016:
+                    continue
                 cell = copy.copy(cell_data)
                 col = ASSET_COLS[key]
                 val = item[key]
@@ -223,6 +220,8 @@ def fill_assets_data(mode, re_year):
                 cell['values'] = [[val]]
                 print_info("cell = {}".format(cell))
                 data.append(cell)
+
+    save_to_json('out/updateAssets_data', now, data)
     return data
 
 
@@ -238,7 +237,6 @@ def send_assets(mode, re_year):
     response = 'NO SEND'
     try:
         fill_assets_data(mode, re_year)
-        save_to_json('out/updateAssets_data', now, data)
 
         assets_body = {
             'valueInputOption': 'USER_ENTERED',
@@ -269,7 +267,7 @@ def update_assets_main():
     exe = argv[0].split('/')[-1]
     if len(argv) < 4:
         print_error("NOT ENOUGH parameters!")
-        print_info("usage: {} <book url> mode=<[send]1|2> <year> [quarter]".format(exe), GREEN)
+        print_info("usage: {} <book url> mode=<.?[send]1|2> <year> [quarter]".format(exe), GREEN)
         print_error("PROGRAM EXIT!")
         return
 
