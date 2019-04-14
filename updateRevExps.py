@@ -13,7 +13,6 @@
 from sys import argv
 from datetime import datetime as dt
 from gnucash import Session
-import copy
 from googleapiclient.discovery import build
 from updateCommon import *
 
@@ -27,7 +26,7 @@ CONT  = 'Contingent'
 NEC   = 'Necessary'
 DEDNS = 'Sal_Dedns'
 
-# find the proper path to the accounts in the gnucash file
+# path to the account in the Gnucash file
 REV_ACCTS = {
     INV : ["REV_Invest"],
     OTH : ["REV_Other"],
@@ -44,6 +43,7 @@ DEDN_ACCTS = {
     "ML"   : ["ML-Dedns"]
 }
 
+# column index in the Google sheets
 REV_EXP_COLS = {
     REV   : 'D',
     BAL   : 'P',
@@ -57,10 +57,6 @@ QTR_SPAN = 2
 # number of rows between years
 YEAR_SPAN = 11
 
-# either for One Quarter or for Four Quarters if updating an entire Year
-gnc_data = list()
-google_data = list()
-
 now = dt.now().strftime("%Y-%m-%dT%H-%M-%S")
 
 
@@ -72,7 +68,7 @@ def get_revenue(root_account, period_starts, period_list, re_year, qtr):
     :param period_list: list of structs: store the dates and amounts for each quarter
     :param re_year: int: year to read
     :param qtr: int: quarter to read: 1..4
-    :return: string with revenue
+    :return: dict with quarter data
     """
     data_quarter = {}
     str_rev = '= '
@@ -150,7 +146,7 @@ def get_expenses(root_account, period_starts, period_list, re_year, data_quarter
 
 
 # noinspection PyUnboundLocalVariable,PyUnresolvedReferences
-def get_rev_exps(gnucash_file, re_year, re_quarter):
+def get_gnucash_data(gnucash_file, re_year, re_quarter):
     """
     Get REVENUE and EXPENSE data for ONE specified Quarter or ALL four Quarters for the specified Year
     :param gnucash_file: string: name of file used to read the values
@@ -160,7 +156,7 @@ def get_rev_exps(gnucash_file, re_year, re_quarter):
     """
     num_quarters = 1 if re_quarter else 4
     print_info("find Revenue & Expenses in {} for {}{}".format(gnucash_file, re_year, ('-Q' + str(re_quarter)) if re_quarter else ''))
-
+    gnc_data = list()
     try:
         gnucash_session = Session(gnucash_file, is_new=False)
         root_account = gnucash_session.book.get_root_account()
@@ -168,7 +164,6 @@ def get_rev_exps(gnucash_file, re_year, re_quarter):
 
         for i in range(num_quarters):
             qtr = re_quarter if re_quarter else i + 1
-
             start_month = (qtr * 3) - 2
 
             # for each period keep the start date, end date, debits and credits sums and overall total
@@ -198,7 +193,9 @@ def get_rev_exps(gnucash_file, re_year, re_quarter):
         # no save needed, we're just reading...
         gnucash_session.end()
 
-        save_to_json('out/updateRevExps_gnc-data', now, gnc_data)
+        fname = "out/updateRevExps_gnc-data-{}{}".format(re_year, ('-Q' + str(re_quarter)) if re_quarter else '')
+        save_to_json(fname, now, gnc_data)
+        return gnc_data
 
     except Exception as ge:
         print_error("Exception: {}!".format(ge))
@@ -207,7 +204,7 @@ def get_rev_exps(gnucash_file, re_year, re_quarter):
         exit(223)
 
 
-def fill_rev_exps_data(mode, re_year):
+def fill_google_data(mode, re_year, gnc_data):
     """
     Fill the data list:
     for each item in results, either 1 for one quarter or 4 for four quarters:
@@ -220,6 +217,7 @@ def fill_rev_exps_data(mode, re_year):
     others are just the string from the item
     :param mode: string: 'xxx[prod][send]'
     :param re_year: int: year to update
+    :param gnc_data: list: Gnucash data for each needed quarter
     :return: data list
     """
     print_info("\nfill_rev_exps_data({}, {})\n".format(mode, re_year))
@@ -232,6 +230,7 @@ def fill_rev_exps_data(mode, re_year):
     print_info("all_inc_dest = {}".format(all_inc_dest))
     print_info("nec_inc_dest = {}\n".format(nec_inc_dest))
 
+    google_data = list()
     year_row = BASE_ROW + ((re_year - BASE_YEAR) * YEAR_SPAN)
     # get exact row from Quarter value in each item
     for item in gnc_data:
@@ -253,22 +252,27 @@ def fill_rev_exps_data(mode, re_year):
                 print_info("cell = {}".format(cell))
                 google_data.append(cell)
 
-    save_to_json('out/updateRevExps_google-data', now, google_data)
+    str_qtr = None
+    if len(gnc_data) == 1:
+        str_qtr = gnc_data[0][QTR]
+    fname = "out/updateRevExps_google-data-{}{}".format(str(re_year), ('-Q' + str_qtr) if str_qtr else '')
+    save_to_json(fname, now, google_data)
     return google_data
 
 
-def send_rev_exps(mode, re_year):
+def send_google_data(mode, re_year, gnc_data):
     """
     Fill the data list and send to the document
     :param mode: string: 'xxx[prod][send]'
     :param re_year: int: year to update
+    :param gnc_data: list: Gnucash data for each needed quarter
     :return: server response
     """
     print_info("\nsend_rev_exps({}, {})".format(mode, re_year))
 
-    response = 'NO SEND'
+    response = None
     try:
-        fill_rev_exps_data(mode, re_year)
+        google_data = fill_google_data(mode, re_year, gnc_data)
 
         rev_exps_body = {
             'valueInputOption': 'USER_ENTERED',
@@ -282,7 +286,6 @@ def send_rev_exps(mode, re_year):
             response = vals.batchUpdate(spreadsheetId=get_budget_id(), body=rev_exps_body).execute()
 
             print_info('\n{} cells updated!'.format(response.get('totalUpdatedCells')))
-            save_to_json('out/updateRevExps_response', now, response)
 
     except Exception as se:
         print_error("Exception: {}!".format(se))
@@ -310,9 +313,13 @@ def update_rev_exps_main():
     re_year = int(argv[3])
     re_quarter = int(argv[4]) if len(argv) > 4 else 0
 
-    get_rev_exps(gnucash_file, re_year, re_quarter)
+    # either for One Quarter or for Four Quarters if updating an entire Year
+    gnc_data = get_gnucash_data(gnucash_file, re_year, re_quarter)
 
-    send_rev_exps(mode, re_year)
+    response = send_google_data(mode, re_year, gnc_data)
+    if response:
+        fname = "out/updateRevExps_response-{}{}".format(re_year, ('-Q' + str(re_quarter)) if re_quarter else '')
+        save_to_json(fname, now, response)
 
     print_info("\n >>> PROGRAM ENDED.")
 

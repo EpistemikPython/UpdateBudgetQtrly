@@ -13,7 +13,6 @@
 from sys import argv
 from datetime import datetime as dt
 from gnucash import Session
-import copy
 from googleapiclient.discovery import build
 from updateCommon import *
 
@@ -29,7 +28,7 @@ RRSP  = 'RRSP'
 TFSA  = 'TFSA'
 HOUSE = 'House'
 
-# find the proper path to the accounts in the gnucash file
+# path to the account in the Gnucash file
 ASSET_ACCTS = {
     AU    : ["FAMILY", "Prec Metals", "Au"],
     AG    : ["FAMILY", "Prec Metals", "Ag"],
@@ -43,6 +42,7 @@ ASSET_ACCTS = {
     HOUSE : ["FAMILY", HOUSE]
 }
 
+# column index in the Google sheets
 ASSET_COLS = {
     AU    : 'U',
     AG    : 'T',
@@ -60,10 +60,6 @@ BASE_YEAR = 2007
 QTR_SPAN = 1
 # number of rows between years
 BASE_YEAR_SPAN = 4
-
-# either for One Quarter or for Four Quarters if updating an entire Year
-gnc_data = list()
-google_data = list()
 
 now = dt.now().strftime("%Y-%m-%dT%H-%M-%S")
 
@@ -133,17 +129,17 @@ def get_acct_totals(root_account, end_date, cur):
 
 
 # noinspection PyUnboundLocalVariable,PyUnresolvedReferences
-def get_assets(gnucash_file, re_year, re_quarter):
+def get_gnucash_data(gnucash_file, re_year, re_quarter):
     """
     Get ASSET data for ONE specified Quarter or ALL four Quarters for the specified Year
     :param gnucash_file: string: name of file used to read the values
     :param re_year: int: year to update
     :param re_quarter: int: 1..4 for quarter to update or 0 if updating entire year
-    :return: nil
+    :return: list of Gnucash data
     """
-    num_quarters = 1 if re_quarter else 4
     print_info("find Assets in {} for {}{}".format(gnucash_file, re_year, ('-Q' + str(re_quarter)) if re_quarter else ''), GREEN)
-
+    num_quarters = 1 if re_quarter else 4
+    gnc_data = list()
     try:
         gnucash_session = Session(gnucash_file, is_new=False)
         root_account = gnucash_session.book.get_root_account()
@@ -153,7 +149,6 @@ def get_assets(gnucash_file, re_year, re_quarter):
 
         for i in range(num_quarters):
             qtr = re_quarter if re_quarter else i + 1
-
             start_month = (qtr * 3) - 2
             end_date = period_end(re_year, start_month)
 
@@ -165,7 +160,9 @@ def get_assets(gnucash_file, re_year, re_quarter):
         # no save needed, we're just reading...
         gnucash_session.end()
 
-        save_to_json('out/updateAssets_gnc-data', now, gnc_data)
+        fname = "out/updateAssets_gnc-data-{}{}".format(re_year, ('-Q' + str(re_quarter)) if re_quarter else '')
+        save_to_json(fname, now, gnc_data)
+        return gnc_data
 
     except Exception as ge:
         print_error("Exception: {}!".format(ge))
@@ -174,7 +171,7 @@ def get_assets(gnucash_file, re_year, re_quarter):
         exit(177)
 
 
-def fill_assets_data(mode, re_year):
+def fill_google_data(mode, re_year, gnc_data):
     """
     Fill the data list:
     for each item in results, either 1 for one quarter or 4 for four quarters:
@@ -187,9 +184,9 @@ def fill_assets_data(mode, re_year):
     others are just the string from the item
     :param mode: string: 'xxx[prod][send]'
     :param re_year: int: year to update
+    :param gnc_data: list: Gnucash data for each needed quarter
     :return: data list
     """
-    # FOR YEAR 2015 OR EARLIER: GET RESP INSTEAD OF Rewards for COLUMN O
     print_info("\nfill_assets_data({}, {})\n".format(mode, re_year), CYAN)
 
     dest = QTR_ASTS_2_SHEET
@@ -197,6 +194,7 @@ def fill_assets_data(mode, re_year):
         dest = QTR_ASTS_SHEET
     print_info("dest = {}\n".format(dest))
 
+    google_data = list()
     year_row = BASE_ROW + year_span(re_year)
     # get exact row from Quarter value in each item
     for item in gnc_data:
@@ -206,6 +204,7 @@ def fill_assets_data(mode, re_year):
         print_info("dest_row = {}\n".format(dest_row))
         for key in item:
             if key != QTR:
+                # FOR YEAR 2015 OR EARLIER: GET RESP INSTEAD OF Rewards for COLUMN O
                 if key == RESP and re_year > 2015:
                     continue
                 if key == RWRDS and re_year < 2016:
@@ -219,22 +218,27 @@ def fill_assets_data(mode, re_year):
                 print_info("cell = {}".format(cell))
                 google_data.append(cell)
 
-    save_to_json('out/updateAssets_google-data', now, google_data)
+    str_qtr = None
+    if len(gnc_data) == 1:
+        str_qtr = gnc_data[0][QTR]
+    fname = "out/updateAssets_google-data-{}{}".format(str(re_year), ('-Q' + str_qtr) if str_qtr else '')
+    save_to_json(fname, now, google_data)
     return google_data
 
 
-def send_assets(mode, re_year):
+def send_google_data(mode, re_year, gnc_data):
     """
     Fill the data list and send to the document
     :param mode: string: 'xxx[prod][send]'
     :param re_year: int: year to update
+    :param gnc_data: list: Gnucash data for each needed quarter
     :return: server response
     """
     print_info("\nsend_assets({}, {})".format(mode, re_year))
 
-    response = 'NO SEND'
+    response = None
     try:
-        fill_assets_data(mode, re_year)
+        google_data = fill_google_data(mode, re_year, gnc_data)
 
         assets_body = {
             'valueInputOption': 'USER_ENTERED',
@@ -248,7 +252,6 @@ def send_assets(mode, re_year):
             response = vals.batchUpdate(spreadsheetId=get_budget_id(), body=assets_body).execute()
 
             print_info('\n{} cells updated!'.format(response.get('totalUpdatedCells')))
-            save_to_json('out/updateAssets_response', now, response)
 
     except Exception as se:
         print_error("Exception: {}!".format(se))
@@ -276,9 +279,13 @@ def update_assets_main():
     re_year = int(argv[3])
     re_quarter = int(argv[4]) if len(argv) > 4 else 0
 
-    get_assets(gnucash_file, re_year, re_quarter)
+    # either for One Quarter or for Four Quarters if updating an entire Year
+    gnc_data = get_gnucash_data(gnucash_file, re_year, re_quarter)
 
-    send_assets(mode, re_year)
+    response = send_google_data(mode, re_year, gnc_data)
+    if response:
+        fname = "out/updateAssets_response-{}{}".format(re_year, ('-Q' + str(re_quarter)) if re_quarter else '')
+        save_to_json(fname, now, response)
 
     print_info("\n >>> PROGRAM ENDED.", MAGENTA)
 

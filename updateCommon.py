@@ -200,7 +200,7 @@ def save_to_json(fname, t_str, json_data, indt=4):
     :param indt: int: indentation amount
     :return: file name
     """
-    out_file = fname + '.' + t_str + ".json"
+    out_file = fname + '_' + t_str + ".json"
     print_info("\njson file is '{}'".format(out_file))
     fp = open(out_file, 'w')
     json.dump(json_data, fp, indent=indt)
