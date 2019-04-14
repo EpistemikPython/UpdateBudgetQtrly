@@ -57,7 +57,8 @@ QTR_SPAN = 2
 # number of rows between years
 YEAR_SPAN = 11
 
-now = dt.now().strftime("%Y-%m-%dT%H-%M-%S")
+today = dt.now()
+now = today.strftime("%Y-%m-%dT%H-%M-%S")
 
 
 def get_revenue(root_account, period_starts, period_list, re_year, qtr):
@@ -220,8 +221,6 @@ def fill_google_data(mode, re_year, gnc_data):
     :param gnc_data: list: Gnucash data for each needed quarter
     :return: data list
     """
-    print_info("\nfill_rev_exps_data({}, {})\n".format(mode, re_year))
-
     all_inc_dest = ALL_INC_2_SHEET
     nec_inc_dest = NEC_INC_2_SHEET
     if '1' in mode:
@@ -268,8 +267,6 @@ def send_google_data(mode, re_year, gnc_data):
     :param gnc_data: list: Gnucash data for each needed quarter
     :return: server response
     """
-    print_info("\nsend_rev_exps({}, {})".format(mode, re_year))
-
     response = None
     try:
         google_data = fill_google_data(mode, re_year, gnc_data)
@@ -288,8 +285,8 @@ def send_google_data(mode, re_year, gnc_data):
             print_info('\n{} cells updated!'.format(response.get('totalUpdatedCells')))
 
     except Exception as se:
-        print_error("Exception: {}!".format(se))
-        exit(325)
+        print_error("Exception on Send: {}!".format(se))
+        exit(289)
 
     return response
 
@@ -310,8 +307,23 @@ def update_rev_exps_main():
     mode = argv[2].lower()
     print_info("\nrunning '{}' on '{}' in mode '{}' at run-time: {}\n".format(exe, gnucash_file, mode, now))
 
-    re_year = int(argv[3])
-    re_quarter = int(argv[4]) if len(argv) > 4 else 0
+    re_year = re_quarter = 0
+    try:
+        re_year = int(float(argv[3]))
+        if re_year < BASE_YEAR:
+            raise Exception("Year CANNOT be before {}".format(BASE_YEAR))
+
+        current_year = today.year
+        if re_year > current_year:
+            raise Exception("Year CANNOT be after {}".format(current_year))
+
+        re_quarter = int(float(argv[4])) if len(argv) > 4 else 0
+        if re_quarter > 4 or re_quarter < 0:
+            raise Exception("Quarter = 1 to 4")
+
+    except Exception as re_ex:
+        print_error("BAD input: {}!".format(re_ex))
+        exit(325)
 
     # either for One Quarter or for Four Quarters if updating an entire Year
     gnc_data = get_gnucash_data(gnucash_file, re_year, re_quarter)

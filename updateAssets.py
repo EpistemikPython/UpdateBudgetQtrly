@@ -61,7 +61,8 @@ QTR_SPAN = 1
 # number of rows between years
 BASE_YEAR_SPAN = 4
 
-now = dt.now().strftime("%Y-%m-%dT%H-%M-%S")
+today = dt.now()
+now = today.strftime("%Y-%m-%dT%H-%M-%S")
 
 
 def year_span(year):
@@ -97,9 +98,9 @@ def get_acct_bal(acct, idate, cur):
     return gnc_numeric_to_python_decimal(acct_cad)
 
 
-def get_acct_totals(root_account, end_date, cur):
+def get_acct_assets(root_account, end_date, cur):
     """
-    Get REVENUE data for the specified account for the specified quarter
+    Get ASSET data for the specified account for the specified quarter
     :param root_account: Gnucash account: from the Gnucash book
     :param end_date: date: read the account total at the end of the quarter
     :param cur: Gnucash Commodity: currency to use for the totals
@@ -152,7 +153,7 @@ def get_gnucash_data(gnucash_file, re_year, re_quarter):
             start_month = (qtr * 3) - 2
             end_date = period_end(re_year, start_month)
 
-            data_quarter = get_acct_totals(root_account, end_date, CAD)
+            data_quarter = get_acct_assets(root_account, end_date, CAD)
             data_quarter[QTR] = str(qtr)
 
             gnc_data.append(data_quarter)
@@ -187,8 +188,6 @@ def fill_google_data(mode, re_year, gnc_data):
     :param gnc_data: list: Gnucash data for each needed quarter
     :return: data list
     """
-    print_info("\nfill_assets_data({}, {})\n".format(mode, re_year), CYAN)
-
     dest = QTR_ASTS_2_SHEET
     if '1' in mode:
         dest = QTR_ASTS_SHEET
@@ -234,8 +233,6 @@ def send_google_data(mode, re_year, gnc_data):
     :param gnc_data: list: Gnucash data for each needed quarter
     :return: server response
     """
-    print_info("\nsend_assets({}, {})".format(mode, re_year))
-
     response = None
     try:
         google_data = fill_google_data(mode, re_year, gnc_data)
@@ -254,8 +251,8 @@ def send_google_data(mode, re_year, gnc_data):
             print_info('\n{} cells updated!'.format(response.get('totalUpdatedCells')))
 
     except Exception as se:
-        print_error("Exception: {}!".format(se))
-        exit(275)
+        print_error("Exception on Send: {}!".format(se))
+        exit(255)
 
     return response
 
@@ -276,8 +273,24 @@ def update_assets_main():
     mode = argv[2].lower()
     print_info("\nrunning '{}' on '{}' in mode '{}' at run-time: {}\n".format(exe, gnucash_file, mode, now), GREEN)
 
-    re_year = int(argv[3])
-    re_quarter = int(argv[4]) if len(argv) > 4 else 0
+    # TODO convert to Common fxn?
+    re_year = re_quarter = 0
+    try:
+        re_year = int(float(argv[3]))
+        if re_year < BASE_YEAR:
+            raise Exception("Year CANNOT be before {}".format(BASE_YEAR))
+
+        current_year = today.year
+        if re_year > current_year:
+            raise Exception("Year CANNOT be after {}".format(current_year))
+
+        re_quarter = int(float(argv[4])) if len(argv) > 4 else 0
+        if re_quarter > 4 or re_quarter < 0:
+            raise Exception("Quarter = 1 to 4")
+
+    except Exception as a_ex:
+        print_error("BAD input: {}!".format(a_ex))
+        exit(292)
 
     # either for One Quarter or for Four Quarters if updating an entire Year
     gnc_data = get_gnucash_data(gnucash_file, re_year, re_quarter)
