@@ -43,9 +43,6 @@ ASSET_ACCTS = {
     HOUSE : ["FAMILY", HOUSE]
 }
 
-# store the values needed to update the document
-ASSET_RESULTS = {}
-
 ASSET_COLS = {
     AU    : 'U',
     AG    : 'T',
@@ -63,6 +60,10 @@ BASE_YEAR = 2007
 QTR_SPAN = 1
 # number of rows between years
 BASE_YEAR_SPAN = 4
+
+# either for One Quarter or for Four Quarters if updating an entire Year
+gnc_data = list()
+google_data = list()
 
 now = dt.now().strftime("%Y-%m-%dT%H-%M-%S")
 
@@ -108,7 +109,7 @@ def get_acct_totals(root_account, end_date, cur):
     :param cur: Gnucash Commodity: currency to use for the totals
     :return: string with sum of totals
     """
-    str_sum = 'EMPTY'
+    data = {}
     for item in ASSET_ACCTS:
         path = ASSET_ACCTS[item]
         acct = account_from_path(root_account, path)
@@ -126,9 +127,9 @@ def get_acct_totals(root_account, end_date, cur):
 
         str_sum = acct_sum.to_eng_string()
         print_info("Assets for {} on {} = ${}\n".format(acct_name, end_date, str_sum), MAGENTA)
-        ASSET_RESULTS[item] = str_sum
+        data[item] = str_sum
 
-    return str_sum
+    return data
 
 
 # noinspection PyUnboundLocalVariable,PyUnresolvedReferences
@@ -151,23 +152,20 @@ def get_assets(gnucash_file, re_year, re_quarter):
         CAD = commod_tab.lookup("ISO4217", "CAD")
 
         for i in range(num_quarters):
-            acct_total = ZERO
             qtr = re_quarter if re_quarter else i + 1
-            ASSET_RESULTS[QTR] = str(qtr)
 
             start_month = (qtr * 3) - 2
             end_date = period_end(re_year, start_month)
 
-            acct_total = get_acct_totals(root_account, end_date, CAD)
-            # print("\n{} Assets for {}-Q{} = ${}".format("TOTAL", re_year, qtr, acct_total))
+            data_quarter = get_acct_totals(root_account, end_date, CAD)
+            data_quarter[QTR] = str(qtr)
 
-            results.append(copy.deepcopy(ASSET_RESULTS))
-            # print(json.dumps(ASSET_RESULTS, indent=4))
+            gnc_data.append(data_quarter)
 
         # no save needed, we're just reading...
         gnucash_session.end()
 
-        save_to_json('out/updateAssets_results', now, results)
+        save_to_json('out/updateAssets_gnc-data', now, gnc_data)
 
     except Exception as ge:
         print_error("Exception: {}!".format(ge))
@@ -201,7 +199,7 @@ def fill_assets_data(mode, re_year):
 
     year_row = BASE_ROW + year_span(re_year)
     # get exact row from Quarter value in each item
-    for item in results:
+    for item in gnc_data:
         print_info("{} = {}".format(QTR, item[QTR]))
         int_qtr = int(item[QTR])
         dest_row = year_row + ((int_qtr - 1) * QTR_SPAN)
@@ -212,17 +210,17 @@ def fill_assets_data(mode, re_year):
                     continue
                 if key == RWRDS and re_year < 2016:
                     continue
-                cell = copy.copy(cell_data)
+                cell = {}
                 col = ASSET_COLS[key]
                 val = item[key]
                 cell_locn = dest + '!' + col + str(dest_row)
                 cell['range']  = cell_locn
                 cell['values'] = [[val]]
                 print_info("cell = {}".format(cell))
-                data.append(cell)
+                google_data.append(cell)
 
-    save_to_json('out/updateAssets_data', now, data)
-    return data
+    save_to_json('out/updateAssets_google-data', now, google_data)
+    return google_data
 
 
 def send_assets(mode, re_year):
@@ -240,7 +238,7 @@ def send_assets(mode, re_year):
 
         assets_body = {
             'valueInputOption': 'USER_ENTERED',
-            'data': data
+            'data': google_data
         }
 
         if 'send' in mode:

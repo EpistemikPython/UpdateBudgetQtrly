@@ -67,9 +67,6 @@ def print_error(text, newline=True):
 # constant strings
 QTR = 'Quarter'
 
-# either for One Quarter or for Four Quarters if updating an entire Year
-results = list()
-
 # number of months in the period
 PERIOD_QTR = 3
 
@@ -102,14 +99,6 @@ CALCULNS_SHEET   = 'Calculations'
 
 TOKEN = SHEETS_EPISTEMIK_RW_TOKEN['P4']
 
-# for One Quarter or for Four Quarters if updating an entire Year
-data = list()
-cell_data = {
-    # sample data
-    'range': 'Calculations!P47',
-    'values': [ [ '$9033.66' ] ]
-}
-
 # base cell (Q1) locations in Budget-qtrly.gsht
 BASE_ROW = 3
 
@@ -117,9 +106,9 @@ BASE_ROW = 3
 def get_budget_id():
     fp = open(BUDGET_QTRLY_ID_FILE, "r")
     fid = fp.readline().strip()
-    print_info("Budget Id = '{}'".format(fid), CYAN)
-    return fid
+    print_info("\nBudget Id = '{}'".format(fid), CYAN)
     fp.close()
+    return fid
 
 
 def get_credentials():
