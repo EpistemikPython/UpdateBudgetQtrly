@@ -8,7 +8,7 @@
 # @author Mark Sattolo <epistemik@gmail.com>
 # @version Python 3.6
 # @created 2019-04-06
-# @updated 2019-04-07
+# @updated 2019-04-14
 
 from sys import argv
 from datetime import datetime as dt
@@ -18,76 +18,57 @@ from googleapiclient.discovery import build
 from updateCommon import *
 
 # constant strings
-AU    = 'Gold'
-AG    = 'Silver'
-CASH  = 'Cash'
-BANK  = 'Bank'
-RWRDS = 'Rewards'
-OPEN  = 'OPEN'
-RRSP  = 'RRSP'
-TFSA  = 'TFSA'
+ASTS  = 'FAMILY'
+LIAB  = 'LIABS'
+TRUST = 'TRUST'
+CHAL  = 'XCHALET'
 HOUSE = 'House'
+TODAY = 'Today'
 
-# find the proper path to the accounts in the gnucash file
-ASSET_ACCTS = {
-    AU    : ["FAMILY", "Prec Metals", "Au"],
-    AG    : ["FAMILY", "Prec Metals", "Ag"],
-    CASH  : ["FAMILY", "LIQUID", "$&"],
-    BANK  : ["FAMILY", "LIQUID", BANK],
-    RWRDS : ["FAMILY", RWRDS],
-    OPEN  : ["FAMILY", "INVEST", OPEN],
-    RRSP  : ["FAMILY", "INVEST", RRSP],
-    TFSA  : ["FAMILY", "INVEST", TFSA],
-    HOUSE : ["FAMILY", HOUSE]
+# path to the accounts in the Gnucash file
+BALANCE_ACCTS = {
+    ASTS  : [ASTS],
+    LIAB  : [LIAB],
+    TRUST : [TRUST],
+    CHAL  : [CHAL],
+    HOUSE : [ASTS, HOUSE]
 }
 
-# store the values needed to update the document
-ASSET_RESULTS = {
-    QTR   : '0',
-    AU    : '0',
-    AG    : '0',
-    CASH  : '0',
-    BANK  : '0',
-    RWRDS : '0',
-    OPEN  : '0',
-    RRSP  : '0',
-    TFSA  : '0',
-    HOUSE : '0'
+BALANCE_COLS = {
+    LIAB  : {'Yrs': 'U', 'Mths': 'L'},
+    TODAY : 'C',
+    ASTS  : 'K'
 }
 
-ASSET_COLS = {
-    AU    : 'U',
-    AG    : 'T',
-    CASH  : 'R',
-    BANK  : 'Q',
-    RWRDS : 'O',
-    OPEN  : 'L',
-    RRSP  : 'M',
-    TFSA  : 'N',
-    HOUSE : 'I'
-}
-BASE_YEAR = 2007
-# number of rows between quarters in the same year
-QTR_SPAN = 1
+BASE_YEAR = 2008
 # number of rows between years
-BASE_YEAR_SPAN = 4
+BASE_YEAR_SPAN = 1
 
-now = dt.now().strftime("%Y-%m-%dT%H-%M-%S")
+BASE_MTHLY_ROW = 20
+
+TRUST_RANGE  = 'Balance 1!C21'
+CHALET_RANGE = 'Balance 1!C22'
+HOUSE_RANGE  = 'Balance 1!C26'
+ASSETS_RANGE = 'Balance 1!C27'
+LIABS_RANGE  = 'Balance 1!C28'
+
+today = dt.now()
+now = today.strftime("%Y-%m-%dT%H-%M-%S")
 
 
 def year_span(year):
     """
-    For Asset rows, have to factor in the header row placed every three years
+    For Balance rows, have to factor in the header row placed every NINE years
     :param year: int: year to calculate for
     :return: int: value to use to calculate which row to update
     """
     year_diff = year - BASE_YEAR
-    return (year_diff * BASE_YEAR_SPAN) + (year_diff // 3)
+    return (year_diff * BASE_YEAR_SPAN) + (year_diff // 9)
 
 
 def get_acct_bal(acct, idate, cur):
     """
-    get the balance in the account on this date in this currency
+    get the BALANCE in the account on this date in this currency
     :param acct: Gnucash account
     :param idate: Date
     :param cur: Gnucash commodity
@@ -110,15 +91,15 @@ def get_acct_bal(acct, idate, cur):
 
 def get_acct_totals(root_account, end_date, cur):
     """
-    Get REVENUE data for the specified account for the specified quarter
+    Get BALANCE data for the specified account for the specified quarter
     :param root_account: Gnucash account: from the Gnucash book
     :param end_date: date: read the account total at the end of the quarter
     :param cur: Gnucash Commodity: currency to use for the totals
     :return: string with sum of totals
     """
-    str_sum = 'EMPTY'
-    for item in ASSET_ACCTS:
-        path = ASSET_ACCTS[item]
+    data = {}
+    for item in BALANCE_ACCTS:
+        path = BALANCE_ACCTS[item]
         acct = account_from_path(root_account, path)
         acct_name = acct.GetName()
 
@@ -134,27 +115,26 @@ def get_acct_totals(root_account, end_date, cur):
 
         str_sum = acct_sum.to_eng_string()
         print_info("Assets for {} on {} = ${}\n".format(acct_name, end_date, str_sum), MAGENTA)
-        ASSET_RESULTS[item] = str_sum
+        data[item] = str_sum
 
-    return str_sum
+    return data
 
 
 # noinspection PyUnboundLocalVariable,PyUnresolvedReferences
-def get_balance(gnucash_file, re_year, re_quarter):
+def get_gnucash_data(gnucash_file, domain):
     """
-    Get Balance data for today:
+    Get Balance data for TODAY:
       LIABS, House, FAMILY, XCHALET, TRUST
-    OR for the specified Year:
-      IF CURRENT YEAR: FAMILY and LIABS for end of all completed months ?? ALL months in previous twelve??
-      ELSE: LIABS, ?? update Assets sheet??
+    OR for the specified year:
+      IF CURRENT YEAR: LIABS for ALL completed months; FAMILY for ALL non-3 completed months in year
+      IF PREVIOUS YEAR: LIABS for year, for ALL NON-completed months; FAMILY for ALL non-3 NON-completed months in year
+      ELSE: LIABS for year
     :param gnucash_file: string: name of file used to read the values
-    :param re_year: int: year to update
-    :param re_quarter: int: 1..4 for quarter to update or 0 if updating entire year
+    :param domain: string: what to update
     :return: nil
     """
-    num_quarters = 1 if re_quarter else 4
-    print_info("find Assets in {} for {}{}".format(gnucash_file, re_year, ('-Q' + str(re_quarter)) if re_quarter else ''), GREEN)
-
+    print_info("find Balances in {} for {}".format(gnucash_file, domain), GREEN)
+    gnc_data = list()
     try:
         gnucash_session = Session(gnucash_file, is_new=False)
         root_account = gnucash_session.book.get_root_account()
@@ -162,33 +142,35 @@ def get_balance(gnucash_file, re_year, re_quarter):
         # noinspection PyPep8Naming
         CAD = commod_tab.lookup("ISO4217", "CAD")
 
-        for i in range(num_quarters):
-            acct_total = ZERO
-            qtr = re_quarter if re_quarter else i + 1
-            ASSET_RESULTS[QTR] = str(qtr)
+        if domain == 'today':
+            data = fill_today(root_account)
+        else:
+            year = get_year(domain)
 
-            start_month = (qtr * 3) - 2
-            end_date = period_end(re_year, start_month)
+        if year == today.year:
+            data = fill_current_year(root_account)
+        elif year - today.year == 1:
+            data = fill_previous_year(root_account)
+        else:
+            data = fill_year(year, root_account)
 
-            acct_total = get_acct_totals(root_account, end_date, CAD)
-            # print("\n{} Assets for {}-Q{} = ${}".format("TOTAL", re_year, qtr, acct_total))
-
-            results.append(copy.deepcopy(ASSET_RESULTS))
-            # print(json.dumps(ASSET_RESULTS, indent=4))
+        gnc_data.append(data)
 
         # no save needed, we're just reading...
         gnucash_session.end()
 
-        save_to_json('out/updateAssets_results', now, results)
+        fname = "out/updateBalance_gnc-data-{}".format(domain)
+        save_to_json(fname, now, gnc_data)
+        return gnc_data
 
     except Exception as ge:
         print_error("Exception: {}!".format(ge))
         if "gnucash_session" in locals() and gnucash_session is not None:
             gnucash_session.end()
-        exit(177)
+        exit(167)
 
 
-def fill_assets_data(mode, re_year):
+def fill_google_data(mode, re_year, gnc_data):
     """
     Fill the data list:
     for each item in results, either 1 for one quarter or 4 for four quarters:
@@ -201,6 +183,7 @@ def fill_assets_data(mode, re_year):
     others are just the string from the item
     :param mode: string: 'xxx[prod][send]'
     :param re_year: int: year to update
+    :param gnc_data: list: Gnucash data for each needed quarter
     :return: data list
     """
     print_info("\nfill_assets_data({}, {})\n".format(mode, re_year), CYAN)
@@ -210,43 +193,51 @@ def fill_assets_data(mode, re_year):
         dest = QTR_ASTS_SHEET
     print_info("dest = {}\n".format(dest))
 
+    google_data = list()
     year_row = BASE_ROW + year_span(re_year)
     # get exact row from Quarter value in each item
-    for item in results:
+    for item in gnc_data:
         print_info("{} = {}".format(QTR, item[QTR]))
         int_qtr = int(item[QTR])
         dest_row = year_row + ((int_qtr - 1) * QTR_SPAN)
         print_info("dest_row = {}\n".format(dest_row))
         for key in item:
             if key != QTR:
-                cell = copy.copy(cell_data)
-                col = ASSET_COLS[key]
+                cell = {}
+                col = BALANCE_COLS[key]
                 val = item[key]
                 cell_locn = dest + '!' + col + str(dest_row)
                 cell['range']  = cell_locn
                 cell['values'] = [[val]]
                 print_info("cell = {}".format(cell))
-                data.append(cell)
-    return data
+                google_data.append(cell)
+
+    str_qtr = None
+    if len(gnc_data) == 1:
+        str_qtr = gnc_data[0][QTR]
+    fname = "out/updateBalance_google-data-{}{}".format(str(re_year), ('-Q' + str_qtr) if str_qtr else '')
+    save_to_json(fname, now, google_data)
+    return google_data
 
 
-def send_assets(mode, re_year):
+def send_google_data(mode, re_year, gnc_data):
     """
     Fill the data list and send to the document
     :param mode: string: 'xxx[prod][send]'
     :param re_year: int: year to update
+    :param gnc_data: list: Gnucash data for each needed quarter
     :return: server response
     """
     print_info("\nsend_assets({}, {})".format(mode, re_year))
 
     response = 'NO SEND'
     try:
-        fill_assets_data(mode, re_year)
-        save_to_json('out/updateAssets_data', now, data)
+        google_data = fill_google_data(mode, re_year, gnc_data)
+        save_to_json('out/updateAssets_data', now, google_data)
 
         assets_body = {
             'valueInputOption': 'USER_ENTERED',
-            'data': data
+            'data': google_data
         }
 
         if 'send' in mode:
@@ -256,7 +247,6 @@ def send_assets(mode, re_year):
             response = vals.batchUpdate(spreadsheetId=get_budget_id(), body=assets_body).execute()
 
             print_info('\n{} cells updated!'.format(response.get('totalUpdatedCells')))
-            save_to_json('out/updateAssets_response', now, response)
 
     except Exception as se:
         print_error("Exception: {}!".format(se))
@@ -273,7 +263,7 @@ def update_balance_main():
     exe = argv[0].split('/')[-1]
     if len(argv) < 4:
         print_error("NOT ENOUGH parameters!")
-        print_info("usage: {} <book url> mode=<[send]1|2> <year> [quarter]".format(exe), GREEN)
+        print_info("usage: {} <book url> mode=<.?[send]> <year|'today'>".format(exe), GREEN)
         print_error("PROGRAM EXIT!")
         return
 
@@ -281,12 +271,14 @@ def update_balance_main():
     mode = argv[2].lower()
     print_info("\nrunning '{}' on '{}' in mode '{}' at run-time: {}\n".format(exe, gnucash_file, mode, now), GREEN)
 
-    re_year = int(argv[3])
-    re_quarter = int(argv[4]) if len(argv) > 4 else 0
+    domain = argv[3].lower()
 
-    get_balance(gnucash_file, re_year, re_quarter)
+    gnc_data = get_gnucash_data(gnucash_file, domain)
 
-    send_assets(mode, re_year)
+    response = send_google_data(mode, gnc_data)
+    if response:
+        fname = "out/updateBalance_response-{}".format(domain)
+        save_to_json(fname, now, response)
 
     print_info("\n >>> PROGRAM ENDED.", MAGENTA)
 
