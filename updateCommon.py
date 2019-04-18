@@ -7,7 +7,7 @@
 # @author Mark Sattolo <epistemik@gmail.com>
 # @version Python 3.6
 # @created 2019-04-07
-# @updated 2019-04-07
+# @updated 2019-04-14
 
 from sys import stdout
 from datetime import date, timedelta

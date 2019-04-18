@@ -8,7 +8,7 @@
 # @author Mark Sattolo <epistemik@gmail.com>
 # @version Python 3.6
 # @created 2019-04-06
-# @updated 2019-04-07
+# @updated 2019-04-14
 
 from sys import argv
 from datetime import datetime as dt
