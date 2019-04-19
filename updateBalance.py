@@ -110,7 +110,7 @@ def get_period_sum(root_account, path, pdate, cur):
     return acct_name, acct_sum
 
 
-# noinspection PyDictCreation
+# noinspection PyDictCreation,PyUnboundLocalVariable
 def fill_today(root_account, dest, cur):
     """
     Get Balance data for TODAY: LIABS, House, FAMILY, XCHALET, TRUST
@@ -123,14 +123,16 @@ def fill_today(root_account, dest, cur):
     for item in BALANCE_ACCTS:
         path = BALANCE_ACCTS[item]
         acct_name, acct_sum = get_period_sum(root_account, path, today, cur)
+
         # need assets apart from house and liabilities
         if item == HOUSE:
             house_sum = acct_sum
         elif item == LIAB:
             liab_sum = acct_sum
-        if item == ASTS:
+        elif item == ASTS:
             print_info("TOTAL for {} on {} = ${}".format(acct_name, today, acct_sum), MAGENTA)
             acct_sum = acct_sum - house_sum - liab_sum
+
         str_sum = acct_sum.to_eng_string()
         print_info("Balance for {} on {} = ${}".format(acct_name, today, str_sum), MAGENTA)
 
@@ -143,7 +145,7 @@ def fill_today(root_account, dest, cur):
     return data
 
 
-# noinspection PyDictCreation,PyDictCreation
+# noinspection PyDictCreation
 def fill_current_year(root_account, dest, cur):
     """
     CURRENT YEAR: LIABS for ALL completed month_ends; FAMILY for ALL non-3 completed month_ends in year
@@ -154,14 +156,10 @@ def fill_current_year(root_account, dest, cur):
     """
     data = []
     month = today.month
-    print_info("It is now month '{}'".format(month))
-
     year = today.year
-    end_prev_month = date(year, month, 1)
 
     month_ends = []
     for i in range(month-1):
-        print("range = {}".format(i))
         month_ends.append(date(year, i+2, 1)-ONE_DAY)
 
     for dte in month_ends:
@@ -194,31 +192,27 @@ def fill_current_year(root_account, dest, cur):
     return data
 
 
-# noinspection PyDictCreation,PyDictCreation,PyDictCreation
+# noinspection PyDictCreation
 def fill_previous_year(root_account, dest, cur):
     """
     CURRENT YEAR: LIABS for ALL completed months; FAMILY for ALL non-3 completed months in year
-    :param root_account: Gnucash account: from the Gnucash book
-    :param dest: Google sheet to update
-    :param cur: Gnucash Commodity: currency to use for the totals
+    :param root_account:   Gnucash account: from the Gnucash book
+    :param         dest:            string: Google sheet to update
+    :param          cur: Gnucash Commodity: currency to use for the totals
     :return: list with values in Google format
     """
     data = []
     month = today.month
-    print_info("It is now month '{}'".format(month))
-
-    year = today.year
-    end_prev_month = date(year, month, 1)
+    year = today.year - 1
 
     month_ends = []
     for i in range(12-month):
-        print("range = {}".format(i))
-        month_ends.append(date(year-1, i+5, 1)-ONE_DAY)
-    year_end = date(year-1, 12, 31)
+        month_ends.append(date(year, i+5, 1)-ONE_DAY)
+    year_end = date(year, 12, 31)
     month_ends.append(year_end)
 
     for dte in month_ends:
-        print("date = {}-{}-{}".format(dte.year, dte.month, dte.day))
+        print("date = {}".format(dte))
 
         # fill LIABS
         path = BALANCE_ACCTS[LIAB]
@@ -247,10 +241,38 @@ def fill_previous_year(root_account, dest, cur):
         # extra LIABS entry for year end
         if dte == year_end:
             cell = {}
-            cell['range'] = dest + '!' + BAL_MTHLY_COLS[LIAB][YR] + str(BASE_ROW + year_span(year-1))
+            cell['range'] = dest + '!' + BAL_MTHLY_COLS[LIAB][YR] + str(BASE_ROW + year_span(year))
             cell['values'] = [[str_sum]]
             print_info("cell = {}\n".format(cell))
             data.append(cell)
+
+    return data
+
+
+# noinspection PyDictCreation
+def fill_year(year, root_account, dest, cur):
+    """
+    LIABS for year
+    :param         year:               int: get data for this year
+    :param root_account:   Gnucash account: from the Gnucash book
+    :param         dest:            string: Google sheet to update
+    :param          cur: Gnucash Commodity: currency to use for the totals
+    :return: list with values in Google format
+    """
+    data = []
+    year_end = date(year, 12, 31)
+    print("date = {}".format(year_end))
+
+    # fill LIABS
+    path = BALANCE_ACCTS[LIAB]
+    acct_name, liab_sum = get_period_sum(root_account, path, year_end, cur)
+    str_sum = liab_sum.to_eng_string()
+    print_info("{} on {} = ${}".format(acct_name, year_end, str_sum), MAGENTA)
+    cell = {}
+    cell['range'] = dest + '!' + BAL_MTHLY_COLS[LIAB][YR] + str(BASE_ROW + year_span(year))
+    cell['values'] = [[str_sum]]
+    print_info("cell = {}\n".format(cell))
+    data.append(cell)
 
     return data
 
@@ -305,11 +327,11 @@ def get_gnucash_data(gnucash_file, domain, dest):
         exit(167)
 
 
-def send_google_data(mode, bal_data):
+def send_google_data(mode, data):
     """
-    Fill the data list and send to the document
+    Send the data list to the document
     :param mode: string: '.?[send][1]'
-    :param bal_data: list: Gnucash data for each needed quarter
+    :param data:   list: Gnucash data for each needed quarter
     :return: server response
     """
     print_info("\nsend_google_data({})".format(mode))
@@ -318,7 +340,7 @@ def send_google_data(mode, bal_data):
     try:
         assets_body = {
             'valueInputOption': 'USER_ENTERED',
-            'data': bal_data
+            'data': data
         }
 
         if 'send' in mode:
