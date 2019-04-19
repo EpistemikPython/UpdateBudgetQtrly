@@ -66,6 +66,8 @@ def print_error(text, newline=True):
 
 # constant strings
 QTR = 'Quarter'
+YR  = 'Year'
+MTH = 'Month'
 
 # number of months in the period
 PERIOD_QTR = 3
@@ -91,7 +93,8 @@ ALL_INC_SHEET    = 'All Inc 1'
 ALL_INC_2_SHEET  = 'All Inc 2'
 NEC_INC_SHEET    = 'Nec Inc 1'
 NEC_INC_2_SHEET  = 'Nec Inc 2'
-BALANCE_SHEET    = 'Balance 1'
+BAL_1_SHEET      = 'Balance 1'
+BAL_2_SHEET      = 'Balance 2'
 QTR_ASTS_SHEET   = 'Assets 1'
 QTR_ASTS_2_SHEET = 'Assets 2'
 ML_WORK_SHEET    = 'ML Work'
