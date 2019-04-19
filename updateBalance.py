@@ -38,6 +38,7 @@ BAL_MTHLY_COLS = {
     TODAY : 'C',
     ASTS  : 'K'
 }
+BASE_MTHLY_ROW = 19
 
 # cell locations in the Google file
 BAL_TODAY_RANGES = {
@@ -48,7 +49,6 @@ BAL_TODAY_RANGES = {
     ASTS  : '27'
 }
 
-BASE_MTHLY_ROW = 19
 BASE_YEAR = 2008
 # number of rows between years
 BASE_YEAR_SPAN = 1
@@ -110,6 +110,7 @@ def get_period_sum(root_account, path, pdate, cur):
     return acct_name, acct_sum
 
 
+# noinspection PyDictCreation
 def fill_today(root_account, dest, cur):
     """
     Get Balance data for TODAY: LIABS, House, FAMILY, XCHALET, TRUST
@@ -142,6 +143,7 @@ def fill_today(root_account, dest, cur):
     return data
 
 
+# noinspection PyDictCreation,PyDictCreation
 def fill_current_year(root_account, dest, cur):
     """
     CURRENT YEAR: LIABS for ALL completed month_ends; FAMILY for ALL non-3 completed month_ends in year
@@ -162,29 +164,29 @@ def fill_current_year(root_account, dest, cur):
         print("range = {}".format(i))
         month_ends.append(date(year, i+2, 1)-ONE_DAY)
 
-    for dt in month_ends:
-        print("date = {}-{}-{}".format(dt.year, dt.month, dt.day))
+    for dte in month_ends:
+        print("date = {}-{}-{}".format(dte.year, dte.month, dte.day))
+
         # fill LIABS
         path = BALANCE_ACCTS[LIAB]
-        acct_name, liab_sum = get_period_sum(root_account, path, dt, cur)
+        acct_name, liab_sum = get_period_sum(root_account, path, dte, cur)
         str_sum = liab_sum.to_eng_string()
-        print_info("{} on {} = ${}".format(acct_name, dt, str_sum), MAGENTA)
-
+        print_info("{} on {} = ${}".format(acct_name, dte, str_sum), MAGENTA)
         cell = {}
-        cell['range'] = dest + '!' + BAL_MTHLY_COLS[LIAB][MTH] + str(BASE_MTHLY_ROW + dt.month)
+        cell['range'] = dest + '!' + BAL_MTHLY_COLS[LIAB][MTH] + str(BASE_MTHLY_ROW + dte.month)
         cell['values'] = [[str_sum]]
         print_info("cell = {}\n".format(cell))
         data.append(cell)
+
         # fill ASSETS for months NOT covered by the Assets sheet
-        if dt.month % 3 != 0:
+        if dte.month % 3 != 0:
             path = BALANCE_ACCTS[ASTS]
-            acct_name, acct_sum = get_period_sum(root_account, path, dt, cur)
+            acct_name, acct_sum = get_period_sum(root_account, path, dte, cur)
             corrected_assets = acct_sum - liab_sum
             str_sum = corrected_assets.to_eng_string()
-            print_info("Assets on {} = ${}".format(dt, str_sum), MAGENTA)
-
+            print_info("Assets on {} = ${}".format(dte, str_sum), MAGENTA)
             cell = {}
-            cell['range'] = dest + '!' + BAL_MTHLY_COLS[ASTS] + str(BASE_MTHLY_ROW + dt.month)
+            cell['range'] = dest + '!' + BAL_MTHLY_COLS[ASTS] + str(BASE_MTHLY_ROW + dte.month)
             cell['values'] = [[str_sum]]
             print_info("cell = {}\n".format(cell))
             data.append(cell)
@@ -192,6 +194,7 @@ def fill_current_year(root_account, dest, cur):
     return data
 
 
+# noinspection PyDictCreation,PyDictCreation,PyDictCreation
 def fill_previous_year(root_account, dest, cur):
     """
     CURRENT YEAR: LIABS for ALL completed months; FAMILY for ALL non-3 completed months in year
@@ -207,38 +210,47 @@ def fill_previous_year(root_account, dest, cur):
     year = today.year
     end_prev_month = date(year, month, 1)
 
-    months = []
-    for i in range(month-1):
+    month_ends = []
+    for i in range(12-month):
         print("range = {}".format(i))
-        months.append(date(year, i+2, 1)-ONE_DAY)
-    for it in months:
-        print("date = {}-{}-{}".format(it.year, it.month, it.day))
-    if year == 2019:
-        return
+        month_ends.append(date(year-1, i+5, 1)-ONE_DAY)
+    year_end = date(year-1, 12, 31)
+    month_ends.append(year_end)
 
-    for item in BALANCE_ACCTS:
-        path = BALANCE_ACCTS[item]
-        acct = account_from_path(root_account, path)
-        acct_name = acct.GetName()
+    for dte in month_ends:
+        print("date = {}-{}-{}".format(dte.year, dte.month, dte.day))
 
-        # get the split amounts for the parent account
-        acct_sum = get_acct_bal(acct, today, cur)
-        descendants = acct.get_descendants()
-        if len(descendants) > 0:
-            # for EACH sub-account add to the overall total
-            # print("Descendants of {}:".format(acct_name))
-            for sub_acct in descendants:
-                # ?? GETTING SLIGHT ROUNDING ERRORS WHEN ADDING MUTUAL FUND VALUES...
-                acct_sum += get_acct_bal(sub_acct, today, cur)
-
-        str_sum = acct_sum.to_eng_string()
-        print_info("Assets for {} on {} = ${}\n".format(acct_name, today, str_sum), MAGENTA)
-
+        # fill LIABS
+        path = BALANCE_ACCTS[LIAB]
+        acct_name, liab_sum = get_period_sum(root_account, path, dte, cur)
+        str_sum = liab_sum.to_eng_string()
+        print_info("{} on {} = ${}".format(acct_name, dte, str_sum), MAGENTA)
         cell = {}
-        cell['range'] = BAL_TODAY_RANGES[item]
+        cell['range'] = dest + '!' + BAL_MTHLY_COLS[LIAB][MTH] + str(BASE_MTHLY_ROW + dte.month)
         cell['values'] = [[str_sum]]
-        print_info("cell = {}".format(cell))
+        print_info("cell = {}\n".format(cell))
         data.append(cell)
+
+        # fill ASSETS for months NOT covered by the Assets sheet
+        if dte.month % 3 != 0:
+            path = BALANCE_ACCTS[ASTS]
+            acct_name, acct_sum = get_period_sum(root_account, path, dte, cur)
+            corrected_assets = acct_sum - liab_sum
+            str_sum = corrected_assets.to_eng_string()
+            print_info("Assets on {} = ${}".format(dte, str_sum), MAGENTA)
+            cell = {}
+            cell['range'] = dest + '!' + BAL_MTHLY_COLS[ASTS] + str(BASE_MTHLY_ROW + dte.month)
+            cell['values'] = [[str_sum]]
+            print_info("cell = {}\n".format(cell))
+            data.append(cell)
+
+        # extra LIABS entry for year end
+        if dte == year_end:
+            cell = {}
+            cell['range'] = dest + '!' + BAL_MTHLY_COLS[LIAB][YR] + str(BASE_ROW + year_span(year-1))
+            cell['values'] = [[str_sum]]
+            print_info("cell = {}\n".format(cell))
+            data.append(cell)
 
     return data
 
@@ -272,7 +284,7 @@ def get_gnucash_data(gnucash_file, domain, dest):
             year = get_year(domain)
             if year == today.year:
                 data = fill_current_year(root_account, dest, CAD)
-            elif year - today.year == 1:
+            elif today.year - year == 1:
                 data = fill_previous_year(root_account, dest, CAD)
             else:
                 data = fill_year(year, root_account, dest, CAD)
