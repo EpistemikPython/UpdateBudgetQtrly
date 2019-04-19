@@ -146,6 +146,33 @@ def fill_today(root_account, dest, cur):
 
 
 # noinspection PyDictCreation
+def fill_all_years(root_account, dest, cur):
+    """
+    LIABS for all years
+    :param root_account:   Gnucash account: from the Gnucash book
+    :param         dest:            string: Google sheet to update
+    :param          cur: Gnucash Commodity: currency to use for the totals
+    :return: list: each item has range and value in Google format
+    """
+    data = []
+    for i in range(today.year-BASE_YEAR-1):
+        year_end = date(BASE_YEAR+i, 12, 31)
+        print("date = {}".format(year_end))
+        # fill LIABS
+        path = BALANCE_ACCTS[LIAB]
+        acct_name, liab_sum = get_period_sum(root_account, path, year_end, cur)
+        str_sum = liab_sum.to_eng_string()
+        print_info("{} on {} = ${}".format(acct_name, year_end, str_sum), MAGENTA)
+        cell = {}
+        cell['range'] = dest + '!' + BAL_MTHLY_COLS[LIAB][YR] + str(BASE_ROW + year_span(year_end.year))
+        cell['values'] = [[str_sum]]
+        print_info("cell = {}\n".format(cell))
+        data.append(cell)
+
+    return data
+
+
+# noinspection PyDictCreation
 def fill_current_year(root_account, dest, cur):
     """
     CURRENT YEAR: LIABS for ALL completed month_ends; FAMILY for ALL non-3 completed month_ends in year
@@ -163,7 +190,7 @@ def fill_current_year(root_account, dest, cur):
         month_ends.append(date(year, i+2, 1)-ONE_DAY)
 
     for dte in month_ends:
-        print("date = {}-{}-{}".format(dte.year, dte.month, dte.day))
+        print("date = {}".format(dte))
 
         # fill LIABS
         path = BALANCE_ACCTS[LIAB]
@@ -302,6 +329,8 @@ def get_gnucash_data(gnucash_file, domain, dest):
 
         if domain == 'today':
             data = fill_today(root_account, dest, CAD)
+        elif domain == 'allyears':
+            data = fill_all_years(root_account, dest, CAD)
         else:
             year = get_year(domain)
             if year == today.year:
