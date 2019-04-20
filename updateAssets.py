@@ -67,7 +67,7 @@ HDR_SPAN = 3
 def get_acct_bal(acct, idate, cur):
     """
     get the balance in this account on this date in this currency
-    :param  acct: Gnucash account
+    :param  acct: Gnucash Account
     :param idate: Date
     :param   cur: Gnucash commodity
     :return: python Decimal with balance
@@ -90,7 +90,7 @@ def get_acct_bal(acct, idate, cur):
 def get_acct_assets(root_account, end_date, cur):
     """
     Get ASSET data for the specified account for the specified quarter
-    :param root_account:   Gnucash account: from the Gnucash book
+    :param root_account:   Gnucash Account: from the Gnucash book
     :param     end_date:              date: read the account total at the end of the quarter
     :param          cur: Gnucash Commodity: currency to use for the totals
     :return: string with sum of totals

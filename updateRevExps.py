@@ -61,7 +61,7 @@ QTR_SPAN = 2
 def get_revenue(root_account, period_starts, period_list, re_year, qtr):
     """
     Get REVENUE data for the specified Quarter
-    :param  root_account: Gnucash account: from the Gnucash book
+    :param  root_account: Gnucash Account: from the Gnucash book
     :param period_starts:            list: start date for each period
     :param   period_list: list of structs: store the dates and amounts for each quarter
     :param       re_year:             int: year to read
@@ -89,7 +89,7 @@ def get_revenue(root_account, period_starts, period_list, re_year, qtr):
 def get_deductions(root_account, period_starts, period_list, re_year, data_quarter):
     """
     Get SALARY DEDUCTIONS data for the specified Quarter
-    :param  root_account: Gnucash account: from the Gnucash book
+    :param  root_account: Gnucash Account: from the Gnucash book
     :param period_starts:            list: start date for each period
     :param   period_list: list of structs: store the dates and amounts for each quarter
     :param       re_year:             int: year to read
@@ -116,7 +116,7 @@ def get_deductions(root_account, period_starts, period_list, re_year, data_quart
 def get_expenses(root_account, period_starts, period_list, re_year, data_quarter):
     """
     Get EXPENSE data for the specified Quarter
-    :param  root_account: Gnucash account: from the Gnucash book
+    :param  root_account: Gnucash Account: from the Gnucash book
     :param period_starts:            list: start date for each period
     :param   period_list: list of structs: store the dates and amounts for each quarter
     :param       re_year:             int: year to read

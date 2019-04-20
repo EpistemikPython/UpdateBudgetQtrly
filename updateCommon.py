@@ -159,18 +159,16 @@ def get_quarter(str_qtr):
 def fill_cell(sheet, col, row, val, data_list):
     """
     Create a dictionary to contain Google Sheets update information for one cell and add to the submitted list
-    :param     sheet:  string: particular sheet in my Google spreadsheet to update
-    :param       col:  string: column
+    :param     sheet:  string:  particular sheet in my Google spreadsheet to update
+    :param       col:  string:  column
     :param       row:     int
-    :param       val: int | string | Decimal: value to send as string
-    :param data_list:    list: to append with created dict
+    :param       val:  string | Decimal: value to send as string
+    :param data_list:    list:  to append with created dict
     :return nil
     """
     cell = {}
     cell['range'] = sheet + '!' + col + str(row)
-    value = str(val)
-    if isinstance(val, Decimal):
-        value = val.to_eng_string()
+    value = val.to_eng_string() if isinstance(val, Decimal) else val
     cell['values'] = [[value]]
     print_info("cell = {}\n".format(cell))
     data_list.append(cell)
@@ -272,7 +270,7 @@ def generate_quarter_boundaries(start_year, start_month, num_qtrs):
     :param  start_year: int
     :param start_month: int
     :param    num_qtrs: int: number of quarters to calculate
-    :return dates: start and end for each quarter
+    :return date, date: start and end date for each quarter
     """
     for i in range(num_qtrs):
         yield(date(start_year, start_month, 1), current_quarter_end(start_year, start_month))
@@ -281,7 +279,7 @@ def generate_quarter_boundaries(start_year, start_month, num_qtrs):
 
 def account_from_path(top_account, account_path, original_path=None):
     """
-    recursive function to get a Gnucash account: starting from the top account and following the path
+    recursive function to get a Gnucash Account: starting from the top account and following the path
     :param   top_account: Gnucash Account: base account
     :param  account_path:            list: path to follow
     :param original_path:            list: original call path
@@ -323,7 +321,7 @@ def save_to_json(fname, t_str, json_data, indt=4):
 def get_splits(acct, period_starts, period_list):
     """
     get the splits for the account and each sub-account
-    :param          acct: Gnucash account
+    :param          acct: Gnucash Account
     :param period_starts:            list: start date for each period
     :param   period_list: list of structs: store the dates and amounts for each quarter
     :return nil

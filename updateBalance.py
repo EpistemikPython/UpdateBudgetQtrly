@@ -58,10 +58,10 @@ HDR_SPAN = 9
 def get_acct_bal(acct, idate, cur):
     """
     get the BALANCE in this account on this date in this currency
-    :param  acct: Gnucash account
+    :param  acct: Gnucash Account
     :param idate: Date
     :param   cur: Gnucash commodity
-    :return: python Decimal with balance
+    :return: Decimal with balance
     """
     # CALLS ARE RETRIEVING ACCOUNT BALANCES FROM DAY BEFORE!!??
     idate += ONE_DAY
@@ -69,17 +69,17 @@ def get_acct_bal(acct, idate, cur):
     acct_bal = acct.GetBalanceAsOfDate(idate)
     acct_comm = acct.GetCommodity()
     # check if account is already in the desired currency and convert if necessary
-    acct_cad = acct_bal if acct_comm == cur else acct.ConvertBalanceToCurrencyAsOfDate(acct_bal, acct_comm, cur, idate)
+    acct_cur = acct_bal if acct_comm == cur else acct.ConvertBalanceToCurrencyAsOfDate(acct_bal, acct_comm, cur, idate)
 
-    return gnc_numeric_to_python_decimal(acct_cad)
+    return gnc_numeric_to_python_decimal(acct_cur)
 
 
 def get_total_balance(root_acct, path, tdate, cur):
     """
     get the total BALANCE in the account and all sub-accounts on this path on this date in this currency
-    :param root_acct:   Gnucash account: from the Gnucash book
+    :param root_acct:   Gnucash Account: from the Gnucash book
     :param      path:              list: path to the account
-    :param     tdate:              Date: to get the balance
+    :param     tdate:              date: to get the balance
     :param       cur: Gnucash Commodity: currency to use for the totals
     :return: string, int: account name and account sum
     """
@@ -102,7 +102,7 @@ def get_total_balance(root_acct, path, tdate, cur):
 def fill_today(root_account, dest, cur):
     """
     Get Balance data for TODAY: LIABS, House, FAMILY, XCHALET, TRUST
-    :param root_account:   Gnucash account: from the Gnucash book
+    :param root_account:   Gnucash Account: from the Gnucash book
     :param         dest:            string: Google sheet to update
     :param          cur: Gnucash Commodity: currency to use for the totals
     :return: list: cell(s) with location and value to update on Google sheet
@@ -129,7 +129,7 @@ def fill_today(root_account, dest, cur):
 def fill_all_years(root_account, dest, cur):
     """
     LIABS for all years
-    :param root_account:   Gnucash account: from the Gnucash book
+    :param root_account:   Gnucash Account: from the Gnucash book
     :param         dest:            string: Google sheet to update
     :param          cur: Gnucash Commodity: currency to use for the totals
     :return: list: cell(s) with location and value to update on Google sheet
@@ -149,7 +149,7 @@ def fill_all_years(root_account, dest, cur):
 def fill_current_year(root_account, dest, cur):
     """
     CURRENT YEAR: fill_today() AND: LIABS for ALL completed month_ends; FAMILY for ALL non-3 completed month_ends in year
-    :param root_account: Gnucash account: from the Gnucash book
+    :param root_account: Gnucash Account: from the Gnucash book
     :param         dest: Google sheet to update
     :param          cur: Gnucash Commodity: currency to use for the totals
     :return: list: cell(s) with location and value to update on Google sheet
@@ -177,7 +177,7 @@ def fill_current_year(root_account, dest, cur):
 def fill_previous_year(root_account, dest, cur):
     """
     PREVIOUS YEAR: LIABS for ALL NON-completed months; FAMILY for ALL non-3 NON-completed months in year
-    :param root_account:   Gnucash account: from the Gnucash book
+    :param root_account:   Gnucash Account: from the Gnucash book
     :param         dest:            string: Google sheet to update
     :param          cur: Gnucash Commodity: currency to use for the totals
     :return: list: cell(s) with location and value to update on Google sheet
@@ -211,7 +211,7 @@ def fill_year(year, root_account, dest, cur):
     """
     LIABS for year
     :param         year:               int: get data for this year
-    :param root_account:   Gnucash account: from the Gnucash book
+    :param root_account:   Gnucash Account: from the Gnucash book
     :param         dest:            string: Google sheet to update
     :param          cur: Gnucash Commodity: currency to use for the totals
     :return: list: cell(s) with location and value to update on Google sheet
