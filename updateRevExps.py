@@ -3,15 +3,14 @@
 #                     in my BudgetQtrly document for a specified year or quarter
 #
 # some code from account_analysis.py by Mark Jenkins, ParIT Worker Co-operative <mark@parit.ca>
-# some code from Google quickstart spreadsheets example
+# some code from Google quickstart spreadsheets examples
 #
 # @author Mark Sattolo <epistemik@gmail.com>
 # @version Python 3.6
 # @created 2019-03-30
-# @updated 2019-04-14
+# @updated 2019-04-20
 
 from sys import argv
-from datetime import datetime as dt
 from gnucash import Session
 from googleapiclient.discovery import build
 from updateCommon import *
@@ -51,24 +50,22 @@ REV_EXP_COLS = {
     NEC   : 'G',
     DEDNS : 'D'
 }
+
 BASE_YEAR = 2012
+# number of rows between same quarter in adjacent years
+BASE_YEAR_SPAN = 11
 # number of rows between quarters in the same year
 QTR_SPAN = 2
-# number of rows between years
-YEAR_SPAN = 11
-
-today = dt.now()
-now = today.strftime("%Y-%m-%dT%H-%M-%S")
 
 
 def get_revenue(root_account, period_starts, period_list, re_year, qtr):
     """
     Get REVENUE data for the specified Quarter
-    :param root_account: Gnucash account: from the Gnucash book
-    :param period_starts: list: start date for each period
-    :param period_list: list of structs: store the dates and amounts for each quarter
-    :param re_year: int: year to read
-    :param qtr: int: quarter to read: 1..4
+    :param  root_account: Gnucash account: from the Gnucash book
+    :param period_starts:            list: start date for each period
+    :param   period_list: list of structs: store the dates and amounts for each quarter
+    :param       re_year:             int: year to read
+    :param           qtr:             int: quarter to read: 1..4
     :return: dict with quarter data
     """
     data_quarter = {}
@@ -92,11 +89,11 @@ def get_revenue(root_account, period_starts, period_list, re_year, qtr):
 def get_deductions(root_account, period_starts, period_list, re_year, data_quarter):
     """
     Get SALARY DEDUCTIONS data for the specified Quarter
-    :param root_account: Gnucash account: from the Gnucash book
-    :param period_starts: list: start date for each period
-    :param period_list: list of structs: store the dates and amounts for each quarter
-    :param re_year: int: year to read
-    :param data_quarter: dict: collected data for the quarter
+    :param  root_account: Gnucash account: from the Gnucash book
+    :param period_starts:            list: start date for each period
+    :param   period_list: list of structs: store the dates and amounts for each quarter
+    :param       re_year:             int: year to read
+    :param  data_quarter:            dict: collected data for the quarter
     :return: string with deductions
     """
     str_dedns = '= '
@@ -119,11 +116,11 @@ def get_deductions(root_account, period_starts, period_list, re_year, data_quart
 def get_expenses(root_account, period_starts, period_list, re_year, data_quarter):
     """
     Get EXPENSE data for the specified Quarter
-    :param root_account: Gnucash account: from the Gnucash book
-    :param period_starts: list: start date for each period
-    :param period_list: list of structs: store the dates and amounts for each quarter
-    :param re_year: int: year to read
-    :param data_quarter: dict: collected data for the quarter
+    :param  root_account: Gnucash account: from the Gnucash book
+    :param period_starts:            list: start date for each period
+    :param   period_list: list of structs: store the dates and amounts for each quarter
+    :param       re_year:             int: year to read
+    :param  data_quarter:            dict: collected data for the quarter
     :return: string with total expenses
     """
     str_total = ''
@@ -151,8 +148,8 @@ def get_gnucash_data(gnucash_file, re_year, re_quarter):
     """
     Get REVENUE and EXPENSE data for ONE specified Quarter or ALL four Quarters for the specified Year
     :param gnucash_file: string: name of file used to read the values
-    :param re_year: int: year to update
-    :param re_quarter: int: 1..4 for quarter to update or 0 if updating entire year
+    :param      re_year:    int: year to update
+    :param   re_quarter:    int: 1..4 for quarter to update or 0 if updating entire year
     :return: nil
     """
     num_quarters = 1 if re_quarter else 4
@@ -216,9 +213,9 @@ def fill_google_data(mode, re_year, gnc_data):
     REV string is '= ${INV} + ${OTH} + ${SAL}'
     DEDNS string is '= ${Mk-Dedns} + ${Lu-Dedns} + ${ML-Dedns}'
     others are just the string from the item
-    :param mode: string: 'xxx[prod][send]'
-    :param re_year: int: year to update
-    :param gnc_data: list: Gnucash data for each needed quarter
+    :param     mode: string: '.?[send][1]'
+    :param  re_year:    int: year to update
+    :param gnc_data:   list: Gnucash data for each needed quarter
     :return: data list
     """
     all_inc_dest = ALL_INC_2_SHEET
@@ -230,26 +227,18 @@ def fill_google_data(mode, re_year, gnc_data):
     print_info("nec_inc_dest = {}\n".format(nec_inc_dest))
 
     google_data = list()
-    year_row = BASE_ROW + ((re_year - BASE_YEAR) * YEAR_SPAN)
+    year_row = BASE_ROW + ((re_year - BASE_YEAR) * BASE_YEAR_SPAN)
     # get exact row from Quarter value in each item
     for item in gnc_data:
         print_info("{} = {}".format(QTR, item[QTR]))
-        int_qtr = int(item[QTR])
-        dest_row = year_row + ((int_qtr - 1) * QTR_SPAN)
+        dest_row = year_row + ( (get_quarter(item[QTR]) - 1) * QTR_SPAN )
         print_info("dest_row = {}\n".format(dest_row))
         for key in item:
             if key != QTR:
-                cell = {}
                 dest = nec_inc_dest
                 if key in (REV, BAL, CONT):
                     dest = all_inc_dest
-                col = REV_EXP_COLS[key]
-                val = item[key]
-                cell_locn = dest + '!' + col + str(dest_row)
-                cell['range']  = cell_locn
-                cell['values'] = [[val]]
-                print_info("cell = {}".format(cell))
-                google_data.append(cell)
+                fill_cell(dest, REV_EXP_COLS[key], dest_row, item[key], google_data)
 
     str_qtr = None
     if len(gnc_data) == 1:
@@ -262,9 +251,9 @@ def fill_google_data(mode, re_year, gnc_data):
 def send_google_data(mode, re_year, gnc_data):
     """
     Fill the data list and send to the document
-    :param mode: string: 'xxx[prod][send]'
-    :param re_year: int: year to update
-    :param gnc_data: list: Gnucash data for each needed quarter
+    :param     mode: string: '.?[send][1]'
+    :param  re_year:    int: year to update
+    :param gnc_data:   list: Gnucash data for each needed quarter
     :return: server response
     """
     response = None
@@ -307,23 +296,8 @@ def update_rev_exps_main():
     mode = argv[2].lower()
     print_info("\nrunning '{}' on '{}' in mode '{}' at run-time: {}\n".format(exe, gnucash_file, mode, now))
 
-    re_year = re_quarter = 0
-    try:
-        re_year = int(float(argv[3]))
-        if re_year < BASE_YEAR:
-            raise Exception("Year CANNOT be before {}".format(BASE_YEAR))
-
-        current_year = today.year
-        if re_year > current_year:
-            raise Exception("Year CANNOT be after {}".format(current_year))
-
-        re_quarter = int(float(argv[4])) if len(argv) > 4 else 0
-        if re_quarter > 4 or re_quarter < 0:
-            raise Exception("Quarter = 1 to 4")
-
-    except Exception as re_ex:
-        print_error("BAD input: {}!".format(re_ex))
-        exit(325)
+    re_year = get_year(argv[3], BASE_YEAR)
+    re_quarter = get_quarter(argv[4]) if len(argv) > 4 else 0
 
     # either for One Quarter or for Four Quarters if updating an entire Year
     gnc_data = get_gnucash_data(gnucash_file, re_year, re_quarter)

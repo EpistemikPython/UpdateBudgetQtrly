@@ -2,23 +2,23 @@
 # updateCommon.py -- common methods and variables for updates
 #
 # some code from account_analysis.py by Mark Jenkins, ParIT Worker Co-operative <mark@parit.ca>
-# some code from Google quickstart spreadsheets example
+# some code from Google quickstart spreadsheets examples
 #
 # @author Mark Sattolo <epistemik@gmail.com>
 # @version Python 3.6
 # @created 2019-04-07
 # @updated 2019-04-20
 
-from sys import stdout
-from datetime import date, timedelta
+from sys import stdout, exit
+from datetime import date, timedelta, datetime as dt
 from bisect import bisect_right
 from decimal import Decimal
 from math import log10
 import csv
-from gnucash import GncNumeric
 import json
 import pickle
 import os.path as osp
+from gnucash import GncNumeric
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 import inspect
@@ -105,6 +105,55 @@ TOKEN = SHEETS_EPISTEMIK_RW_TOKEN['P4']
 # first data row in Budget-qtrly.gsht
 BASE_ROW = 3
 
+today = dt.now()
+now = today.strftime("%Y-%m-%dT%H-%M-%S")
+
+
+def year_span(year_diff, base_year_span, hdr_span):
+    """
+    For sheet row position, have to factor in the header row placed so many years
+    :param year_diff: int: year to calculate for
+    :param base_year_span: int: year to calculate for
+    :param hdr_span: int: year to calculate for
+    :return int: value to use to calculate which row to update
+    """
+    return (year_diff * base_year_span) + (year_diff // hdr_span)
+
+
+def get_year(str_year, base_year):
+    """
+    convert the string representation of a year to an int
+    :param  str_year: string: to convert
+    :param base_year:    int: earliest possible year
+    :return: int: year
+    """
+    if not str_year.isnumeric():
+        print_error("Input MUST be the String representation of a Year, e.g. '2013'!")
+        exit(79)
+    int_year = int(float(str_year))
+    if int_year > today.year or int_year < base_year:
+        print_error("Input MUST be the String representation of a Year between {} and {}!".format(today.year, base_year))
+        exit(83)
+
+    return int_year
+
+
+def get_quarter(str_qtr):
+    """
+    convert the string representation of a quarter to an int
+    :param  str_qtr: string: to convert
+    :return int: quarter
+    """
+    if not str_qtr.isnumeric():
+        print_error("Input MUST be a String of 1..4!")
+        exit(138)
+    int_qtr = int(float(str_qtr))
+    if int_qtr > 4 or int_qtr < 1:
+        print_error("Input MUST be a String of 1..4!")
+        exit(142)
+
+    return int_qtr
+
 
 # noinspection PyDictCreation
 def fill_cell(sheet, col, row, val, data_list):
@@ -113,13 +162,16 @@ def fill_cell(sheet, col, row, val, data_list):
     :param     sheet:  string: particular sheet in my Google spreadsheet to update
     :param       col:  string: column
     :param       row:     int
-    :param       val: Decimal: value to send as string
+    :param       val: int | string | Decimal: value to send as string
     :param data_list:    list: to append with created dict
-    :return: nil
+    :return nil
     """
     cell = {}
     cell['range'] = sheet + '!' + col + str(row)
-    cell['values'] = [[val.to_eng_string()]]
+    value = str(val)
+    if isinstance(val, Decimal):
+        value = val.to_eng_string()
+    cell['values'] = [[value]]
     print_info("cell = {}\n".format(cell))
     data_list.append(cell)
 
@@ -127,7 +179,7 @@ def fill_cell(sheet, col, row, val, data_list):
 def get_budget_id():
     """
     get the budget id string from the file in the secrets folder
-    :return: string: budget id
+    :return string: budget id
     """
     fp = open(BUDGET_QTRLY_ID_FILE, "r")
     fid = fp.readline().strip()
@@ -139,7 +191,7 @@ def get_budget_id():
 def get_credentials():
     """
     get the proper credentials needed to write to the Google spreadsheet
-    :return: pickle object: credentials info
+    :return pickle object: credentials info
     """
     creds = None
     if osp.exists(TOKEN):
@@ -165,7 +217,7 @@ def gnc_numeric_to_python_decimal(numeric):
     """
     convert a GncNumeric value to a python Decimal value
     :param numeric: GncNumeric: value to convert
-    :return: Decimal: equivalent to submitted
+    :return Decimal: equivalent to submitted
     """
     negative = numeric.negative_p()
     sign = 1 if negative else 0
@@ -187,7 +239,7 @@ def next_quarter_start(start_year, start_month):
     get the start date of the following quarter
     :param  start_year: int
     :param start_month: int
-    :return: int, int: next year and month
+    :return int, int: next year and month
     """
     # add number of months for a Quarter
     next_month = start_month + PERIOD_QTR
@@ -205,7 +257,7 @@ def current_quarter_end(start_year, start_month):
     get the end date of the current quarter
     :param  start_year: int
     :param start_month: int
-    :return: date: end date
+    :return date: end date
     """
     end_year, end_month = next_quarter_start(start_year, start_month)
 
@@ -219,8 +271,8 @@ def generate_quarter_boundaries(start_year, start_month, num_qtrs):
     get the start and end dates for the quarters in the submitted range
     :param  start_year: int
     :param start_month: int
-    :param    num_qtrs: number of quarters to calculate
-    :return: dates: start and end for each quarter
+    :param    num_qtrs: int: number of quarters to calculate
+    :return dates: start and end for each quarter
     """
     for i in range(num_qtrs):
         yield(date(start_year, start_month, 1), current_quarter_end(start_year, start_month))
@@ -233,7 +285,7 @@ def account_from_path(top_account, account_path, original_path=None):
     :param   top_account: Gnucash Account: base account
     :param  account_path:            list: path to follow
     :param original_path:            list: original call path
-    :return: Gnucash Account
+    :return Gnucash Account
     """
     # print("top_account = %s, account_path = %s, original_path = %s" % (top_account, account_path, original_path))
     if original_path is None:
@@ -254,11 +306,11 @@ def account_from_path(top_account, account_path, original_path=None):
 def save_to_json(fname, t_str, json_data, indt=4):
     """
     print json data to a file -- add a time string to get a unique file name each run
-    :param fname: string
-    :param t_str: string
+    :param     fname: string
+    :param     t_str: string
     :param json_data: json compatible struct
-    :param indt: int: indentation amount
-    :return: file name
+    :param      indt: int: indentation amount
+    :return file name
     """
     out_file = fname + '_' + t_str + ".json"
     print_info("json file is '{}'\n".format(out_file))
@@ -271,10 +323,10 @@ def save_to_json(fname, t_str, json_data, indt=4):
 def get_splits(acct, period_starts, period_list):
     """
     get the splits for the account and each sub-account
-    :param acct: Gnucash account
-    :param period_starts: list: start date for each period
-    :param period_list: list of structs: store the dates and amounts for each quarter
-    :return: nil
+    :param          acct: Gnucash account
+    :param period_starts:            list: start date for each period
+    :param   period_list: list of structs: store the dates and amounts for each quarter
+    :return nil
     """
     # insert and add all splits in the periods of interest
     for split in acct.GetSplitList():
@@ -306,11 +358,11 @@ def get_splits(acct, period_starts, period_list):
 def fill_splits(root_acct, target_path, period_starts, period_list):
     """
     fill the period list for each account
-    :param root_acct: Gnucash account: from the Gnucash book
-    :param target_path: list: account hierarchy from root account to target account
-    :param period_starts: list: start date for each period
-    :param period_list: list of structs: store the dates and amounts for each quarter
-    :return: acct_name: string: name of target_acct
+    :param     root_acct: Gnucash Account: from the Gnucash book
+    :param   target_path:            list: account hierarchy from root account to target account
+    :param period_starts:            list: start date for each period
+    :param   period_list: list of structs: store the dates and amounts for each quarter
+    :return acct_name: string: name of target_acct
     """
     account_of_interest = account_from_path(root_acct, target_path)
     acct_name = account_of_interest.GetName()
@@ -334,7 +386,7 @@ def csv_write_period_list(period_list):
     """
     Write out the details of the submitted period list in csv format
     :param period_list: list of structs: store the dates and amounts for each quarter
-    :return: nil
+    :return nil
     """
     # write out the column headers
     csv_writer = csv.writer(stdout)

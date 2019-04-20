@@ -1,17 +1,16 @@
 #
-# updateRevExps.py -- use the Gnucash and Google APIs to update the Assets
-#                     in my BudgetQtrly document for a specified year or quarter
+# updateAssets.py -- use the Gnucash and Google APIs to update the Assets
+#                    in my BudgetQtrly document for a specified year or quarter
 #
 # some code from account_analysis.py by Mark Jenkins, ParIT Worker Co-operative <mark@parit.ca>
-# some code from Google quickstart spreadsheets example
+# some code from Google quickstart spreadsheets examples
 #
 # @author Mark Sattolo <epistemik@gmail.com>
 # @version Python 3.6
 # @created 2019-04-06
-# @updated 2019-04-14
+# @updated 2019-04-20
 
 from sys import argv
-from datetime import datetime as dt
 from gnucash import Session
 from googleapiclient.discovery import build
 from updateCommon import *
@@ -55,32 +54,22 @@ ASSET_COLS = {
     TFSA  : 'N',
     HOUSE : 'I'
 }
+
 BASE_YEAR = 2007
+# number of rows between same quarter in adjacent years
+BASE_YEAR_SPAN = 4
 # number of rows between quarters in the same year
 QTR_SPAN = 1
-# number of rows between years
-BASE_YEAR_SPAN = 4
-
-today = dt.now()
-now = today.strftime("%Y-%m-%dT%H-%M-%S")
-
-
-def year_span(year):
-    """
-    For Asset rows, have to factor in the header row placed every three years
-    :param year: int: year to calculate for
-    :return: int: value to use to calculate which row to update
-    """
-    year_diff = year - BASE_YEAR
-    return (year_diff * BASE_YEAR_SPAN) + (year_diff // 3)
+# number of year groups between header rows
+HDR_SPAN = 3
 
 
 def get_acct_bal(acct, idate, cur):
     """
-    get the balance in the account on this date in this currency
-    :param acct: Gnucash account
+    get the balance in this account on this date in this currency
+    :param  acct: Gnucash account
     :param idate: Date
-    :param cur: Gnucash commodity
+    :param   cur: Gnucash commodity
     :return: python Decimal with balance
     """
     # CALLS ARE RETRIEVING ASSET VALUES FROM DAY BEFORE!!??
@@ -101,9 +90,9 @@ def get_acct_bal(acct, idate, cur):
 def get_acct_assets(root_account, end_date, cur):
     """
     Get ASSET data for the specified account for the specified quarter
-    :param root_account: Gnucash account: from the Gnucash book
-    :param end_date: date: read the account total at the end of the quarter
-    :param cur: Gnucash Commodity: currency to use for the totals
+    :param root_account:   Gnucash account: from the Gnucash book
+    :param     end_date:              date: read the account total at the end of the quarter
+    :param          cur: Gnucash Commodity: currency to use for the totals
     :return: string with sum of totals
     """
     data = {}
@@ -134,8 +123,8 @@ def get_gnucash_data(gnucash_file, re_year, re_quarter):
     """
     Get ASSET data for ONE specified Quarter or ALL four Quarters for the specified Year
     :param gnucash_file: string: name of file used to read the values
-    :param re_year: int: year to update
-    :param re_quarter: int: 1..4 for quarter to update or 0 if updating entire year
+    :param      re_year:    int: year to update
+    :param   re_quarter:    int: 1..4 for quarter to update or 0 if updating entire year
     :return: list of Gnucash data
     """
     print_info("find Assets in {} for {}{}".format(gnucash_file, re_year, ('-Q' + str(re_quarter)) if re_quarter else ''), GREEN)
@@ -183,9 +172,9 @@ def fill_google_data(mode, re_year, gnc_data):
     REV string is '= ${INV} + ${OTH} + ${SAL}'
     DEDNS string is '= ${Mk-Dedns} + ${Lu-Dedns} + ${ML-Dedns}'
     others are just the string from the item
-    :param mode: string: 'xxx[prod][send]'
-    :param re_year: int: year to update
-    :param gnc_data: list: Gnucash data for each needed quarter
+    :param     mode: string: '.?[send][1]'
+    :param  re_year:    int: year to update
+    :param gnc_data:   list: Gnucash data for each needed quarter
     :return: data list
     """
     dest = QTR_ASTS_2_SHEET
@@ -194,7 +183,7 @@ def fill_google_data(mode, re_year, gnc_data):
     print_info("dest = {}\n".format(dest))
 
     google_data = list()
-    year_row = BASE_ROW + year_span(re_year)
+    year_row = BASE_ROW + year_span(re_year - BASE_YEAR, BASE_YEAR_SPAN, HDR_SPAN)
     # get exact row from Quarter value in each item
     for item in gnc_data:
         print_info("{} = {}".format(QTR, item[QTR]))
@@ -208,14 +197,7 @@ def fill_google_data(mode, re_year, gnc_data):
                     continue
                 if key == RWRDS and re_year < 2016:
                     continue
-                cell = {}
-                col = ASSET_COLS[key]
-                val = item[key]
-                cell_locn = dest + '!' + col + str(dest_row)
-                cell['range']  = cell_locn
-                cell['values'] = [[val]]
-                print_info("cell = {}".format(cell))
-                google_data.append(cell)
+                fill_cell(dest, ASSET_COLS[key], dest_row, item[key], google_data)
 
     str_qtr = None
     if len(gnc_data) == 1:
@@ -228,9 +210,9 @@ def fill_google_data(mode, re_year, gnc_data):
 def send_google_data(mode, re_year, gnc_data):
     """
     Fill the data list and send to the document
-    :param mode: string: 'xxx[prod][send]'
-    :param re_year: int: year to update
-    :param gnc_data: list: Gnucash data for each needed quarter
+    :param     mode: string: '.?[send][1]'
+    :param  re_year:    int: year to update
+    :param gnc_data:   list: Gnucash data for each needed quarter
     :return: server response
     """
     response = None
@@ -273,24 +255,8 @@ def update_assets_main():
     mode = argv[2].lower()
     print_info("\nrunning '{}' on '{}' in mode '{}' at run-time: {}\n".format(exe, gnucash_file, mode, now), GREEN)
 
-    # TODO convert to Common fxn?
-    re_year = re_quarter = 0
-    try:
-        re_year = int(float(argv[3]))
-        if re_year < BASE_YEAR:
-            raise Exception("Year CANNOT be before {}".format(BASE_YEAR))
-
-        current_year = today.year
-        if re_year > current_year:
-            raise Exception("Year CANNOT be after {}".format(current_year))
-
-        re_quarter = int(float(argv[4])) if len(argv) > 4 else 0
-        if re_quarter > 4 or re_quarter < 0:
-            raise Exception("Quarter = 1 to 4")
-
-    except Exception as a_ex:
-        print_error("BAD input: {}!".format(a_ex))
-        exit(292)
+    re_year = get_year(argv[3], BASE_YEAR)
+    re_quarter = get_quarter(argv[4]) if len(argv) > 4 else 0
 
     # either for One Quarter or for Four Quarters if updating an entire Year
     gnc_data = get_gnucash_data(gnucash_file, re_year, re_quarter)
