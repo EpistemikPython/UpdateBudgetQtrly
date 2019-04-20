@@ -140,9 +140,10 @@ def fill_today(root_account, dest, cur):
         elif item == LIAB:
             liab_sum = acct_sum
         elif item == ASTS:
-            adjusted_assets = acct_sum - house_sum - liab_sum
+            acct_sum = acct_sum - house_sum - liab_sum
+            print_info("Adjusted assets on {} = ${}".format(today, acct_sum.to_eng_string()), MAGENTA)
 
-        fill_cell(dest, BAL_MTHLY_COLS[TODAY], BAL_TODAY_RANGES[item], adjusted_assets, data)
+        fill_cell(dest, BAL_MTHLY_COLS[TODAY], BAL_TODAY_RANGES[item], acct_sum, data)
 
     return data
 
@@ -170,13 +171,14 @@ def fill_all_years(root_account, dest, cur):
 # noinspection PyDictCreation
 def fill_current_year(root_account, dest, cur):
     """
-    CURRENT YEAR: LIABS for ALL completed month_ends; FAMILY for ALL non-3 completed month_ends in year
+    CURRENT YEAR: fill_today() AND: LIABS for ALL completed month_ends; FAMILY for ALL non-3 completed month_ends in year
     :param root_account: Gnucash account: from the Gnucash book
     :param         dest: Google sheet to update
     :param          cur: Gnucash Commodity: currency to use for the totals
     :return: list: cell(s) with location and value to update on Google sheet
     """
-    data = []
+    data = fill_today(root_account, dest, cur)
+
     for i in range(today.month-1):
         month_end = date(today.year, i+2, 1)-ONE_DAY
         print("date = {}".format(month_end))
@@ -189,7 +191,7 @@ def fill_current_year(root_account, dest, cur):
         if month_end.month % 3 != 0:
             acct_name, acct_sum = get_period_sum(root_account, BALANCE_ACCTS[ASTS], month_end, cur)
             adjusted_assets = acct_sum - liab_sum
-            print_info("Assets on {} = ${}".format(month_end, adjusted_assets.to_eng_string()), MAGENTA)
+            print_info("Adjusted assets on {} = ${}".format(month_end, adjusted_assets.to_eng_string()), MAGENTA)
             fill_cell(dest, BAL_MTHLY_COLS[ASTS], BASE_MTHLY_ROW + month_end.month, adjusted_assets, data)
 
     return data
@@ -198,7 +200,7 @@ def fill_current_year(root_account, dest, cur):
 # noinspection PyDictCreation
 def fill_previous_year(root_account, dest, cur):
     """
-    CURRENT YEAR: LIABS for ALL completed months; FAMILY for ALL non-3 completed months in year
+    PREVIOUS YEAR: LIABS for ALL NON-completed months; FAMILY for ALL non-3 NON-completed months in year
     :param root_account:   Gnucash account: from the Gnucash book
     :param         dest:            string: Google sheet to update
     :param          cur: Gnucash Commodity: currency to use for the totals
@@ -218,7 +220,7 @@ def fill_previous_year(root_account, dest, cur):
         if dte.month % 3 != 0:
             acct_name, acct_sum = get_period_sum(root_account, BALANCE_ACCTS[ASTS], dte, cur)
             adjusted_assets = acct_sum - liab_sum
-            print_info("Assets on {} = ${}".format(dte, adjusted_assets.to_eng_string()), MAGENTA)
+            print_info("Adjusted assets on {} = ${}".format(dte, adjusted_assets.to_eng_string()), MAGENTA)
             fill_cell(dest, BAL_MTHLY_COLS[ASTS], BASE_MTHLY_ROW + dte.month, adjusted_assets, data)
 
     # LIABS entry for year end
@@ -309,7 +311,7 @@ def send_google_data(mode, data):
     :param data:   list: Gnucash data for each needed quarter
     :return: server response
     """
-    print_info("\nsend_google_data({})".format(mode))
+    print_info("send_google_data({})\n".format(mode))
 
     response = None
     try:
@@ -324,7 +326,7 @@ def send_google_data(mode, data):
             vals = service.spreadsheets().values()
             response = vals.batchUpdate(spreadsheetId=get_budget_id(), body=assets_body).execute()
 
-            print_info('\n{} cells updated!'.format(response.get('totalUpdatedCells')))
+            print_info('{} cells updated!\n'.format(response.get('totalUpdatedCells')))
 
     except Exception as se:
         print_error("Exception: {}!".format(se))
@@ -341,7 +343,7 @@ def update_balance_main():
     exe = argv[0].split('/')[-1]
     if len(argv) < 4:
         print_error("NOT ENOUGH parameters!")
-        print_info("usage: {} <book url> mode=<.?[send][1]> <year|'today'>".format(exe), GREEN)
+        print_info("usage: {} <book url> mode=<.?[send][1]> <year|'today'|'allyears'>".format(exe), GREEN)
         print_error("PROGRAM EXIT!")
         return
 
@@ -363,7 +365,7 @@ def update_balance_main():
         fname = "out/updateBalance_{}-response".format(domain)
         save_to_json(fname, now, response)
 
-    print_info("\n >>> PROGRAM ENDED.", GREEN)
+    print_info(" >>> PROGRAM ENDED.\n", GREEN)
 
 
 if __name__ == "__main__":
