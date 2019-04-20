@@ -7,7 +7,7 @@
 # @author Mark Sattolo <epistemik@gmail.com>
 # @version Python 3.6
 # @created 2019-04-07
-# @updated 2019-04-14
+# @updated 2019-04-20
 
 from sys import stdout
 from datetime import date, timedelta
@@ -102,8 +102,26 @@ CALCULNS_SHEET   = 'Calculations'
 
 TOKEN = SHEETS_EPISTEMIK_RW_TOKEN['P4']
 
-# base cell (Q1) locations in Budget-qtrly.gsht
+# first data row in Budget-qtrly.gsht
 BASE_ROW = 3
+
+
+# noinspection PyDictCreation
+def fill_cell(sheet, col, row, val, data_list):
+    """
+    Create a dictionary to contain Google Sheets update information for one cell and add to the submitted list
+    :param     sheet:         string: particular sheet in my Google spreadsheet to update
+    :param       col:         string: column
+    :param       row:            int
+    :param       val: python Decimal: value
+    :param data_list:           list: to append with created dict
+    :return: nil
+    """
+    cell = {}
+    cell['range'] = sheet + '!' + col + str(row)
+    cell['values'] = [[val.to_eng_string()]]
+    print_info("cell = {}\n".format(cell))
+    data_list.append(cell)
 
 
 def get_budget_id():

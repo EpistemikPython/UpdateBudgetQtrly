@@ -8,7 +8,7 @@
 # @author Mark Sattolo <epistemik@gmail.com>
 # @version Python 3.6
 # @created 2019-04-13
-# @updated 2019-04-19
+# @updated 2019-04-20
 
 from sys import argv
 from datetime import datetime as dt
@@ -42,11 +42,11 @@ BASE_MTHLY_ROW = 19
 
 # cell locations in the Google file
 BAL_TODAY_RANGES = {
-    HOUSE : '26' ,
-    LIAB  : '28' ,
-    TRUST : '21' ,
-    CHAL  : '22' ,
-    ASTS  : '27'
+    HOUSE : 26 ,
+    LIAB  : 28 ,
+    TRUST : 21 ,
+    CHAL  : 22 ,
+    ASTS  : 27
 }
 
 BASE_YEAR = 2008
@@ -140,13 +140,9 @@ def fill_today(root_account, dest, cur):
         elif item == LIAB:
             liab_sum = acct_sum
         elif item == ASTS:
-            acct_sum = acct_sum - house_sum - liab_sum
+            adjusted_assets = acct_sum - house_sum - liab_sum
 
-        cell = {}
-        cell['range'] = dest + '!' + BAL_MTHLY_COLS[TODAY] + BAL_TODAY_RANGES[item]
-        cell['values'] = [[acct_sum.to_eng_string()]]
-        print_info("cell = {}\n".format(cell))
-        data.append(cell)
+        fill_cell(dest, BAL_MTHLY_COLS[TODAY], BAL_TODAY_RANGES[item], adjusted_assets, data)
 
     return data
 
@@ -166,11 +162,7 @@ def fill_all_years(root_account, dest, cur):
         print("date = {}".format(year_end))
         # fill LIABS
         acct_name, liab_sum = get_period_sum(root_account, BALANCE_ACCTS[LIAB], year_end, cur)
-        cell = {}
-        cell['range'] = dest + '!' + BAL_MTHLY_COLS[LIAB][YR] + str(BASE_ROW + year_span(year_end.year))
-        cell['values'] = [[liab_sum.to_eng_string()]]
-        print_info("cell = {}\n".format(cell))
-        data.append(cell)
+        fill_cell(dest, BAL_MTHLY_COLS[LIAB][YR], BASE_ROW + year_span(year_end.year), liab_sum, data)
 
     return data
 
@@ -189,27 +181,16 @@ def fill_current_year(root_account, dest, cur):
         month_end = date(today.year, i+2, 1)-ONE_DAY
         print("date = {}".format(month_end))
 
-        # TODO fill_liabs() ??
         # fill LIABS
         acct_name, liab_sum = get_period_sum(root_account, BALANCE_ACCTS[LIAB], month_end, cur)
-        cell = {}
-        cell['range'] = dest + '!' + BAL_MTHLY_COLS[LIAB][MTH] + str(BASE_MTHLY_ROW + month_end.month)
-        cell['values'] = [[liab_sum.to_eng_string()]]
-        print_info("cell = {}\n".format(cell))
-        data.append(cell)
+        fill_cell(dest, BAL_MTHLY_COLS[LIAB][MTH], BASE_MTHLY_ROW + month_end.month, liab_sum, data)
 
-        # TODO fill_assets() ??
         # fill ASSETS for months NOT covered by the Assets sheet
         if month_end.month % 3 != 0:
             acct_name, acct_sum = get_period_sum(root_account, BALANCE_ACCTS[ASTS], month_end, cur)
-            corrected_assets = acct_sum - liab_sum
-            str_sum = corrected_assets.to_eng_string()
-            print_info("Assets on {} = ${}".format(month_end, str_sum), MAGENTA)
-            cell = {}
-            cell['range'] = dest + '!' + BAL_MTHLY_COLS[ASTS] + str(BASE_MTHLY_ROW + month_end.month)
-            cell['values'] = [[str_sum]]
-            print_info("cell = {}\n".format(cell))
-            data.append(cell)
+            adjusted_assets = acct_sum - liab_sum
+            print_info("Assets on {} = ${}".format(month_end, adjusted_assets.to_eng_string()), MAGENTA)
+            fill_cell(dest, BAL_MTHLY_COLS[ASTS], BASE_MTHLY_ROW + month_end.month, adjusted_assets, data)
 
     return data
 
@@ -231,32 +212,19 @@ def fill_previous_year(root_account, dest, cur):
 
         # fill LIABS
         acct_name, liab_sum = get_period_sum(root_account, BALANCE_ACCTS[LIAB], dte, cur)
-        cell = {}
-        cell['range'] = dest + '!' + BAL_MTHLY_COLS[LIAB][MTH] + str(BASE_MTHLY_ROW + dte.month)
-        cell['values'] = [[liab_sum.to_eng_string()]]
-        print_info("cell = {}\n".format(cell))
-        data.append(cell)
+        fill_cell(dest, BAL_MTHLY_COLS[LIAB][MTH], BASE_MTHLY_ROW + dte.month, liab_sum, data)
 
         # fill ASSETS for months NOT covered by the Assets sheet
         if dte.month % 3 != 0:
             acct_name, acct_sum = get_period_sum(root_account, BALANCE_ACCTS[ASTS], dte, cur)
-            corrected_assets = acct_sum - liab_sum
-            str_sum = corrected_assets.to_eng_string()
-            print_info("Assets on {} = ${}".format(dte, str_sum), MAGENTA)
-            cell = {}
-            cell['range'] = dest + '!' + BAL_MTHLY_COLS[ASTS] + str(BASE_MTHLY_ROW + dte.month)
-            cell['values'] = [[str_sum]]
-            print_info("cell = {}\n".format(cell))
-            data.append(cell)
+            adjusted_assets = acct_sum - liab_sum
+            print_info("Assets on {} = ${}".format(dte, adjusted_assets.to_eng_string()), MAGENTA)
+            fill_cell(dest, BAL_MTHLY_COLS[ASTS], BASE_MTHLY_ROW + dte.month, adjusted_assets, data)
 
     # LIABS entry for year end
     year_end = date(year, 12, 31)
     acct_name, liab_sum = get_period_sum(root_account, BALANCE_ACCTS[LIAB], year_end, cur)
-    cell = {}
-    cell['range'] = dest + '!' + BAL_MTHLY_COLS[LIAB][MTH] + str(BASE_MTHLY_ROW + 12)
-    cell['values'] = [[liab_sum.to_eng_string()]]
-    print_info("cell = {}\n".format(cell))
-    data.append(cell)
+    fill_cell(dest, BAL_MTHLY_COLS[LIAB][MTH], BASE_MTHLY_ROW + 12, liab_sum, data)
 
     return data
 
@@ -277,11 +245,7 @@ def fill_year(year, root_account, dest, cur):
 
     # fill LIABS
     acct_name, liab_sum = get_period_sum(root_account, BALANCE_ACCTS[LIAB], year_end, cur)
-    cell = {}
-    cell['range'] = dest + '!' + BAL_MTHLY_COLS[LIAB][YR] + str(BASE_ROW + year_span(year))
-    cell['values'] = [[liab_sum.to_eng_string()]]
-    print_info("cell = {}\n".format(cell))
-    data.append(cell)
+    fill_cell(dest, BAL_MTHLY_COLS[LIAB][YR], BASE_ROW + year_span(year), liab_sum, data)
 
     return data
 
@@ -293,7 +257,7 @@ def get_gnucash_data(gnucash_file, domain, dest):
       LIABS, House, FAMILY, XCHALET, TRUST
     OR for the specified year:
       IF CURRENT YEAR: LIABS for ALL completed months; FAMILY for ALL non-3 completed months in year
-      IF PREVIOUS YEAR: LIABS for year, for ALL NON-completed months; FAMILY for ALL non-3 NON-completed months in year
+      IF PREVIOUS YEAR: LIABS for ALL NON-completed months; FAMILY for ALL non-3 NON-completed months in year
       ELSE: LIABS for year
     :param gnucash_file: string: name of file used to read the values
     :param       domain: string: what to update
