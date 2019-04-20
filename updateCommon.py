@@ -110,11 +110,11 @@ BASE_ROW = 3
 def fill_cell(sheet, col, row, val, data_list):
     """
     Create a dictionary to contain Google Sheets update information for one cell and add to the submitted list
-    :param     sheet:         string: particular sheet in my Google spreadsheet to update
-    :param       col:         string: column
-    :param       row:            int
-    :param       val: python Decimal: value
-    :param data_list:           list: to append with created dict
+    :param     sheet:  string: particular sheet in my Google spreadsheet to update
+    :param       col:  string: column
+    :param       row:     int
+    :param       val: Decimal: value to send as string
+    :param data_list:    list: to append with created dict
     :return: nil
     """
     cell = {}
@@ -125,14 +125,22 @@ def fill_cell(sheet, col, row, val, data_list):
 
 
 def get_budget_id():
+    """
+    get the budget id string from the file in the secrets folder
+    :return: string: budget id
+    """
     fp = open(BUDGET_QTRLY_ID_FILE, "r")
     fid = fp.readline().strip()
-    print_info("\nBudget Id = '{}'".format(fid), CYAN)
+    print_info("Budget Id = '{}'\n".format(fid), CYAN)
     fp.close()
     return fid
 
 
 def get_credentials():
+    """
+    get the proper credentials needed to write to the Google spreadsheet
+    :return: pickle object: credentials info
+    """
     creds = None
     if osp.exists(TOKEN):
         with open(TOKEN, 'rb') as token:
@@ -154,6 +162,11 @@ def get_credentials():
 
 # noinspection PyUnresolvedReferences
 def gnc_numeric_to_python_decimal(numeric):
+    """
+    convert a GncNumeric value to a python Decimal value
+    :param numeric: GncNumeric: value to convert
+    :return: Decimal: equivalent to submitted
+    """
     negative = numeric.negative_p()
     sign = 1 if negative else 0
 
@@ -169,33 +182,59 @@ def gnc_numeric_to_python_decimal(numeric):
     return Decimal((sign, digit_tuple, -exponent))
 
 
-def next_period_start(start_year, start_month):
+def next_quarter_start(start_year, start_month):
+    """
+    get the start date of the following quarter
+    :param  start_year: int
+    :param start_month: int
+    :return: int, int: next year and month
+    """
     # add number of months for a Quarter
-    end_month = start_month + PERIOD_QTR
+    next_month = start_month + PERIOD_QTR
 
     # use integer division to find out if the new end month is in a different year,
     # what year it is, and what the end month number should be changed to.
-    end_year = start_year + ((end_month - 1) // NUM_MONTHS)
-    end_month = ((end_month - 1) % NUM_MONTHS) + 1
+    next_year = start_year + ( (next_month - 1) // NUM_MONTHS )
+    next_month = ( (next_month - 1) % NUM_MONTHS ) + 1
 
-    return end_year, end_month
+    return next_year, next_month
 
 
-def period_end(start_year, start_month):
-    end_year, end_month = next_period_start(start_year, start_month)
+def current_quarter_end(start_year, start_month):
+    """
+    get the end date of the current quarter
+    :param  start_year: int
+    :param start_month: int
+    :return: date: end date
+    """
+    end_year, end_month = next_quarter_start(start_year, start_month)
 
     # last step, the end date is one day back from the start of the next period
     # so we get a period end like 2010-03-31 instead of 2010-04-01
     return date(end_year, end_month, 1) - ONE_DAY
 
 
-def generate_period_boundaries(start_year, start_month, periods):
-    for i in range(periods):
-        yield( date(start_year, start_month, 1), period_end(start_year, start_month) )
-        start_year, start_month = next_period_start(start_year, start_month)
+def generate_quarter_boundaries(start_year, start_month, num_qtrs):
+    """
+    get the start and end dates for the quarters in the submitted range
+    :param  start_year: int
+    :param start_month: int
+    :param    num_qtrs: number of quarters to calculate
+    :return: dates: start and end for each quarter
+    """
+    for i in range(num_qtrs):
+        yield(date(start_year, start_month, 1), current_quarter_end(start_year, start_month))
+        start_year, start_month = next_quarter_start(start_year, start_month)
 
 
 def account_from_path(top_account, account_path, original_path=None):
+    """
+    recursive function to get a Gnucash account: starting from the top account and following the path
+    :param   top_account: Gnucash Account: base account
+    :param  account_path:            list: path to follow
+    :param original_path:            list: original call path
+    :return: Gnucash Account
+    """
     # print("top_account = %s, account_path = %s, original_path = %s" % (top_account, account_path, original_path))
     if original_path is None:
         original_path = account_path
@@ -222,7 +261,7 @@ def save_to_json(fname, t_str, json_data, indt=4):
     :return: file name
     """
     out_file = fname + '_' + t_str + ".json"
-    print_info("\njson file is '{}'".format(out_file))
+    print_info("json file is '{}'\n".format(out_file))
     fp = open(out_file, 'w')
     json.dump(json_data, fp, indent=indt)
     fp.close()

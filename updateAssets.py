@@ -117,7 +117,7 @@ def get_acct_assets(root_account, end_date, cur):
         descendants = acct.get_descendants()
         if len(descendants) > 0:
             # for EACH sub-account add to the overall total
-            # print("Descendants of {}:".format(acct_name))
+            # print_info("Descendants of {}:".format(acct_name))
             for sub_acct in descendants:
                 # ?? GETTING SLIGHT ROUNDING ERRORS WHEN ADDING MUTUAL FUND VALUES...
                 acct_sum += get_acct_bal(sub_acct, end_date, cur)
@@ -151,7 +151,7 @@ def get_gnucash_data(gnucash_file, re_year, re_quarter):
         for i in range(num_quarters):
             qtr = re_quarter if re_quarter else i + 1
             start_month = (qtr * 3) - 2
-            end_date = period_end(re_year, start_month)
+            end_date = current_quarter_end(re_year, start_month)
 
             data_quarter = get_acct_assets(root_account, end_date, CAD)
             data_quarter[QTR] = str(qtr)

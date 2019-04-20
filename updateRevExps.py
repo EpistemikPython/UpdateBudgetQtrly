@@ -175,7 +175,7 @@ def get_gnucash_data(gnucash_file, re_year, re_quarter):
                     ZERO, # credits sum
                     ZERO  # TOTAL
                 ]
-                for start_date, end_date in generate_period_boundaries(re_year, start_month, 1)
+                for start_date, end_date in generate_quarter_boundaries(re_year, start_month, 1)
             ]
             # a copy of the above list with just the period start dates
             period_starts = [e[0] for e in period_list]
