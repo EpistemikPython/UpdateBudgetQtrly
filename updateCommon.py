@@ -7,7 +7,7 @@
 # @author Mark Sattolo <epistemik@gmail.com>
 # @version Python 3.6
 # @created 2019-04-07
-# @updated 2019-04-20
+# @updated 2019-04-22
 
 from sys import stdout, exit
 from datetime import date, timedelta, datetime as dt
@@ -48,7 +48,7 @@ def print_info(text, color='', inspector=True, newline=True):
         calling_file  = inspect.getfile(calling_frame).split('/')[-1]
         calling_line  = str(inspect.getlineno(calling_frame))
         inspect_line  = '[' + calling_file + '@' + calling_line + ']: '
-    print(inspect_line + color + text + COLOR_OFF, end=('\n' if newline else ''))
+    print(inspect_line + color + str(text) + COLOR_OFF, end=('\n' if newline else ''))
 
 
 def print_error(text, newline=True):
@@ -61,7 +61,7 @@ def print_error(text, newline=True):
     calling_line = str(inspect.getlineno(calling_frame))
     parent_line = str(inspect.getlineno(parent_frame))
     inspect_line = '[' + calling_file + '@' + calling_line + '/' + parent_line + ']: '
-    print(inspect_line + RED + text + COLOR_OFF, end=('\n' if newline else ''))
+    print(inspect_line + RED + str(text) + COLOR_OFF, end=('\n' if newline else ''))
 
 
 # constant strings
@@ -112,9 +112,9 @@ now = today.strftime("%Y-%m-%dT%H-%M-%S")
 def year_span(year_diff, base_year_span, hdr_span):
     """
     For sheet row position, have to factor in the header row placed so many years
-    :param year_diff: int: year to calculate for
+    :param      year_diff: int: year to calculate for
     :param base_year_span: int: year to calculate for
-    :param hdr_span: int: year to calculate for
+    :param       hdr_span: int: year to calculate for
     :return int: value to use to calculate which row to update
     """
     return (year_diff * base_year_span) + (year_diff // hdr_span)
@@ -145,11 +145,11 @@ def get_quarter(str_qtr):
     :return int: quarter
     """
     if not str_qtr.isnumeric():
-        print_error("Input MUST be a String of 1..4!")
+        print_error("Input MUST be a String of 0..4!")
         exit(138)
     int_qtr = int(float(str_qtr))
-    if int_qtr > 4 or int_qtr < 1:
-        print_error("Input MUST be a String of 1..4!")
+    if int_qtr > 4 or int_qtr < 0:
+        print_error("Input MUST be a String of 0..4!")
         exit(142)
 
     return int_qtr
