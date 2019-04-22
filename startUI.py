@@ -4,7 +4,7 @@
 # @author Mark Sattolo <epistemik@gmail.com>
 # @version Python 3.6
 # @created 2019-04-21
-# @updated 2019-04-21
+# @updated 2019-04-22
 
 import sys
 from PyQt5.QtWidgets import ( QApplication, QComboBox, QVBoxLayout, QGroupBox, QDialog,
@@ -22,15 +22,33 @@ ASSETS    = 'Assets'
 BALANCE   = 'Balance'
 TEST      = 'test'
 SEND      = 'send'
-GNC_FILES = 'Script'
+GNC_FILES = 'Gnc Files'
 QRTRS     = 'Quarters'
+READER    = 'reader'
+RUNNER    = 'runner'
+HOUSEHOLD = 'HouseHold'
+SHEET_1   = 'Sheet 1'
+SHEET_2   = 'Sheet 2'
 
 PARAMS = {
-    GNC_FILES : ['reader', 'runner', 'HouseHold'] ,
+    GNC_FILES : [READER, RUNNER, HOUSEHOLD] ,
     REV_EXPS  : ['2019', '2018', '2017', '2016', '2015', '2014', '2013', '2012'] ,
     ASSETS    : ['2011', '2010', '2009', '2008'] ,
     BALANCE   : ['today', 'allyears'] ,
     QRTRS     : ['0', '1', '2', '3', '4']
+}
+
+BASE_GNC_PATH = '/home/marksa/dev/git/Python/Gnucash/gncFiles/'
+GNC_PATHS = {
+    READER   : BASE_GNC_PATH + 'reader.gnc' ,
+    RUNNER   : BASE_GNC_PATH + 'runner.gnc' ,
+    HOUSEHOLD: BASE_GNC_PATH + 'HouseHoldFiles/HouseHold.gnucash'
+}
+
+MAIN_FXNS = {
+    REV_EXPS: update_rev_exps_main ,
+    ASSETS  : update_assets_main   ,
+    BALANCE : update_balance_main
 }
 
 
@@ -40,8 +58,8 @@ class UpdateBudgetQtrly(QDialog):
     def __init__(self):
         super().__init__()
         self.title = 'Update Budget Quarterly'
-        self.left = 600
-        self.top = 300
+        self.left = 1380
+        self.top = 138
         self.width = 400
         self.height = 600
         self.init_ui()
@@ -52,9 +70,10 @@ class UpdateBudgetQtrly(QDialog):
 
         self.create_group_box()
 
-        self.response = QTextEdit()
-        self.response.setReadOnly(True)
-        self.response.setText('Hello there!')
+        self.response_box = QTextEdit()
+        self.response_box.setReadOnly(True)
+        self.response_box.acceptRichText()
+        self.response_box.setText('Hello there!')
 
         button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Close)
         button_box.accepted.connect(self.accept)
@@ -62,7 +81,7 @@ class UpdateBudgetQtrly(QDialog):
 
         layout = QVBoxLayout()
         layout.addWidget(self.formGroupBox)
-        layout.addWidget(self.response)
+        layout.addWidget(self.response_box)
         layout.addWidget(button_box)
 
         self.setLayout(layout)
@@ -81,7 +100,7 @@ class UpdateBudgetQtrly(QDialog):
 
         self.cb_gnc_file = QComboBox()
         self.cb_gnc_file.addItems(PARAMS[GNC_FILES])
-        self.cb_gnc_file.currentIndexChanged.connect(partial(file_change, self.cb_gnc_file))
+        self.cb_gnc_file.currentIndexChanged.connect(partial(self.selection_change, self.cb_gnc_file))
         layout.addRow(QLabel("Gnucash File:"), self.cb_gnc_file)
 
         self.cb_mode = QComboBox()
@@ -92,20 +111,20 @@ class UpdateBudgetQtrly(QDialog):
 
         self.cb_domain = QComboBox()
         self.cb_domain.addItems(PARAMS[REV_EXPS])
-        self.cb_domain.currentIndexChanged.connect(partial(domain_change, self.cb_domain))
+        self.cb_domain.currentIndexChanged.connect(partial(self.selection_change, self.cb_domain))
         layout.addRow(QLabel("Domain:"), self.cb_domain)
 
         self.cb_qtr = QComboBox()
         self.cb_qtr.addItems(PARAMS[QRTRS])
-        self.cb_qtr.currentIndexChanged.connect(partial(quarter_change, self.cb_qtr))
+        self.cb_qtr.currentIndexChanged.connect(partial(self.selection_change, self.cb_qtr))
         layout.addRow(QLabel("Quarter:"), self.cb_qtr)
 
         self.cb_dest = QComboBox()
-        self.cb_dest.currentIndexChanged.connect(partial(dest_change, self.cb_dest))
+        self.cb_dest.currentIndexChanged.connect(partial(self.selection_change, self.cb_dest))
         layout.addRow(QLabel("Destination:"), self.cb_dest)
 
         self.exe_btn = QPushButton('Go!')
-        self.exe_btn.clicked.connect(partial(button_click, self))
+        self.exe_btn.clicked.connect(partial(self.button_click))
         layout.addRow(QLabel("Execute:"), self.exe_btn)
 
         self.formGroupBox.setLayout(layout)
@@ -148,36 +167,38 @@ class UpdateBudgetQtrly(QDialog):
             if new_mode == TEST:
                 self.cb_dest.clear()
             elif new_mode == SEND:
-                self.cb_dest.addItems(['Sheet 1', 'Sheet 2'])
+                self.cb_dest.addItems([SHEET_1, SHEET_2])
             else:
                 raise Exception("INVALID MODE!!?? '{}'".format(new_mode))
 
             self.mode = new_mode
 
+    def button_click(self):
+        print_info("Clicked '{}'.".format(self.exe_btn.text()))
+        print_info("Script is '{}'.".format(self.cb_script.currentText()))
 
-def domain_change(cb):
-    print("Domain changed to '{}'.".format(cb.currentText()))
+        # adjust the mode string if Sheet 1 is the destination
+        send_mode = self.cb_mode.currentText()
+        if send_mode == SEND:
+            if self.cb_dest.currentText() == SHEET_1:
+                send_mode += '1'
 
+        cl_params = [GNC_PATHS[self.cb_gnc_file.currentText()], send_mode,
+                     self.cb_domain.currentText(), self.cb_qtr.currentText()]
+        print(cl_params)
 
-def file_change(cb):
-    print("File changed to '{}'.".format(cb.currentText()))
+        main_fxn = MAIN_FXNS[self.cb_script.currentText()]
+        if callable(main_fxn):
+            reply = main_fxn(cl_params)
+        else:
+            msg = "Problem with main??!! '{}'".format(main_fxn)
+            print_error(msg)
+            reply = msg
+        self.response_box.setText(json.dumps(reply, indent=4))
 
-
-def year_change(cb):
-    print("Year changed to '{}'.".format(cb.currentText()))
-
-
-def quarter_change(cb):
-    print("Quarter changed to '{}'.".format(cb.currentText()))
-
-
-def dest_change(cb):
-    print("Destination changed to '{}'.".format(cb.currentText()))
-
-
-def button_click(obj):
-    print("Clicked 'Execute'.")
-    print("Script is '{}'.".format(obj.cb_script.currentText()))
+    @staticmethod
+    def selection_change(cb):
+        print("Selection changed to '{}'.".format(cb.currentText()))
 
 
 def ui_main():
