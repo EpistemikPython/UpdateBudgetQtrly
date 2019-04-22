@@ -16,16 +16,21 @@ from updateAssets import update_assets_main
 from updateBalance import update_balance_main
 
 
-REV_EXPS = 'Rev & Exps'
-ASSETS   = 'Assets'
-BALANCE  = 'Balance'
-TEST = 'test'
-SEND = 'send'
+# constant strings
+REV_EXPS  = 'Rev & Exps'
+ASSETS    = 'Assets'
+BALANCE   = 'Balance'
+TEST      = 'test'
+SEND      = 'send'
+GNC_FILES = 'Script'
+QRTRS     = 'Quarters'
 
-DOMAINS = {
-    REV_EXPS: ['2019', '2018', '2017', '2016', '2015', '2014', '2013', '2012'] ,
-    ASSETS  : ['2011', '2010', '2009', '2008'] ,
-    BALANCE : ['today', 'allyears']
+PARAMS = {
+    GNC_FILES : ['reader', 'runner', 'HouseHold'] ,
+    REV_EXPS  : ['2019', '2018', '2017', '2016', '2015', '2014', '2013', '2012'] ,
+    ASSETS    : ['2011', '2010', '2009', '2008'] ,
+    BALANCE   : ['today', 'allyears'] ,
+    QRTRS     : ['0', '1', '2', '3', '4']
 }
 
 
@@ -75,7 +80,7 @@ class UpdateBudgetQtrly(QDialog):
         self.script = self.cb_script.currentText()
 
         self.cb_gnc_file = QComboBox()
-        self.cb_gnc_file.addItems(['reader', 'runner', 'HouseHold'])
+        self.cb_gnc_file.addItems(PARAMS[GNC_FILES])
         self.cb_gnc_file.currentIndexChanged.connect(partial(file_change, self.cb_gnc_file))
         layout.addRow(QLabel("Gnucash File:"), self.cb_gnc_file)
 
@@ -86,12 +91,12 @@ class UpdateBudgetQtrly(QDialog):
         self.mode = self.cb_mode.currentText()
 
         self.cb_domain = QComboBox()
-        self.cb_domain.addItems(DOMAINS[REV_EXPS])
+        self.cb_domain.addItems(PARAMS[REV_EXPS])
         self.cb_domain.currentIndexChanged.connect(partial(domain_change, self.cb_domain))
         layout.addRow(QLabel("Domain:"), self.cb_domain)
 
         self.cb_qtr = QComboBox()
-        self.cb_qtr.addItems(['0', '1', '2', '3', '4'])
+        self.cb_qtr.addItems(PARAMS[QRTRS])
         self.cb_qtr.currentIndexChanged.connect(partial(quarter_change, self.cb_qtr))
         layout.addRow(QLabel("Quarter:"), self.cb_qtr)
 
@@ -110,17 +115,27 @@ class UpdateBudgetQtrly(QDialog):
         print_info("Script changed to '{}'.".format(new_script), MAGENTA)
         if new_script != self.script:
             if new_script == REV_EXPS:
+                # adjust Domain
                 self.cb_domain.clear()
-                self.cb_domain.addItems(DOMAINS[REV_EXPS])
+                self.cb_domain.addItems(PARAMS[REV_EXPS])
+                # adjust Quarter if necessary
+                if self.script == BALANCE:
+                    self.cb_qtr = PARAMS[QRTRS]
             elif new_script == ASSETS:
+                # adjust Domain
                 if self.script == REV_EXPS:
-                    self.cb_domain.addItems(DOMAINS[ASSETS])
-                else: # BALANCE
+                    self.cb_domain.addItems(PARAMS[ASSETS])
+                else: # current script is BALANCE
                     self.cb_domain.clear()
-                    self.cb_domain.addItems(DOMAINS[REV_EXPS] + DOMAINS[ASSETS])
+                    self.cb_domain.addItems(PARAMS[REV_EXPS] + PARAMS[ASSETS])
+                    # adjust Quarter
+                    self.cb_qtr = PARAMS[QRTRS]
             elif new_script == BALANCE:
+                # adjust Domain
                 self.cb_domain.clear()
-                self.cb_domain.addItems(DOMAINS[BALANCE] + DOMAINS[REV_EXPS] + DOMAINS[ASSETS])
+                self.cb_domain.addItems(PARAMS[BALANCE] + PARAMS[REV_EXPS] + PARAMS[ASSETS])
+                # adjust Quarter
+                self.cb_qtr.clear()
             else:
                 raise Exception("INVALID SCRIPT!!?? '{}'".format(new_script))
 
