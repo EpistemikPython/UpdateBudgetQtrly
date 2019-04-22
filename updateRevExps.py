@@ -150,7 +150,7 @@ def get_gnucash_data(gnucash_file, re_year, re_quarter):
     :param gnucash_file: string: name of file used to read the values
     :param      re_year:    int: year to update
     :param   re_quarter:    int: 1..4 for quarter to update or 0 if updating entire year
-    :return: nil
+    :return: list: Gnucash data
     """
     num_quarters = 1 if re_quarter else 4
     print_info("find Revenue & Expenses in {} for {}{}".format(gnucash_file, re_year, ('-Q' + str(re_quarter)) if re_quarter else ''))
@@ -280,35 +280,40 @@ def send_google_data(mode, re_year, gnc_data):
     return response
 
 
-def update_rev_exps_main():
+def update_rev_exps_main(args):
     """
     Main: check command line and call functions to get the data from Gnucash book and send to Google document
-    :return: nil
+    :return: string
     """
-    exe = argv[0].split('/')[-1]
-    if len(argv) < 4:
+    if len(args) < 3:
         print_error("NOT ENOUGH parameters!")
-        print_info("usage: {} <book url> mode=<[send]1|2> <year> [quarter]".format(exe), GREEN)
+        usage = 'usage: py36 updateRevExps.py <book url> mode=<.?[send][1]> <year> [quarter]'
+        print_info(usage, GREEN)
         print_info("PROGRAM EXIT!", MAGENTA)
-        return
+        return usage
 
-    gnucash_file = argv[1]
-    mode = argv[2].lower()
-    print_info("\nrunning '{}' on '{}' in mode '{}' at run-time: {}\n".format(exe, gnucash_file, mode, now))
+    gnucash_file = args[0]
+    mode = args[1].lower()
+    print_info("\nrunning in mode '{}' at run-time: {}\n".format(mode, now), CYAN)
 
-    re_year = get_year(argv[3], BASE_YEAR)
-    re_quarter = get_quarter(argv[4]) if len(argv) > 4 else 0
+    re_year = get_year(args[2], BASE_YEAR)
+    re_quarter = get_quarter(args[3]) if len(args) > 3 else 0
 
     # either for One Quarter or for Four Quarters if updating an entire Year
     gnc_data = get_gnucash_data(gnucash_file, re_year, re_quarter)
 
     response = send_google_data(mode, re_year, gnc_data)
-    if response:
-        fname = "out/updateRevExps_response-{}{}".format(re_year, ('-Q' + str(re_quarter)) if re_quarter else '')
-        save_to_json(fname, now, response)
 
     print_info("\n >>> PROGRAM ENDED.")
 
+    if response:
+        fname = "out/updateRevExps_response-{}{}".format(re_year, ('-Q' + str(re_quarter)) if re_quarter else '')
+        save_to_json(fname, now, response)
+        return response
+    else:
+        return gnc_data
+
 
 if __name__ == "__main__":
-    update_rev_exps_main()
+    import sys
+    update_rev_exps_main(sys.argv[1:])

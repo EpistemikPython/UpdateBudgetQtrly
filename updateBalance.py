@@ -311,39 +311,44 @@ def send_google_data(mode, data):
     return response
 
 
-def update_balance_main():
+def update_balance_main(args):
     """
     Main: check command line and call functions to get the data from Gnucash book and send to Google document
-    :return: nil
+    :return: string
     """
-    exe = argv[0].split('/')[-1]
-    if len(argv) < 4:
+    if len(args) < 3:
         print_error("NOT ENOUGH parameters!")
-        print_info("usage: {} <book url> mode=<.?[send][1]> <year|'today'|'allyears'>".format(exe), GREEN)
+        usage = "usage: py36 updateBalance.py <book url> mode=<.?[send][1]> <year | 'today' | 'allyears'>"
+        print_info(usage, GREEN)
         print_error("PROGRAM EXIT!")
-        return
+        return usage
 
-    gnucash_file = argv[1]
+    gnucash_file = args[0]
 
-    mode = argv[2].lower()
+    mode = args[1].lower()
     dest = BAL_2_SHEET
     if '1' in mode:
         dest = BAL_1_SHEET
 
-    print_info("\nrunning '{}' on '{}' in mode '{}' at run-time: {}\n".format(exe, gnucash_file, mode, now), GREEN)
+    print_info("\nrunning in mode '{}' at run-time: {}\n".format(mode, now), CYAN)
 
-    domain = argv[3].lower()
+    domain = args[2].lower()
 
     # get the requested data from Gnucash and package in the update format required by Google spreadsheets
     data = get_gnucash_data(gnucash_file, domain, dest)
 
     response = send_google_data(mode, data)
-    if response:
-        fname = "out/updateBalance_{}-response".format(domain)
-        save_to_json(fname, now, response)
 
     print_info(" >>> PROGRAM ENDED.\n", GREEN)
 
+    if response:
+        fname = "out/updateBalance_{}-response".format(domain)
+        save_to_json(fname, now, response)
+        return response
+    else:
+        return data
+
 
 if __name__ == "__main__":
-    update_balance_main()
+    import sys
+    update_balance_main(sys.argv[1:])
