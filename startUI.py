@@ -10,10 +10,17 @@ import sys
 from PyQt5.QtWidgets import ( QApplication, QComboBox, QVBoxLayout, QGroupBox, QDialog,
                               QPushButton, QFormLayout, QDialogButtonBox, QLabel, QTextEdit )
 from functools import partial
+from updateCommon import *
+from updateRevExps import update_rev_exps_main
+from updateAssets import update_assets_main
+from updateBalance import update_balance_main
+
 
 REV_EXPS = 'Rev & Exps'
 ASSETS   = 'Assets'
 BALANCE  = 'Balance'
+TEST = 'test'
+SEND = 'send'
 
 DOMAINS = {
     REV_EXPS: ['2019', '2018', '2017', '2016', '2015', '2014', '2013', '2012'] ,
@@ -23,7 +30,7 @@ DOMAINS = {
 
 
 # noinspection PyAttributeOutsideInit,PyUnresolvedReferences
-class App(QDialog):
+class UpdateBudgetQtrly(QDialog):
 
     def __init__(self):
         super().__init__()
@@ -40,15 +47,12 @@ class App(QDialog):
 
         self.create_group_box()
 
-        exe_btn = QPushButton('Execute')
-        exe_btn.clicked.connect(partial(button_click, self))
-
         self.response = QTextEdit()
         self.response.setReadOnly(True)
         self.response.setText('Hello there!')
 
         button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Close)
-        button_box.accepted.connect(partial(button_click, self))
+        button_box.accepted.connect(self.accept)
         button_box.rejected.connect(self.reject)
 
         layout = QVBoxLayout()
@@ -66,8 +70,9 @@ class App(QDialog):
 
         self.cb_script = QComboBox()
         self.cb_script.addItems([REV_EXPS, ASSETS, BALANCE])
-        self.cb_script.currentIndexChanged.connect(partial(script_change, self.cb_script))
+        self.cb_script.currentIndexChanged.connect(partial(self.script_change))
         layout.addRow(QLabel("Script:"), self.cb_script)
+        self.script = self.cb_script.currentText()
 
         self.cb_gnc_file = QComboBox()
         self.cb_gnc_file.addItems(['reader', 'runner', 'HouseHold'])
@@ -75,9 +80,10 @@ class App(QDialog):
         layout.addRow(QLabel("Gnucash File:"), self.cb_gnc_file)
 
         self.cb_mode = QComboBox()
-        self.cb_mode.addItems(['test', 'send'])
-        self.cb_mode.currentIndexChanged.connect(partial(mode_change, self.cb_mode))
+        self.cb_mode.addItems([TEST, SEND])
+        self.cb_mode.currentIndexChanged.connect(partial(self.mode_change))
         layout.addRow(QLabel("Mode:"), self.cb_mode)
+        self.mode = self.cb_mode.currentText()
 
         self.cb_domain = QComboBox()
         self.cb_domain.addItems(DOMAINS[REV_EXPS])
@@ -90,19 +96,48 @@ class App(QDialog):
         layout.addRow(QLabel("Quarter:"), self.cb_qtr)
 
         self.cb_dest = QComboBox()
-        self.cb_dest.addItems(['Sheet 1', 'Sheet 2'])
         self.cb_dest.currentIndexChanged.connect(partial(dest_change, self.cb_dest))
         layout.addRow(QLabel("Destination:"), self.cb_dest)
 
+        self.exe_btn = QPushButton('Go!')
+        self.exe_btn.clicked.connect(partial(button_click, self))
+        layout.addRow(QLabel("Execute:"), self.exe_btn)
+
         self.formGroupBox.setLayout(layout)
 
+    def script_change(self):
+        new_script = self.cb_script.currentText()
+        print_info("Script changed to '{}'.".format(new_script), MAGENTA)
+        if new_script != self.script:
+            if new_script == REV_EXPS:
+                self.cb_domain.clear()
+                self.cb_domain.addItems(DOMAINS[REV_EXPS])
+            elif new_script == ASSETS:
+                if self.script == REV_EXPS:
+                    self.cb_domain.addItems(DOMAINS[ASSETS])
+                else: # BALANCE
+                    self.cb_domain.clear()
+                    self.cb_domain.addItems(DOMAINS[REV_EXPS] + DOMAINS[ASSETS])
+            elif new_script == BALANCE:
+                self.cb_domain.clear()
+                self.cb_domain.addItems(DOMAINS[BALANCE] + DOMAINS[REV_EXPS] + DOMAINS[ASSETS])
+            else:
+                raise Exception("INVALID SCRIPT!!?? '{}'".format(new_script))
 
-def selection_change(cb):
-    print("Selection changed to '{}'.".format(cb.currentText()))
+            self.script = new_script
 
+    def mode_change(self):
+        new_mode = self.cb_mode.currentText()
+        print_info("Mode changed to '{}'.".format(new_mode), CYAN)
+        if new_mode != self.mode:
+            if new_mode == TEST:
+                self.cb_dest.clear()
+            elif new_mode == SEND:
+                self.cb_dest.addItems(['Sheet 1', 'Sheet 2'])
+            else:
+                raise Exception("INVALID MODE!!?? '{}'".format(new_mode))
 
-def script_change(cb):
-    print("Script changed to '{}'.".format(cb.currentText()))
+            self.mode = new_mode
 
 
 def domain_change(cb):
@@ -111,10 +146,6 @@ def domain_change(cb):
 
 def file_change(cb):
     print("File changed to '{}'.".format(cb.currentText()))
-
-
-def mode_change(cb):
-    print("Mode changed to '{}'.".format(cb.currentText()))
 
 
 def year_change(cb):
@@ -136,8 +167,8 @@ def button_click(obj):
 
 def ui_main():
     app = QApplication(sys.argv)
-    exe = App()
-    exe.show()
+    dialog = UpdateBudgetQtrly()
+    dialog.show()
     sys.exit(app.exec_())
 
 
