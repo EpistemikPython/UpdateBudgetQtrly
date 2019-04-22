@@ -1,6 +1,14 @@
+#
+# startUI.py -- run the UI for the update functions
+#
+# @author Mark Sattolo <epistemik@gmail.com>
+# @version Python 3.6
+# @created 2019-04-21
+# @updated 2019-04-21
+
 import sys
-from PyQt5.QtWidgets import ( QApplication, QWidget, QComboBox, QVBoxLayout, QGroupBox, QGridLayout, QDialog,
-                              QPushButton, QFormLayout, QDialogButtonBox, QLabel, QLineEdit, QSpinBox )
+from PyQt5.QtWidgets import ( QApplication, QComboBox, QVBoxLayout, QGroupBox, QDialog,
+                              QPushButton, QFormLayout, QDialogButtonBox, QLabel, QTextEdit )
 from functools import partial
 
 REV_EXPS = 'Rev & Exps'
@@ -23,88 +31,69 @@ class App(QDialog):
         self.left = 600
         self.top = 300
         self.width = 400
-        self.height = 400
+        self.height = 600
         self.init_ui()
 
     def init_ui(self):
         self.setWindowTitle(self.title)
         self.setGeometry(self.left, self.top, self.width, self.height)
 
-        self.create_grid_layout()
+        self.create_group_box()
 
-        self.createFormGroupBox()
+        exe_btn = QPushButton('Execute')
+        exe_btn.clicked.connect(partial(button_click, self))
 
-        buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        buttonBox.accepted.connect(self.accept)
-        buttonBox.rejected.connect(self.reject)
+        self.response = QTextEdit()
+        self.response.setReadOnly(True)
+        self.response.setText('Hello there!')
+
+        button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Close)
+        button_box.accepted.connect(partial(button_click, self))
+        button_box.rejected.connect(self.reject)
 
         layout = QVBoxLayout()
         layout.addWidget(self.formGroupBox)
-        layout.addWidget(self.group_box)
-        layout.addWidget(buttonBox)
-        self.setLayout(layout)
+        layout.addWidget(self.response)
+        layout.addWidget(button_box)
 
         self.setLayout(layout)
         self.show()
 
-    def create_grid_layout(self):
-        self.group_box = QGroupBox('Selections:')
-        layout = QGridLayout()
-        # layout.setColumnStretch(1, 4)
-        # layout.setColumnStretch(2, 4)
+    def create_group_box(self):
+
+        self.formGroupBox = QGroupBox("Parameters:")
+        layout = QFormLayout()
 
         self.cb_script = QComboBox()
         self.cb_script.addItems([REV_EXPS, ASSETS, BALANCE])
         self.cb_script.currentIndexChanged.connect(partial(script_change, self.cb_script))
-        layout.addWidget(self.cb_script, 0, 0)
+        layout.addRow(QLabel("Script:"), self.cb_script)
 
         self.cb_gnc_file = QComboBox()
         self.cb_gnc_file.addItems(['reader', 'runner', 'HouseHold'])
         self.cb_gnc_file.currentIndexChanged.connect(partial(file_change, self.cb_gnc_file))
-        layout.addWidget(self.cb_gnc_file, 0, 1)
+        layout.addRow(QLabel("Gnucash File:"), self.cb_gnc_file)
 
         self.cb_mode = QComboBox()
         self.cb_mode.addItems(['test', 'send'])
         self.cb_mode.currentIndexChanged.connect(partial(mode_change, self.cb_mode))
-        layout.addWidget(self.cb_mode, 1, 0)
-
-        layout.addWidget(QLabel('BLANK'), 1, 1)
+        layout.addRow(QLabel("Mode:"), self.cb_mode)
 
         self.cb_domain = QComboBox()
         self.cb_domain.addItems(DOMAINS[REV_EXPS])
         self.cb_domain.currentIndexChanged.connect(partial(domain_change, self.cb_domain))
-        layout.addWidget(self.cb_domain, 2, 0)
+        layout.addRow(QLabel("Domain:"), self.cb_domain)
 
         self.cb_qtr = QComboBox()
         self.cb_qtr.addItems(['0', '1', '2', '3', '4'])
         self.cb_qtr.currentIndexChanged.connect(partial(quarter_change, self.cb_qtr))
-        layout.addWidget(self.cb_qtr, 2, 1)
+        layout.addRow(QLabel("Quarter:"), self.cb_qtr)
 
         self.cb_dest = QComboBox()
         self.cb_dest.addItems(['Sheet 1', 'Sheet 2'])
         self.cb_dest.currentIndexChanged.connect(partial(dest_change, self.cb_dest))
-        layout.addWidget(self.cb_dest, 3, 0)
+        layout.addRow(QLabel("Destination:"), self.cb_dest)
 
-        self.btn = QPushButton('Execute')
-        layout.addWidget(self.btn, 3, 1)
-        self.btn.clicked.connect(partial(button_click, self))
-
-        self.group_box.setLayout(layout)
-
-    NumGridRows = 3
-    NumButtons = 4
-
-    def createFormGroupBox(self):
-        self.formGroupBox = QGroupBox("Form layout")
-        layout = QFormLayout()
-
-        self.cb_year = QComboBox()
-        self.cb_year.addItems(DOMAINS[ASSETS])
-        self.cb_year.currentIndexChanged.connect(partial(year_change, self.cb_year))
-
-        layout.addRow(QLabel("Name:"), QLineEdit())
-        layout.addRow(QLabel("Year:"), self.cb_year)
-        layout.addRow(QLabel("Age:"), QSpinBox())
         self.formGroupBox.setLayout(layout)
 
 
@@ -141,20 +130,19 @@ def dest_change(cb):
 
 
 def button_click(obj):
+    print("Clicked 'Execute'.")
     print("Script is '{}'.".format(obj.cb_script.currentText()))
-    print("Clicked '{}'.".format(obj.btn.text()))
 
 
 def ui_main():
     app = QApplication(sys.argv)
-    ex = App()
-    ex.show()
+    exe = App()
+    exe.show()
     sys.exit(app.exec_())
 
 
 if __name__ == '__main__':
     ui_main()
-
 
 # if __name__ == '__main__':
 #     app = QApplication(sys.argv)
