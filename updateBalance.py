@@ -8,9 +8,8 @@
 # @author Mark Sattolo <epistemik@gmail.com>
 # @version Python 3.6
 # @created 2019-04-13
-# @updated 2019-04-20
+# @updated 2019-04-22
 
-from sys import argv
 from gnucash import Session
 from googleapiclient.discovery import build
 from updateCommon import *
@@ -209,11 +208,11 @@ def fill_previous_year(root_account, dest, cur):
 
 def fill_year(year, root_account, dest, cur):
     """
-    LIABS for year
     :param         year:               int: get data for this year
     :param root_account:   Gnucash Account: from the Gnucash book
     :param         dest:            string: Google sheet to update
     :param          cur: Gnucash Commodity: currency to use for the totals
+    LIABS for year
     :return: list: cell(s) with location and value to update on Google sheet
     """
     data = []
@@ -231,15 +230,15 @@ def fill_year(year, root_account, dest, cur):
 # noinspection PyUnboundLocalVariable,PyUnresolvedReferences
 def get_gnucash_data(gnucash_file, domain, dest):
     """
+    :param gnucash_file: string: name of file used to read the values
+    :param       domain: string: what to update
+    :param         dest: string: Google sheet to update
     Get Balance data for TODAY:
       LIABS, House, FAMILY, XCHALET, TRUST
     OR for the specified year:
       IF CURRENT YEAR: TODAY & LIABS for ALL completed months; FAMILY for ALL non-3 completed months in year
       IF PREVIOUS YEAR: LIABS for ALL NON-completed months; FAMILY for ALL non-3 NON-completed months in year
       ELSE: LIABS for year
-    :param gnucash_file: string: name of file used to read the values
-    :param       domain: string: what to update
-    :param         dest: string: Google sheet to update
     :return: list: cell(s) with location and value to update on Google sheet
     """
     print_info("find Balances in {} for {}".format(gnucash_file, domain), GREEN)
@@ -277,7 +276,7 @@ def get_gnucash_data(gnucash_file, domain, dest):
         print_error("Exception: {}!".format(ge))
         if "gnucash_session" in locals() and gnucash_session is not None:
             gnucash_session.end()
-        exit(356)
+        exit(279)
 
 
 def send_google_data(mode, data):
@@ -306,7 +305,7 @@ def send_google_data(mode, data):
 
     except Exception as se:
         print_error("Exception: {}!".format(se))
-        exit(385)
+        exit(308)
 
     return response
 

@@ -8,9 +8,8 @@
 # @author Mark Sattolo <epistemik@gmail.com>
 # @version Python 3.6
 # @created 2019-04-06
-# @updated 2019-04-20
+# @updated 2019-04-22
 
-from sys import argv
 from gnucash import Session
 from googleapiclient.discovery import build
 from updateCommon import *
@@ -124,7 +123,7 @@ def get_gnucash_data(gnucash_file, re_year, re_quarter):
     Get ASSET data for ONE specified Quarter or ALL four Quarters for the specified Year
     :param gnucash_file: string: name of file used to read the values
     :param      re_year:    int: year to update
-    :param   re_quarter:    int: 1..4 for quarter to update or 0 if updating entire year
+    :param   re_quarter:    int: 1..4 for quarter to update or 0 if updating ALL FOUR quarters
     :return: list of Gnucash data
     """
     print_info("find Assets in {} for {}{}".format(gnucash_file, re_year, ('-Q' + str(re_quarter)) if re_quarter else ''), GREEN)
@@ -158,7 +157,7 @@ def get_gnucash_data(gnucash_file, re_year, re_quarter):
         print_error("Exception: {}!".format(ge))
         if "gnucash_session" in locals() and gnucash_session is not None:
             gnucash_session.end()
-        exit(177)
+        exit(160)
 
 
 def fill_google_data(mode, re_year, gnc_data):
@@ -234,7 +233,7 @@ def send_google_data(mode, re_year, gnc_data):
 
     except Exception as se:
         print_error("Exception on Send: {}!".format(se))
-        exit(255)
+        exit(236)
 
     return response
 
