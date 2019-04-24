@@ -7,7 +7,7 @@
 # @author Mark Sattolo <epistemik@gmail.com>
 # @version Python 3.6
 # @created 2019-04-07
-# @updated 2019-04-22
+# @updated 2019-04-23
 
 from sys import stdout, exit
 from datetime import date, timedelta, datetime as dt
@@ -111,11 +111,11 @@ now = today.strftime("%Y-%m-%dT%H-%M-%S")
 
 def year_span(year_diff, base_year_span, hdr_span):
     """
-    to calculate which row to update, factoring in the header row placed every so-many years
+    calculate which row to update, factoring in the header row placed every so-many years
     :param      year_diff: int: difference in years to calculate for
     :param base_year_span: int: number of rows between equivalent positions in adjacent years, not including header rows
     :param       hdr_span: int: number of rows between header rows
-    :return: int 
+    :return: int
     """
     return (year_diff * base_year_span) + (year_diff // hdr_span)
 
@@ -364,7 +364,7 @@ def fill_splits(root_acct, target_path, period_starts, period_list):
     """
     account_of_interest = account_from_path(root_acct, target_path)
     acct_name = account_of_interest.GetName()
-    print("\naccount_of_interest = {}".format(acct_name))
+    print_info("\naccount_of_interest = {}".format(acct_name), BLUE)
 
     # get the split amounts for the parent account
     get_splits(account_of_interest, period_starts, period_list)

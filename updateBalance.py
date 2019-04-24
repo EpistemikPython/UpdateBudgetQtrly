@@ -8,7 +8,7 @@
 # @author Mark Sattolo <epistemik@gmail.com>
 # @version Python 3.6
 # @created 2019-04-13
-# @updated 2019-04-22
+# @updated 2019-04-23
 
 from gnucash import Session
 from googleapiclient.discovery import build
@@ -104,7 +104,7 @@ def fill_today(root_account, dest, cur):
     :param root_account:   Gnucash Account: from the Gnucash book
     :param         dest:            string: Google sheet to update
     :param          cur: Gnucash Commodity: currency to use for the totals
-    :return: list: cell(s) with location and value to update on Google sheet
+    :return: list of cell(s) with location and value to update on Google sheet
     """
     data = []
     for item in BALANCE_ACCTS:
@@ -131,12 +131,12 @@ def fill_all_years(root_account, dest, cur):
     :param root_account:   Gnucash Account: from the Gnucash book
     :param         dest:            string: Google sheet to update
     :param          cur: Gnucash Commodity: currency to use for the totals
-    :return: list: cell(s) with location and value to update on Google sheet
+    :return: list of cell(s) with location and value to update on Google sheet
     """
     data = []
     for i in range(today.year-BASE_YEAR-1):
         year_end = date(BASE_YEAR+i, 12, 31)
-        print("year_end = {}".format(year_end))
+        print_info("year_end = {}".format(year_end), BLUE)
         # fill LIABS
         acct_name, liab_sum = get_total_balance(root_account, BALANCE_ACCTS[LIAB], year_end, cur)
         yr_span = year_span(year_end.year - BASE_YEAR, BASE_YEAR_SPAN, HDR_SPAN)
@@ -151,13 +151,13 @@ def fill_current_year(root_account, dest, cur):
     :param root_account: Gnucash Account: from the Gnucash book
     :param         dest: Google sheet to update
     :param          cur: Gnucash Commodity: currency to use for the totals
-    :return: list: cell(s) with location and value to update on Google sheet
+    :return: list of cell(s) with location and value to update on Google sheet
     """
     data = fill_today(root_account, dest, cur)
 
     for i in range(today.month-1):
         month_end = date(today.year, i+2, 1)-ONE_DAY
-        print("month_end = {}".format(month_end))
+        print_info("month_end = {}".format(month_end), BLUE)
 
         # fill LIABS
         acct_name, liab_sum = get_total_balance(root_account, BALANCE_ACCTS[LIAB], month_end, cur)
@@ -179,13 +179,13 @@ def fill_previous_year(root_account, dest, cur):
     :param root_account:   Gnucash Account: from the Gnucash book
     :param         dest:            string: Google sheet to update
     :param          cur: Gnucash Commodity: currency to use for the totals
-    :return: list: cell(s) with location and value to update on Google sheet
+    :return: list of cell(s) with location and value to update on Google sheet
     """
     data = []
     year = today.year - 1
     for i in range(12-today.month):
         dte = date(year, i+5, 1)-ONE_DAY
-        print("date = {}".format(dte))
+        print_info("date = {}".format(dte), BLUE)
 
         # fill LIABS
         acct_name, liab_sum = get_total_balance(root_account, BALANCE_ACCTS[LIAB], dte, cur)
@@ -213,11 +213,11 @@ def fill_year(year, root_account, dest, cur):
     :param         dest:            string: Google sheet to update
     :param          cur: Gnucash Commodity: currency to use for the totals
     LIABS for year
-    :return: list: cell(s) with location and value to update on Google sheet
+    :return: list of cell(s) with location and value to update on Google sheet
     """
     data = []
     year_end = date(year, 12, 31)
-    print("year_end = {}".format(year_end))
+    print_info("year_end = {}".format(year_end), BLUE)
 
     # fill LIABS
     acct_name, liab_sum = get_total_balance(root_account, BALANCE_ACCTS[LIAB], year_end, cur)
@@ -239,7 +239,7 @@ def get_gnucash_data(gnucash_file, domain, dest):
       IF CURRENT YEAR: TODAY & LIABS for ALL completed months; FAMILY for ALL non-3 completed months in year
       IF PREVIOUS YEAR: LIABS for ALL NON-completed months; FAMILY for ALL non-3 NON-completed months in year
       ELSE: LIABS for year
-    :return: list: cell(s) with location and value to update on Google sheet
+    :return: list of cell(s) with location and value to update on Google sheet
     """
     print_info("find Balances in {} for {}".format(gnucash_file, domain), GREEN)
 
