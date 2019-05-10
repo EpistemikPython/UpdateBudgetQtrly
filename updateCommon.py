@@ -155,23 +155,23 @@ def get_quarter(str_qtr):
     return int_qtr
 
 
-# noinspection PyDictCreation
-def fill_cell(sheet, col, row, val, data_list):
+def fill_cell(sheet, col, row, val, data_list=None):
     """
     Create a dictionary to contain Google Sheets update information for one cell and add to the submitted list
     :param     sheet:  string:  particular sheet in my Google spreadsheet to update
     :param       col:  string:  column
     :param       row:     int
     :param       val:  string | Decimal: value to send as string
-    :param data_list:    list:  to append with created dict
-    :return: nil
+    :param data_list:    list:  to append with created dict, if needed
+    :return: data_list
     """
-    cell = {}
-    cell['range'] = sheet + '!' + col + str(row)
+    if data_list is None:
+        data_list = list()
     value = val.to_eng_string() if isinstance(val, Decimal) else val
-    cell['values'] = [[value]]
+    cell = {'range': sheet + '!' + col + str(row), 'values': [[value]]}
     print_info("cell = {}\n".format(cell))
     data_list.append(cell)
+    return data_list
 
 
 def get_budget_id():
