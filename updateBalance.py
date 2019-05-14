@@ -107,9 +107,11 @@ def fill_today(root_account, dest, cur):
     :return: list of cell(s) with location and value to update on Google sheet
     """
     data = []
+    # calls using 'today' ARE NOT off by one day??
+    tdate = today - ONE_DAY
     for item in BALANCE_ACCTS:
         path = BALANCE_ACCTS[item]
-        acct_name, acct_sum = get_total_balance(root_account, path, today, cur)
+        acct_name, acct_sum = get_total_balance(root_account, path, tdate, cur)
 
         # need assets apart from house and liabilities which are reported separately
         if item == HOUSE:
@@ -184,7 +186,7 @@ def fill_previous_year(root_account, dest, cur):
     data = []
     year = today.year - 1
     for i in range(12-today.month):
-        dte = date(year, i+5, 1)-ONE_DAY
+        dte = date(year, i+today.month+1, 1)-ONE_DAY
         print_info("date = {}".format(dte), BLUE)
 
         # fill LIABS
@@ -215,14 +217,13 @@ def fill_year(year, root_account, dest, cur):
     LIABS for year
     :return: list of cell(s) with location and value to update on Google sheet
     """
-    data = []
     year_end = date(year, 12, 31)
     print_info("year_end = {}".format(year_end), BLUE)
 
     # fill LIABS
     acct_name, liab_sum = get_total_balance(root_account, BALANCE_ACCTS[LIAB], year_end, cur)
     yr_span = year_span(year - BASE_YEAR, BASE_YEAR_SPAN, HDR_SPAN)
-    fill_cell(dest, BAL_MTHLY_COLS[LIAB][YR], BASE_ROW + yr_span, liab_sum, data)
+    data = fill_cell(dest, BAL_MTHLY_COLS[LIAB][YR], BASE_ROW + yr_span, liab_sum)
 
     return data
 
@@ -310,6 +311,7 @@ def send_google_data(mode, data):
     return response
 
 
+# TODO: fill in date column for previous month when updating 'today', check to update 'today' or 'tomorrow'
 def update_balance_main(args):
     """
     Main: check command line and call functions to get the data from Gnucash book and send to Google document
