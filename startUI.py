@@ -23,15 +23,20 @@ BALANCE   = 'Balance'
 TEST      = 'test'
 SEND      = 'send'
 GNC_FILES = 'Gnc Files'
+GNC_SUFX  = '.gnc'
 QRTRS     = 'Quarters'
 READER    = 'reader'
 RUNNER    = 'runner'
+TEST1     = 'test1'
+TEST2     = 'test2'
+TEST3     = 'test3'
+TEST4     = 'test4'
 HOUSEHOLD = 'HouseHold'
 SHEET_1   = 'Sheet 1'
 SHEET_2   = 'Sheet 2'
 
 PARAMS = {
-    GNC_FILES : [READER, RUNNER, HOUSEHOLD] ,
+    GNC_FILES : [READER, RUNNER, HOUSEHOLD, TEST1, TEST2, TEST3, TEST4] ,
     REV_EXPS  : ['2019', '2018', '2017', '2016', '2015', '2014', '2013', '2012'] ,
     ASSETS    : ['2011', '2010', '2009', '2008'] ,
     BALANCE   : ['today', 'allyears'] ,
@@ -40,15 +45,19 @@ PARAMS = {
 
 BASE_GNC_PATH = '/home/marksa/dev/git/Python/Gnucash/gncFiles/'
 GNC_PATHS = {
-    READER   : BASE_GNC_PATH + 'reader.gnc' ,
-    RUNNER   : BASE_GNC_PATH + 'runner.gnc' ,
-    HOUSEHOLD: BASE_GNC_PATH + 'HouseHoldFiles/HouseHold.gnucash'
+    READER    : BASE_GNC_PATH + READER + GNC_SUFX ,
+    RUNNER    : BASE_GNC_PATH + RUNNER + GNC_SUFX ,
+    HOUSEHOLD : BASE_GNC_PATH + 'HouseHoldFiles/' + HOUSEHOLD + '.gnucash' ,
+    TEST1     : BASE_GNC_PATH + TEST1 + GNC_SUFX ,
+    TEST2     : BASE_GNC_PATH + TEST2 + GNC_SUFX ,
+    TEST3     : BASE_GNC_PATH + TEST3 + GNC_SUFX ,
+    TEST4     : BASE_GNC_PATH + TEST4 + GNC_SUFX
 }
 
 MAIN_FXNS = {
-    REV_EXPS: update_rev_exps_main ,
-    ASSETS  : update_assets_main   ,
-    BALANCE : update_balance_main
+    REV_EXPS : update_rev_exps_main ,
+    ASSETS   : update_assets_main   ,
+    BALANCE  : update_balance_main
 }
 
 
@@ -58,8 +67,8 @@ class UpdateBudgetQtrly(QDialog):
     def __init__(self):
         super().__init__()
         self.title = 'Update Budget Quarterly'
-        self.left = 1380
-        self.top = 138
+        self.left = 780
+        self.top = 160
         self.width = 400
         self.height = 600
         self.init_ui()
@@ -201,6 +210,7 @@ class UpdateBudgetQtrly(QDialog):
         print("Selection changed to '{}'.".format(cb.currentText()))
 
 
+# TODO: print debug output to ui screen
 def ui_main():
     app = QApplication(sys.argv)
     dialog = UpdateBudgetQtrly()
