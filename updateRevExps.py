@@ -35,10 +35,11 @@ EXP_ACCTS = {
     CONT  : ["EXP_CONTINGENT"],
     NEC   : ["EXP_NECESSARY"]
 }
+DEDNS_BASE = 'DEDNS_Salary'
 DEDN_ACCTS = {
-    "Mark" : ["Mk-Dedns"],
-    "Lulu" : ["Lu-Dedns"],
-    "ML"   : ["ML-Dedns"]
+    "Mark" : [DEDNS_BASE, 'Mark'],
+    "Lulu" : [DEDNS_BASE, 'Lulu'],
+    "ML"   : [DEDNS_BASE, 'Marie-Laure']
 }
 
 # column index in the Google sheets
@@ -101,8 +102,8 @@ def get_deductions(root_account, period_starts, period_list, re_year, data_quart
         period_list[0][2] = ZERO
         period_list[0][3] = ZERO
 
-        acct_base = DEDN_ACCTS[item]
-        acct_name = fill_splits(root_account, acct_base, period_starts, period_list)
+        acct_path = DEDN_ACCTS[item]
+        acct_name = fill_splits(root_account, acct_path, period_starts, period_list)
 
         sum_deductions = period_list[0][2] + period_list[0][3]
         str_dedns += sum_deductions.to_eng_string() + (' + ' if item != "ML" else '')
