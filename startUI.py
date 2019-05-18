@@ -7,7 +7,7 @@
 # @updated 2019-04-22
 
 import sys
-from PyQt5.QtWidgets import ( QApplication, QComboBox, QVBoxLayout, QGroupBox, QDialog,
+from PyQt5.QtWidgets import ( QApplication, QComboBox, QVBoxLayout, QGroupBox, QDialog, QFileDialog,
                               QPushButton, QFormLayout, QDialogButtonBox, QLabel, QTextEdit )
 from functools import partial
 from updateCommon import *
@@ -22,36 +22,15 @@ ASSETS    = 'Assets'
 BALANCE   = 'Balance'
 TEST      = 'test'
 SEND      = 'send'
-GNC_FILES = 'Gnc Files'
-GNC_SUFX  = '.gnc'
-QRTRS     = 'Quarters'
-READER    = 'reader'
-RUNNER    = 'runner'
-TEST1     = 'test1'
-TEST2     = 'test2'
-TEST3     = 'test3'
-TEST4     = 'test4'
-HOUSEHOLD = 'HouseHold'
+QTRS      = 'Quarters'
 SHEET_1   = 'Sheet 1'
 SHEET_2   = 'Sheet 2'
 
 PARAMS = {
-    GNC_FILES : [READER, RUNNER, HOUSEHOLD, TEST1, TEST2, TEST3, TEST4] ,
     REV_EXPS  : ['2019', '2018', '2017', '2016', '2015', '2014', '2013', '2012'] ,
     ASSETS    : ['2011', '2010', '2009', '2008'] ,
     BALANCE   : ['today', 'allyears'] ,
-    QRTRS     : ['0', '1', '2', '3', '4']
-}
-
-BASE_GNC_PATH = '/home/marksa/dev/git/Python/Gnucash/gncFiles/'
-GNC_PATHS = {
-    READER    : BASE_GNC_PATH + READER + GNC_SUFX ,
-    RUNNER    : BASE_GNC_PATH + RUNNER + GNC_SUFX ,
-    HOUSEHOLD : BASE_GNC_PATH + HOUSEHOLD + GNC_SUFX ,
-    TEST1     : BASE_GNC_PATH + TEST1 + GNC_SUFX ,
-    TEST2     : BASE_GNC_PATH + TEST2 + GNC_SUFX ,
-    TEST3     : BASE_GNC_PATH + TEST3 + GNC_SUFX ,
-    TEST4     : BASE_GNC_PATH + TEST4 + GNC_SUFX
+    QTRS      : ['0', '1', '2', '3', '4']
 }
 
 MAIN_FXNS = {
@@ -101,18 +80,15 @@ class UpdateBudgetQtrly(QDialog):
         self.formGroupBox = QGroupBox("Parameters:")
         layout = QFormLayout()
 
-        # TODO: use file picker?
         self.cb_script = QComboBox()
         self.cb_script.addItems([REV_EXPS, ASSETS, BALANCE])
         self.cb_script.currentIndexChanged.connect(partial(self.script_change))
         layout.addRow(QLabel("Script:"), self.cb_script)
         self.script = self.cb_script.currentText()
 
-        # TODO: use file picker
-        self.cb_gnc_file = QComboBox()
-        self.cb_gnc_file.addItems(PARAMS[GNC_FILES])
-        self.cb_gnc_file.currentIndexChanged.connect(partial(self.selection_change, self.cb_gnc_file))
-        layout.addRow(QLabel("Gnucash File:"), self.cb_gnc_file)
+        self.gnc_file_btn = QPushButton('Get Gnucash file')
+        self.gnc_file_btn.clicked.connect(partial(self.open_file_name_dialog))
+        layout.addRow(QLabel("Gnucash File:"), self.gnc_file_btn)
 
         self.cb_mode = QComboBox()
         self.cb_mode.addItems([TEST, SEND])
@@ -126,7 +102,7 @@ class UpdateBudgetQtrly(QDialog):
         layout.addRow(QLabel("Domain:"), self.cb_domain)
 
         self.cb_qtr = QComboBox()
-        self.cb_qtr.addItems(PARAMS[QRTRS])
+        self.cb_qtr.addItems(PARAMS[QTRS])
         self.cb_qtr.currentIndexChanged.connect(partial(self.selection_change, self.cb_qtr))
         layout.addRow(QLabel("Quarter:"), self.cb_qtr)
 
@@ -140,9 +116,19 @@ class UpdateBudgetQtrly(QDialog):
 
         self.formGroupBox.setLayout(layout)
 
+    def open_file_name_dialog(self):
+        options = QFileDialog.Options()
+        options |= QFileDialog.DontUseNativeDialog
+        file_name, _ = QFileDialog.getOpenFileName(self, "Get Gnucash Files", "", "Gnucash Files (*.gnc);;All Files (*)",
+                                                   options=options)
+        if file_name:
+            self.gnc_file = file_name
+            self.gnc_file_display = file_name.split('/')[-1]
+            self.gnc_file_btn.setText(self.gnc_file_display)
+
     def script_change(self):
         new_script = self.cb_script.currentText()
-        print_info("Script changed to '{}'.".format(new_script), MAGENTA)
+        print_info("Script changed to: {}.".format(new_script), MAGENTA)
         if new_script != self.script:
             if new_script == REV_EXPS:
                 # adjust Domain
@@ -150,7 +136,7 @@ class UpdateBudgetQtrly(QDialog):
                 self.cb_domain.addItems(PARAMS[REV_EXPS])
                 # adjust Quarter if necessary
                 if self.script == BALANCE:
-                    self.cb_qtr = PARAMS[QRTRS]
+                    self.cb_qtr = PARAMS[QTRS]
             elif new_script == ASSETS:
                 # adjust Domain
                 if self.script == REV_EXPS:
@@ -159,7 +145,7 @@ class UpdateBudgetQtrly(QDialog):
                     self.cb_domain.clear()
                     self.cb_domain.addItems(PARAMS[REV_EXPS] + PARAMS[ASSETS])
                     # adjust Quarter
-                    self.cb_qtr = PARAMS[QRTRS]
+                    self.cb_qtr = PARAMS[QTRS]
             elif new_script == BALANCE:
                 # adjust Domain
                 self.cb_domain.clear()
@@ -194,9 +180,8 @@ class UpdateBudgetQtrly(QDialog):
             if self.cb_dest.currentText() == SHEET_1:
                 send_mode += '1'
 
-        cl_params = [GNC_PATHS[self.cb_gnc_file.currentText()], send_mode,
-                     self.cb_domain.currentText(), self.cb_qtr.currentText()]
-        print(cl_params)
+        cl_params = [self.gnc_file, send_mode, self.cb_domain.currentText(), self.cb_qtr.currentText()]
+        print_info(cl_params, GREEN)
 
         main_fxn = MAIN_FXNS[self.cb_script.currentText()]
         if callable(main_fxn):
@@ -209,7 +194,7 @@ class UpdateBudgetQtrly(QDialog):
 
     @staticmethod
     def selection_change(cb):
-        print("Selection changed to '{}'.".format(cb.currentText()))
+        print_info("Selection changed to '{}'.".format(cb.currentText()), MAGENTA)
 
 
 # TODO: print debug output to ui screen
