@@ -84,7 +84,7 @@ class UpdateBudgetQtrly(QDialog):
         self.response_box.acceptRichText()
         self.response_box.setText('Hello there!')
 
-        button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Close)
+        button_box = QDialogButtonBox(QDialogButtonBox.Close)
         button_box.accepted.connect(self.accept)
         button_box.rejected.connect(self.reject)
 
