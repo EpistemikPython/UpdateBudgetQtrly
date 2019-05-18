@@ -8,7 +8,7 @@
 # @author Mark Sattolo <epistemik@gmail.com>
 # @version Python 3.6
 # @created 2019-04-13
-# @updated 2019-04-23
+# @updated 2019-05-18
 
 from gnucash import Session
 from googleapiclient.discovery import build
@@ -33,8 +33,9 @@ BALANCE_ACCTS = {
 
 BAL_MTHLY_COLS = {
     LIAB  : {YR: 'U', MTH: 'L'},
-    TODAY : 'C',
-    ASTS  : 'K'
+    TODAY : 'C' ,
+    ASTS  : 'K' ,
+    MTH   : 'I'
 }
 BASE_MTHLY_ROW = 19
 
@@ -154,20 +155,25 @@ def fill_current_year(root_account, dest, cur):
     """
     data = fill_today(root_account, dest, cur)
 
-    for i in range(today.month-1):
+    for i in range(today.month - 1):
         month_end = date(today.year, i+2, 1)-ONE_DAY
         print_info("month_end = {}".format(month_end), BLUE)
 
+        row = BASE_MTHLY_ROW + month_end.month
         # fill LIABS
         acct_name, liab_sum = get_total_balance(root_account, BALANCE_ACCTS[LIAB], month_end, cur)
-        fill_cell(dest, BAL_MTHLY_COLS[LIAB][MTH], BASE_MTHLY_ROW + month_end.month, liab_sum, data)
+        fill_cell(dest, BAL_MTHLY_COLS[LIAB][MTH], row, liab_sum, data)
 
         # fill ASSETS for months NOT covered by the Assets sheet
         if month_end.month % 3 != 0:
             acct_name, acct_sum = get_total_balance(root_account, BALANCE_ACCTS[ASTS], month_end, cur)
             adjusted_assets = acct_sum - liab_sum
             print_info("Adjusted assets on {} = ${}".format(month_end, adjusted_assets.to_eng_string()), MAGENTA)
-            fill_cell(dest, BAL_MTHLY_COLS[ASTS], BASE_MTHLY_ROW + month_end.month, adjusted_assets, data)
+            fill_cell(dest, BAL_MTHLY_COLS[ASTS], row, adjusted_assets, data)
+
+        # fill DATE for last month
+        if month_end.month == today.month - 1:
+            fill_cell(dest, BAL_MTHLY_COLS[MTH], row, str(month_end), data)
 
     return data
 
@@ -186,16 +192,17 @@ def fill_previous_year(root_account, dest, cur):
         dte = date(year, i+today.month+1, 1)-ONE_DAY
         print_info("date = {}".format(dte), BLUE)
 
+        row = BASE_MTHLY_ROW + dte.month
         # fill LIABS
         acct_name, liab_sum = get_total_balance(root_account, BALANCE_ACCTS[LIAB], dte, cur)
-        fill_cell(dest, BAL_MTHLY_COLS[LIAB][MTH], BASE_MTHLY_ROW + dte.month, liab_sum, data)
+        fill_cell(dest, BAL_MTHLY_COLS[LIAB][MTH], row, liab_sum, data)
 
         # fill ASSETS for months NOT covered by the Assets sheet
         if dte.month % 3 != 0:
             acct_name, acct_sum = get_total_balance(root_account, BALANCE_ACCTS[ASTS], dte, cur)
             adjusted_assets = acct_sum - liab_sum
             print_info("Adjusted assets on {} = ${}".format(dte, adjusted_assets.to_eng_string()), MAGENTA)
-            fill_cell(dest, BAL_MTHLY_COLS[ASTS], BASE_MTHLY_ROW + dte.month, adjusted_assets, data)
+            fill_cell(dest, BAL_MTHLY_COLS[ASTS], row, adjusted_assets, data)
 
     # LIABS entry for year end
     year_end = date(year, 12, 31)
@@ -208,6 +215,7 @@ def fill_previous_year(root_account, dest, cur):
     return data
 
 
+# noinspection PyUnboundLocalVariable
 def fill_year(year, root_account, dest, cur, data_list=None):
     """
     :param         year:               int: get data for this year
