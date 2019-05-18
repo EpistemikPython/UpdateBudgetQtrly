@@ -136,13 +136,10 @@ def fill_all_years(root_account, dest, cur):
     :return: list of cell(s) with location and value to update on Google sheet
     """
     data = []
-    for i in range(today.year-BASE_YEAR-1):
-        year_end = date(BASE_YEAR+i, 12, 31)
-        print_info("year_end = {}".format(year_end), BLUE)
+    for i in range(today.year - BASE_YEAR - 1):
+        year = BASE_YEAR + i
         # fill LIABS
-        acct_name, liab_sum = get_total_balance(root_account, BALANCE_ACCTS[LIAB], year_end, cur)
-        yr_span = year_span(year_end.year - BASE_YEAR, BASE_YEAR_SPAN, HDR_SPAN)
-        fill_cell(dest, BAL_MTHLY_COLS[LIAB][YR], BASE_ROW + yr_span, liab_sum, data)
+        fill_year(year, root_account, dest, cur, data)
 
     return data
 
@@ -203,18 +200,22 @@ def fill_previous_year(root_account, dest, cur):
     # LIABS entry for year end
     year_end = date(year, 12, 31)
     acct_name, liab_sum = get_total_balance(root_account, BALANCE_ACCTS[LIAB], year_end, cur)
+    # month column
     fill_cell(dest, BAL_MTHLY_COLS[LIAB][MTH], BASE_MTHLY_ROW + 12, liab_sum, data)
+    # year column
+    fill_year(year, root_account, dest, cur, data)
 
     return data
 
 
-def fill_year(year, root_account, dest, cur):
+def fill_year(year, root_account, dest, cur, data_list=None):
     """
     :param         year:               int: get data for this year
     :param root_account:   Gnucash Account: from the Gnucash book
     :param         dest:            string: Google sheet to update
     :param          cur: Gnucash Commodity: currency to use for the totals
-    LIABS for year
+    :param    data_list: optional list to fill
+    LIABS for year column
     :return: list of cell(s) with location and value to update on Google sheet
     """
     year_end = date(year, 12, 31)
@@ -223,9 +224,12 @@ def fill_year(year, root_account, dest, cur):
     # fill LIABS
     acct_name, liab_sum = get_total_balance(root_account, BALANCE_ACCTS[LIAB], year_end, cur)
     yr_span = year_span(year - BASE_YEAR, BASE_YEAR_SPAN, HDR_SPAN)
-    data = fill_cell(dest, BAL_MTHLY_COLS[LIAB][YR], BASE_ROW + yr_span, liab_sum)
+    if data_list is None:
+        data = fill_cell(dest, BAL_MTHLY_COLS[LIAB][YR], BASE_ROW + yr_span, liab_sum)
+    else:
+        fill_cell(dest, BAL_MTHLY_COLS[LIAB][YR], BASE_ROW + yr_span, liab_sum, data_list)
 
-    return data
+    return data if data_list is None else data_list
 
 
 # noinspection PyUnboundLocalVariable,PyUnresolvedReferences
