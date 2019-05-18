@@ -47,7 +47,7 @@ BASE_GNC_PATH = '/home/marksa/dev/git/Python/Gnucash/gncFiles/'
 GNC_PATHS = {
     READER    : BASE_GNC_PATH + READER + GNC_SUFX ,
     RUNNER    : BASE_GNC_PATH + RUNNER + GNC_SUFX ,
-    HOUSEHOLD : BASE_GNC_PATH + 'HouseHoldFiles/' + HOUSEHOLD + '.gnucash' ,
+    HOUSEHOLD : BASE_GNC_PATH + HOUSEHOLD + GNC_SUFX ,
     TEST1     : BASE_GNC_PATH + TEST1 + GNC_SUFX ,
     TEST2     : BASE_GNC_PATH + TEST2 + GNC_SUFX ,
     TEST3     : BASE_GNC_PATH + TEST3 + GNC_SUFX ,
@@ -101,12 +101,14 @@ class UpdateBudgetQtrly(QDialog):
         self.formGroupBox = QGroupBox("Parameters:")
         layout = QFormLayout()
 
+        # TODO: use file picker?
         self.cb_script = QComboBox()
         self.cb_script.addItems([REV_EXPS, ASSETS, BALANCE])
         self.cb_script.currentIndexChanged.connect(partial(self.script_change))
         layout.addRow(QLabel("Script:"), self.cb_script)
         self.script = self.cb_script.currentText()
 
+        # TODO: use file picker
         self.cb_gnc_file = QComboBox()
         self.cb_gnc_file.addItems(PARAMS[GNC_FILES])
         self.cb_gnc_file.currentIndexChanged.connect(partial(self.selection_change, self.cb_gnc_file))
