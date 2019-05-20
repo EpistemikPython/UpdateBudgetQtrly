@@ -1,3 +1,5 @@
+##############################################################################################################################
+# coding=utf-8
 #
 # updateBalance.py -- use the Gnucash and Google APIs to update the 'Balance' sheet
 #                     in my BudgetQtrly document for today or for a specified year or years

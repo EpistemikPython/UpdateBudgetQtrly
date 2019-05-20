@@ -1,10 +1,12 @@
+##############################################################################################################################
+# coding=utf-8
 #
 # startUI.py -- run the UI for the update functions
 #
 # @author Mark Sattolo <epistemik@gmail.com>
 # @version Python 3.6
 # @created 2019-04-21
-# @updated 2019-04-22
+# @updated 2019-05-20
 
 import sys
 from PyQt5.QtWidgets import ( QApplication, QComboBox, QVBoxLayout, QGroupBox, QDialog, QFileDialog,
@@ -50,6 +52,7 @@ class UpdateBudgetQtrly(QDialog):
         self.top = 160
         self.width = 400
         self.height = 600
+        self.gnc_file = None
         self.init_ui()
 
     def init_ui(self):
@@ -68,7 +71,7 @@ class UpdateBudgetQtrly(QDialog):
         button_box.rejected.connect(self.reject)
 
         layout = QVBoxLayout()
-        layout.addWidget(self.formGroupBox)
+        layout.addWidget(self.gb_main)
         layout.addWidget(self.response_box)
         layout.addWidget(button_box)
 
@@ -77,11 +80,11 @@ class UpdateBudgetQtrly(QDialog):
 
     def create_group_box(self):
 
-        self.formGroupBox = QGroupBox("Parameters:")
+        self.gb_main = QGroupBox("Parameters:")
         layout = QFormLayout()
 
         self.cb_script = QComboBox()
-        self.cb_script.addItems([REV_EXPS, ASSETS, BALANCE])
+        self.cb_script.addItems([x for x in MAIN_FXNS])
         self.cb_script.currentIndexChanged.connect(partial(self.script_change))
         layout.addRow(QLabel("Script:"), self.cb_script)
         self.script = self.cb_script.currentText()
@@ -114,7 +117,7 @@ class UpdateBudgetQtrly(QDialog):
         self.exe_btn.clicked.connect(partial(self.button_click))
         layout.addRow(QLabel("Execute:"), self.exe_btn)
 
-        self.formGroupBox.setLayout(layout)
+        self.gb_main.setLayout(layout)
 
     def open_file_name_dialog(self):
         options = QFileDialog.Options()
@@ -173,6 +176,10 @@ class UpdateBudgetQtrly(QDialog):
     def button_click(self):
         print_info("Clicked '{}'.".format(self.exe_btn.text()))
         print_info("Script is '{}'.".format(self.cb_script.currentText()))
+
+        if self.gnc_file is None:
+            self.response_box.setText('>>> MUST select a Gnucash File!')
+            return
 
         # adjust the mode string if Sheet 1 is the destination
         send_mode = self.cb_mode.currentText()

@@ -1,3 +1,5 @@
+##############################################################################################################################
+# coding=utf-8
 #
 # updateAssets.py -- use the Gnucash and Google APIs to update the Assets
 #                    in my BudgetQtrly document for a specified year or quarter

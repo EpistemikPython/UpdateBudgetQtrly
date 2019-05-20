@@ -1,3 +1,5 @@
+##############################################################################################################################
+# coding=utf-8
 #
 # updateCommon.py -- common methods and variables for updates
 #
@@ -7,7 +9,7 @@
 # @author Mark Sattolo <epistemik@gmail.com>
 # @version Python 3.6
 # @created 2019-04-07
-# @updated 2019-04-23
+# @updated 2019-05-18
 
 from sys import stdout, exit
 from datetime import date, timedelta, datetime as dt
@@ -35,13 +37,14 @@ WHITE   = COLOR_FLAG + '37m'
 COLOR_OFF = COLOR_FLAG + '0m'
 
 
+# TODO: add print_log() to store all info and return a log string
 def print_info(text, color='', inspector=True, newline=True):
     """
     Print information with choices of color, inspection info, newline
     """
     inspect_line = ''
     if text is None:
-        text = '================================================================================================================='
+        text = '==============================================================================================================='
         inspector = False
     if inspector:
         calling_frame = inspect.currentframe().f_back
@@ -197,7 +200,7 @@ def get_credentials():
             creds = pickle.load(token)
 
     # if there are no (valid) credentials available, let the user log in.
-    if not creds or not creds.valid:
+    if creds is None or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:

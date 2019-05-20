@@ -1,3 +1,5 @@
+##############################################################################################################################
+# coding=utf-8
 #
 # updateRevExps.py -- use the Gnucash and Google APIs to update the Revenue and Expenses
 #                     in my BudgetQtrly document for a specified year or quarter
@@ -8,7 +10,7 @@
 # @author Mark Sattolo <epistemik@gmail.com>
 # @version Python 3.6
 # @created 2019-03-30
-# @updated 2019-04-22
+# @updated 2019-05-20
 
 from gnucash import Session
 from googleapiclient.discovery import build
