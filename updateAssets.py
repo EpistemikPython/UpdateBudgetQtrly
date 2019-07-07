@@ -7,26 +7,17 @@
 # some code from account_analysis.py by Mark Jenkins, ParIT Worker Co-operative <mark@parit.ca>
 # some code from Google quickstart spreadsheets examples
 #
-# @author Mark Sattolo <epistemik@gmail.com>
-# @version Python 3.6
-# @created 2019-04-06
-# @updated 2019-04-22
+# Copyright (c) 2019 Mark Sattolo <epistemik@gmail.com>
+#
+__author__ = 'Mark Sattolo'
+__author_email__ = 'epistemik@gmail.com'
+__python_version__ = 3.6
+__created__ = '2019-04-06'
+__updated__ = '2019-07-07'
 
 from gnucash import Session
 from googleapiclient.discovery import build
 from updateCommon import *
-
-# constant strings
-AU    = 'Gold'
-AG    = 'Silver'
-CASH  = 'Cash'
-BANK  = 'Bank'
-RWRDS = 'Rewards'
-RESP  = 'RESP'
-OPEN  = 'OPEN'
-RRSP  = 'RRSP'
-TFSA  = 'TFSA'
-HOUSE = 'House'
 
 # path to the account in the Gnucash file
 ASSET_ACCTS = {
@@ -53,7 +44,8 @@ ASSET_COLS = {
     OPEN  : 'L',
     RRSP  : 'M',
     TFSA  : 'N',
-    HOUSE : 'I'
+    HOUSE : 'I',
+    TOTAL : 'H'
 }
 
 BASE_YEAR = 2007

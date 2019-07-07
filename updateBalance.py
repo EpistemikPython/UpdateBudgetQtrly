@@ -7,22 +7,18 @@
 # some code from account_analysis.py by Mark Jenkins, ParIT Worker Co-operative <mark@parit.ca>
 # some code from Google quickstart spreadsheets examples
 #
-# @author Mark Sattolo <epistemik@gmail.com>
-# @version Python 3.6
-# @created 2019-04-13
-# @updated 2019-05-18
+# Copyright (c) 2019 Mark Sattolo <epistemik@gmail.com>
+#
+__author__ = 'Mark Sattolo'
+__author_email__ = 'epistemik@gmail.com'
+__python_version__ = 3.6
+__created__ = '2019-04-13'
+__updated__ = '2019-07-07'
 
 from gnucash import Session
 from googleapiclient.discovery import build
 from updateCommon import *
-
-# constant strings
-ASTS  = 'FAMILY'
-LIAB  = 'LIABS'
-TRUST = 'TRUST'
-CHAL  = 'XCHALET'
-HOUSE = 'House'
-TODAY = 'Today'
+from updateAssets import QTR_SPAN, ASSET_COLS, BASE_YEAR as AST_BY, BASE_YEAR_SPAN as AST_BYS, HDR_SPAN as AST_HS
 
 # path to the accounts in the Gnucash file
 BALANCE_ACCTS = {
@@ -172,10 +168,23 @@ def fill_current_year(root_account, dest, cur):
             adjusted_assets = acct_sum - liab_sum
             print_info("Adjusted assets on {} = ${}".format(month_end, adjusted_assets.to_eng_string()), MAGENTA)
             fill_cell(dest, BAL_MTHLY_COLS[ASTS], row, adjusted_assets, data)
+        else:
+            print_info('Update reference to Assets sheet for Mar, June, Sep or Dec', GREEN)
+            # have to update the CELL REFERENCE to current year/qtr ASSETS
+            year_row = BASE_ROW + year_span(today.year - AST_BY, AST_BYS, AST_HS)
+            # print_info('year_row = {}'.format(year_row))
+            int_qtr = (month_end.month // 3) - 1
+            # print_info("int_qtr = {}".format(int_qtr))
+            dest_row = year_row + (int_qtr * QTR_SPAN)
+            # print_info("dest_row = {}".format(dest_row))
+            val_num = '1' if '1' in dest else '2'
+            # print_info("val_num = {}".format(val_num))
+            value = "='Assets " + val_num + "'!" + ASSET_COLS[TOTAL] + str(dest_row)
+            # print_info("value = {}".format(value))
+            fill_cell(dest, BAL_MTHLY_COLS[ASTS], row, value, data)
 
-        # fill DATE for last month
-        if month_end.month == today.month - 1:
-            fill_cell(dest, BAL_MTHLY_COLS[MTH], row, str(month_end), data)
+        # fill DATE for month column
+        fill_cell(dest, BAL_MTHLY_COLS[MTH], row, str(month_end), data)
 
     return data
 

@@ -6,10 +6,13 @@
 # some code from account_analysis.py by Mark Jenkins, ParIT Worker Co-operative <mark@parit.ca>
 # some code from Google quickstart spreadsheets examples
 #
-# @author Mark Sattolo <epistemik@gmail.com>
-# @version Python 3.6
-# @created 2019-04-07
-# @updated 2019-05-18
+# Copyright (c) 2019 Mark Sattolo <epistemik@gmail.com>
+#
+__author__ = 'Mark Sattolo'
+__author_email__ = 'epistemik@gmail.com'
+__python_version__ = 3.6
+__created__ = '2019-04-07'
+__updated__ = '2019-07-07'
 
 from sys import stdout, exit
 from datetime import date, timedelta, datetime as dt
@@ -68,9 +71,33 @@ def print_error(text, newline=True):
 
 
 # constant strings
-QTR = 'Quarter'
-YR  = 'Year'
-MTH = 'Month'
+AU    = 'Gold'
+AG    = 'Silver'
+CASH  = 'Cash'
+BANK  = 'Bank'
+RWRDS = 'Rewards'
+RESP  = 'RESP'
+OPEN  = 'OPEN'
+RRSP  = 'RRSP'
+TFSA  = 'TFSA'
+HOUSE = 'House'
+TOTAL = 'Total'
+ASTS  = 'FAMILY'
+LIAB  = 'LIABS'
+TRUST = 'TRUST'
+CHAL  = 'XCHALET'
+TODAY = 'Today'
+QTR   = 'Quarter'
+YR    = 'Year'
+MTH   = 'Month'
+REV   = 'Revenue'
+INV   = 'Invest'
+OTH   = 'Other'
+EMP   = 'Employment'
+BAL   = 'Balance'
+CONT  = 'Contingent'
+NEC   = 'Necessary'
+DEDNS = 'Emp_Dedns'
 
 # number of months in the period
 PERIOD_QTR = 3

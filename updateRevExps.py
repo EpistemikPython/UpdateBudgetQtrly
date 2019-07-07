@@ -7,37 +7,30 @@
 # some code from account_analysis.py by Mark Jenkins, ParIT Worker Co-operative <mark@parit.ca>
 # some code from Google quickstart spreadsheets examples
 #
-# @author Mark Sattolo <epistemik@gmail.com>
-# @version Python 3.6
-# @created 2019-03-30
-# @updated 2019-05-20
+# Copyright (c) 2019 Mark Sattolo <epistemik@gmail.com>
+#
+__author__ = 'Mark Sattolo'
+__author_email__ = 'epistemik@gmail.com'
+__python_version__ = 3.6
+__created__ = '2019-03-30'
+__updated__ = '2019-07-07'
 
 from gnucash import Session
 from googleapiclient.discovery import build
 from updateCommon import *
 
-# constant strings
-REV   = 'Revenue'
-INV   = 'Invest'
-OTH   = 'Other'
-SAL   = 'Salary'
-BAL   = 'Balance'
-CONT  = 'Contingent'
-NEC   = 'Necessary'
-DEDNS = 'Sal_Dedns'
-
 # path to the account in the Gnucash file
 REV_ACCTS = {
     INV : ["REV_Invest"],
     OTH : ["REV_Other"],
-    SAL : ["REV_Salary"]
+    EMP : ["REV_Employment"]
 }
 EXP_ACCTS = {
     BAL   : ["EXP_Balance"],
     CONT  : ["EXP_CONTINGENT"],
     NEC   : ["EXP_NECESSARY"]
 }
-DEDNS_BASE = 'DEDNS_Salary'
+DEDNS_BASE = 'DEDNS_Employment'
 DEDN_ACCTS = {
     "Mark" : [DEDNS_BASE, 'Mark'],
     "Lulu" : [DEDNS_BASE, 'Lulu'],
@@ -81,7 +74,7 @@ def get_revenue(root_account, period_starts, period_list, re_year, qtr):
         acct_name = fill_splits(root_account, acct_base, period_starts, period_list)
 
         sum_revenue = (period_list[0][2] + period_list[0][3]) * (-1)
-        str_rev += sum_revenue.to_eng_string() + (' + ' if item != SAL else '')
+        str_rev += sum_revenue.to_eng_string() + (' + ' if item != EMP else '')
         print_info("{} Revenue for {}-Q{} = ${}".format(acct_name, re_year, qtr, sum_revenue))
 
     data_quarter[REV] = str_rev
@@ -109,7 +102,7 @@ def get_deductions(root_account, period_starts, period_list, re_year, data_quart
 
         sum_deductions = period_list[0][2] + period_list[0][3]
         str_dedns += sum_deductions.to_eng_string() + (' + ' if item != "ML" else '')
-        print_info("{} Salary Deductions for {}-Q{} = ${}".format(acct_name, re_year, data_quarter[QTR], sum_deductions))
+        print_info("{} {} Deductions for {}-Q{} = ${}".format(acct_name, EMP, re_year, data_quarter[QTR], sum_deductions))
 
     data_quarter[DEDNS] = str_dedns
     return str_dedns
