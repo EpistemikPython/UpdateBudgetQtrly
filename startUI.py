@@ -6,7 +6,7 @@
 # @author Mark Sattolo <epistemik@gmail.com>
 # @version Python 3.6
 # @created 2019-04-21
-# @updated 2019-05-20
+# @updated 2019-07-14
 
 import sys
 from PyQt5.QtWidgets import ( QApplication, QComboBox, QVBoxLayout, QGroupBox, QDialog, QFileDialog,
@@ -19,14 +19,16 @@ from updateBalance import update_balance_main
 
 
 # constant strings
-REV_EXPS  = 'Rev & Exps'
-ASSETS    = 'Assets'
-BALANCE   = 'Balance'
-TEST      = 'test'
-SEND      = 'send'
-QTRS      = 'Quarters'
-SHEET_1   = 'Sheet 1'
-SHEET_2   = 'Sheet 2'
+DOMAIN:str   = 'Domain'
+REV_EXPS:str = 'Rev & Exps'
+ASSETS:str   = 'Assets'
+BALANCE:str  = 'Balance'
+DEST:str     = 'Destination'
+TEST:str     = 'test'
+SEND:str     = 'send'
+QTRS:str     = 'Quarters'
+SHEET_1:str  = 'Sheet 1'
+SHEET_2:str  = 'Sheet 2'
 
 PARAMS = {
     REV_EXPS  : ['2019', '2018', '2017', '2016', '2015', '2014', '2013', '2012'] ,
@@ -44,7 +46,7 @@ MAIN_FXNS = {
 
 # noinspection PyAttributeOutsideInit,PyUnresolvedReferences
 class UpdateBudgetQtrly(QDialog):
-
+    """update my 'Budget Quarterly' Google spreadsheet with information from a Gnucash file"""
     def __init__(self):
         super().__init__()
         self.title = 'Update Budget Quarterly'
@@ -79,7 +81,6 @@ class UpdateBudgetQtrly(QDialog):
         self.show()
 
     def create_group_box(self):
-
         self.gb_main = QGroupBox("Parameters:")
         layout = QFormLayout()
 
@@ -101,17 +102,17 @@ class UpdateBudgetQtrly(QDialog):
 
         self.cb_domain = QComboBox()
         self.cb_domain.addItems(PARAMS[REV_EXPS])
-        self.cb_domain.currentIndexChanged.connect(partial(self.selection_change, self.cb_domain))
-        layout.addRow(QLabel("Domain:"), self.cb_domain)
+        self.cb_domain.currentIndexChanged.connect(partial(self.selection_change, self.cb_domain, DOMAIN))
+        layout.addRow(QLabel(DOMAIN+':'), self.cb_domain)
 
         self.cb_qtr = QComboBox()
         self.cb_qtr.addItems(PARAMS[QTRS])
-        self.cb_qtr.currentIndexChanged.connect(partial(self.selection_change, self.cb_qtr))
-        layout.addRow(QLabel("Quarter:"), self.cb_qtr)
+        self.cb_qtr.currentIndexChanged.connect(partial(self.selection_change, self.cb_qtr, QTR))
+        layout.addRow(QLabel(QTR+':'), self.cb_qtr)
 
         self.cb_dest = QComboBox()
-        self.cb_dest.currentIndexChanged.connect(partial(self.selection_change, self.cb_dest))
-        layout.addRow(QLabel("Destination:"), self.cb_dest)
+        self.cb_dest.currentIndexChanged.connect(partial(self.selection_change, self.cb_dest, DEST))
+        layout.addRow(QLabel(DEST+':'), self.cb_dest)
 
         self.exe_btn = QPushButton('Go!')
         self.exe_btn.clicked.connect(partial(self.button_click))
@@ -130,34 +131,37 @@ class UpdateBudgetQtrly(QDialog):
             self.gnc_file_btn.setText(self.gnc_file_display)
 
     def script_change(self):
+        """must adjust domain and possibly quarter"""
         new_script = self.cb_script.currentText()
-        print_info("Script changed to: {}.".format(new_script), MAGENTA)
+        print_info("Script changed to: {}".format(new_script), MAGENTA)
         if new_script != self.script:
+            initial_domain = self.cb_domain.currentText()
+            print_info("Start with domain = {}".format(initial_domain), YELLOW)
             if new_script == REV_EXPS:
-                # adjust Domain
                 self.cb_domain.clear()
                 self.cb_domain.addItems(PARAMS[REV_EXPS])
-                # adjust Quarter if necessary
                 if self.script == BALANCE:
-                    self.cb_qtr = PARAMS[QTRS]
-            elif new_script == ASSETS:
-                # adjust Domain
+                    self.cb_qtr.addItems(PARAMS[QTRS])
+            else:
                 if self.script == REV_EXPS:
                     self.cb_domain.addItems(PARAMS[ASSETS])
-                else: # current script is BALANCE
-                    self.cb_domain.clear()
-                    self.cb_domain.addItems(PARAMS[REV_EXPS] + PARAMS[ASSETS])
-                    # adjust Quarter
-                    self.cb_qtr = PARAMS[QTRS]
-            elif new_script == BALANCE:
-                # adjust Domain
-                self.cb_domain.clear()
-                self.cb_domain.addItems(PARAMS[BALANCE] + PARAMS[REV_EXPS] + PARAMS[ASSETS])
-                # adjust Quarter
-                self.cb_qtr.clear()
-            else:
-                raise Exception("INVALID SCRIPT!!?? '{}'".format(new_script))
+                if new_script == ASSETS:
+                    if self.script == BALANCE:
+                        self.cb_domain.clear()
+                        self.cb_domain.addItems(PARAMS[REV_EXPS] + PARAMS[ASSETS])
+                        self.cb_qtr.addItems(PARAMS[QTRS])
+                elif new_script == BALANCE:
+                    self.cb_domain.addItems(PARAMS[BALANCE])
+                    self.cb_qtr.clear()
+                else:
+                    raise Exception("INVALID SCRIPT!!?? '{}'".format(new_script))
 
+            # does not seem to be any defined function to return list of current items
+            if self.cb_domain.currentText() != initial_domain \
+                    and initial_domain in [self.cb_domain.itemText(i) for i in range(self.cb_domain.count())]:
+                self.cb_domain.setCurrentText(initial_domain)
+
+            print_info("Finish with domain = {}".format(self.cb_domain.currentText()), YELLOW)
             self.script = new_script
 
     def mode_change(self):
@@ -200,8 +204,8 @@ class UpdateBudgetQtrly(QDialog):
         self.response_box.setText(json.dumps(reply, indent=4))
 
     @staticmethod
-    def selection_change(cb):
-        print_info("Selection changed to '{}'.".format(cb.currentText()), MAGENTA)
+    def selection_change(cb, label):
+        print_info("ComboBox '{}' selection changed to '{}'.".format(label, cb.currentText()), BLUE)
 
 
 # TODO: print debug output to ui screen
@@ -209,7 +213,7 @@ def ui_main():
     app = QApplication(sys.argv)
     dialog = UpdateBudgetQtrly()
     dialog.show()
-    sys.exit(app.exec_())
+    exit(app.exec_())
 
 
 if __name__ == '__main__':
