@@ -13,7 +13,7 @@ __author__ = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __python_version__ = 3.6
 __created__ = '2019-03-30'
-__updated__ = '2019-07-07'
+__updated__ = '2019-08-03'
 
 from gnucash import Session
 from googleapiclient.discovery import build
@@ -39,6 +39,7 @@ DEDN_ACCTS = {
 
 # column index in the Google sheets
 REV_EXP_COLS = {
+    DATE  : 'B',
     REV   : 'D',
     BAL   : 'P',
     CONT  : 'O',
@@ -46,109 +47,109 @@ REV_EXP_COLS = {
     DEDNS : 'D'
 }
 
-BASE_YEAR = 2012
+BASE_YEAR:int = 2012
 # number of rows between same quarter in adjacent years
-BASE_YEAR_SPAN = 11
+BASE_YEAR_SPAN:int = 11
 # number of rows between quarters in the same year
-QTR_SPAN = 2
+QTR_SPAN:int = 2
 
 
-def get_revenue(root_account, period_starts, period_list, re_year, qtr):
+def get_revenue(root_account, period_starts:list, periods:list, p_year:int, p_qtr:int):
     """
     Get REVENUE data for the specified Quarter
-    :param  root_account: Gnucash Account: from the Gnucash book
-    :param period_starts:            list: start date for each period
-    :param   period_list: list of structs: store the dates and amounts for each quarter
-    :param       re_year:             int: year to read
-    :param           qtr:             int: quarter to read: 1..4
+    :param  root_account: Gnucash Account from the Gnucash book
+    :param period_starts: start date for each period
+    :param       periods: structs with the dates and amounts for each quarter
+    :param        p_year: year to read
+    :param         p_qtr: quarter to read: 1..4
     :return: dict with quarter data
     """
     data_quarter = {}
     str_rev = '= '
     for item in REV_ACCTS:
         # reset the debit and credit totals for each individual account
-        period_list[0][2] = ZERO
-        period_list[0][3] = ZERO
+        periods[0][2] = ZERO
+        periods[0][3] = ZERO
 
         acct_base = REV_ACCTS[item]
-        acct_name = fill_splits(root_account, acct_base, period_starts, period_list)
+        acct_name = fill_splits(root_account, acct_base, period_starts, periods)
 
-        sum_revenue = (period_list[0][2] + period_list[0][3]) * (-1)
+        sum_revenue = (periods[0][2] + periods[0][3]) * (-1)
         str_rev += sum_revenue.to_eng_string() + (' + ' if item != EMP else '')
-        print_info("{} Revenue for {}-Q{} = ${}".format(acct_name, re_year, qtr, sum_revenue))
+        print_info("{} Revenue for {}-Q{} = ${}".format(acct_name, p_year, p_qtr, sum_revenue))
 
     data_quarter[REV] = str_rev
     return data_quarter
 
 
-def get_deductions(root_account, period_starts, period_list, re_year, data_quarter):
+def get_deductions(root_account, period_starts:list, periods:list, p_year:int, data_qtr:dict):
     """
     Get SALARY DEDUCTIONS data for the specified Quarter
-    :param  root_account: Gnucash Account: from the Gnucash book
-    :param period_starts:            list: start date for each period
-    :param   period_list: list of structs: store the dates and amounts for each quarter
-    :param       re_year:             int: year to read
-    :param  data_quarter:            dict: collected data for the quarter
+    :param  root_account: Gnucash Account from the Gnucash book
+    :param period_starts: start date for each period
+    :param       periods: structs with the dates and amounts for each quarter
+    :param        p_year: year to read
+    :param      data_qtr: collected data for the quarter
     :return: string with deductions
     """
     str_dedns = '= '
     for item in DEDN_ACCTS:
         # reset the debit and credit totals for each individual account
-        period_list[0][2] = ZERO
-        period_list[0][3] = ZERO
+        periods[0][2] = ZERO
+        periods[0][3] = ZERO
 
         acct_path = DEDN_ACCTS[item]
-        acct_name = fill_splits(root_account, acct_path, period_starts, period_list)
+        acct_name = fill_splits(root_account, acct_path, period_starts, periods)
 
-        sum_deductions = period_list[0][2] + period_list[0][3]
+        sum_deductions = periods[0][2] + periods[0][3]
         str_dedns += sum_deductions.to_eng_string() + (' + ' if item != "ML" else '')
-        print_info("{} {} Deductions for {}-Q{} = ${}".format(acct_name, EMP, re_year, data_quarter[QTR], sum_deductions))
+        print_info("{} {} Deductions for {}-Q{} = ${}".format(acct_name, EMP, p_year, data_qtr[QTR], sum_deductions))
 
-    data_quarter[DEDNS] = str_dedns
+    data_qtr[DEDNS] = str_dedns
     return str_dedns
 
 
-def get_expenses(root_account, period_starts, period_list, re_year, data_quarter):
+def get_expenses(root_account, period_starts:list, periods:list, p_year:int, data_qtr:dict):
     """
     Get EXPENSE data for the specified Quarter
-    :param  root_account: Gnucash Account: from the Gnucash book
-    :param period_starts:            list: start date for each period
-    :param   period_list: list of structs: store the dates and amounts for each quarter
-    :param       re_year:             int: year to read
-    :param  data_quarter:            dict: collected data for the quarter
+    :param  root_account: Gnucash Account from the Gnucash book
+    :param period_starts: start date for each period
+    :param       periods: structs with the dates and amounts for each quarter
+    :param        p_year: year to read
+    :param      data_qtr: collected data for the quarter
     :return: string with total expenses
     """
     str_total = ''
     for item in EXP_ACCTS:
         # reset the debit and credit totals for each individual account
-        period_list[0][2] = ZERO
-        period_list[0][3] = ZERO
+        periods[0][2] = ZERO
+        periods[0][3] = ZERO
 
         acct_base = EXP_ACCTS[item]
-        acct_name = fill_splits(root_account, acct_base, period_starts, period_list)
+        acct_name = fill_splits(root_account, acct_base, period_starts, periods)
 
-        sum_expenses = period_list[0][2] + period_list[0][3]
+        sum_expenses = periods[0][2] + periods[0][3]
         str_expenses = sum_expenses.to_eng_string()
-        data_quarter[item] = str_expenses
-        print_info("{} Expenses for {}-Q{} = ${}".format(acct_name.split('_')[-1], re_year, data_quarter[QTR], str_expenses))
+        data_qtr[item] = str_expenses
+        print_info("{} Expenses for {}-Q{} = ${}".format(acct_name.split('_')[-1], p_year, data_qtr[QTR], str_expenses))
         str_total += str_expenses + ' + '
 
-    get_deductions(root_account, period_starts, period_list, re_year, data_quarter)
+    get_deductions(root_account, period_starts, periods, p_year, data_qtr)
 
     return str_total
 
 
 # noinspection PyUnboundLocalVariable,PyUnresolvedReferences
-def get_gnucash_data(gnucash_file, re_year, re_quarter):
+def get_gnucash_data(gnucash_file:str, p_year:int, p_qtr:int):
     """
     Get REVENUE and EXPENSE data for ONE specified Quarter or ALL four Quarters for the specified Year
-    :param gnucash_file: string: name of file used to read the values
-    :param      re_year:    int: year to update
-    :param   re_quarter:    int: 1..4 for quarter to update or 0 if updating ALL FOUR quarters
+    :param gnucash_file: name of file used to read the values
+    :param       p_year: year to update
+    :param        p_qtr: 1..4 for quarter to update or 0 if updating ALL FOUR quarters
     :return: list: Gnucash data
     """
-    num_quarters = 1 if re_quarter else 4
-    print_info("find Revenue & Expenses in {} for {}{}".format(gnucash_file, re_year, ('-Q' + str(re_quarter)) if re_quarter else ''))
+    num_quarters = 1 if p_qtr else 4
+    print_info("find Revenue & Expenses in {} for {}{}".format(gnucash_file, p_year, ('-Q' + str(p_qtr)) if p_qtr else ''))
     gnc_data = list()
     try:
         gnucash_session = Session(gnucash_file, is_new=False)
@@ -156,7 +157,7 @@ def get_gnucash_data(gnucash_file, re_year, re_quarter):
         # print_info("type root_account = {}".format(type(root_account)))
 
         for i in range(num_quarters):
-            qtr = re_quarter if re_quarter else i + 1
+            qtr = p_qtr if p_qtr else i + 1
             start_month = (qtr * 3) - 2
 
             # for each period keep the start date, end date, debits and credits sums and overall total
@@ -167,18 +168,18 @@ def get_gnucash_data(gnucash_file, re_year, re_quarter):
                     ZERO, # credits sum
                     ZERO  # TOTAL
                 ]
-                for start_date, end_date in generate_quarter_boundaries(re_year, start_month, 1)
+                for start_date, end_date in generate_quarter_boundaries(p_year, start_month, 1)
             ]
             # a copy of the above list with just the period start dates
             period_starts = [e[0] for e in period_list]
 
-            data_quarter = get_revenue(root_account, period_starts, period_list, re_year, qtr)
+            data_quarter = get_revenue(root_account, period_starts, period_list, p_year, qtr)
             data_quarter[QTR] = str(qtr)
-            print_info("\n{} Revenue for {}-Q{} = ${}".format("TOTAL", re_year, qtr, period_list[0][4] * (-1)))
+            print_info("\n{} Revenue for {}-Q{} = ${}".format("TOTAL", p_year, qtr, period_list[0][4] * (-1)))
 
             period_list[0][4] = ZERO
-            get_expenses(root_account, period_starts, period_list, re_year, data_quarter)
-            print_info("\n{} Expenses for {}-Q{} = ${}\n".format("TOTAL", re_year, qtr, period_list[0][4]))
+            get_expenses(root_account, period_starts, period_list, p_year, data_quarter)
+            print_info("\n{} Expenses for {}-Q{} = ${}\n".format("TOTAL", p_year, qtr, period_list[0][4]))
 
             gnc_data.append(data_quarter)
             print_info(json.dumps(data_quarter, indent=4))
@@ -186,7 +187,7 @@ def get_gnucash_data(gnucash_file, re_year, re_quarter):
         # no save needed, we're just reading...
         gnucash_session.end()
 
-        fname = "out/updateRevExps_gnc-data-{}{}".format(re_year, ('-Q' + str(re_quarter)) if re_quarter else '')
+        fname = "out/updateRevExps_gnc-data-{}{}".format(p_year, ('-Q' + str(p_qtr)) if p_qtr else '')
         save_to_json(fname, now, gnc_data)
         return gnc_data
 
@@ -197,7 +198,7 @@ def get_gnucash_data(gnucash_file, re_year, re_quarter):
         exit(201)
 
 
-def fill_google_data(mode, re_year, gnc_data):
+def fill_google_data(mode:str, p_year:int, gnc_data:list):
     """
     Fill the data list:
     for each item in results, either 1 for one quarter or 4 for four quarters:
@@ -208,9 +209,9 @@ def fill_google_data(mode, re_year, gnc_data):
     REV string is '= ${INV} + ${OTH} + ${SAL}'
     DEDNS string is '= ${Mk-Dedns} + ${Lu-Dedns} + ${ML-Dedns}'
     others are just the string from the item
-    :param     mode: string: '.?[send][1]'
-    :param  re_year:    int: year to update
-    :param gnc_data:   list: Gnucash data for each needed quarter
+    :param     mode: '.?[send][1]'
+    :param   p_year: year to update
+    :param gnc_data: Gnucash data for each needed quarter
     :return: data list
     """
     all_inc_dest = ALL_INC_2_SHEET
@@ -222,11 +223,11 @@ def fill_google_data(mode, re_year, gnc_data):
     print_info("nec_inc_dest = {}\n".format(nec_inc_dest))
 
     google_data = list()
-    year_row = BASE_ROW + ((re_year - BASE_YEAR) * BASE_YEAR_SPAN)
+    year_row = BASE_ROW + year_span(p_year, BASE_YEAR, BASE_YEAR_SPAN, 0)
     # get exact row from Quarter value in each item
     for item in gnc_data:
         print_info("{} = {}".format(QTR, item[QTR]))
-        dest_row = year_row + ( (get_quarter(item[QTR]) - 1) * QTR_SPAN )
+        dest_row = year_row + ((get_int_quarter(item[QTR]) - 1) * QTR_SPAN)
         print_info("dest_row = {}\n".format(dest_row))
         for key in item:
             if key != QTR:
@@ -235,25 +236,30 @@ def fill_google_data(mode, re_year, gnc_data):
                     dest = all_inc_dest
                 fill_cell(dest, REV_EXP_COLS[key], dest_row, item[key], google_data)
 
+    # fill today's date
+    today_row = BASE_ROW - 1 + year_span(today.year+2, BASE_YEAR, BASE_YEAR_SPAN, 0)
+    fill_cell(nec_inc_dest, REV_EXP_COLS[DATE], today_row, today.strftime(DAY_STR), google_data)
+    fill_cell(all_inc_dest, REV_EXP_COLS[DATE], today_row, today.strftime(DAY_STR), google_data)
+
     str_qtr = None
     if len(gnc_data) == 1:
         str_qtr = gnc_data[0][QTR]
-    fname = "out/updateRevExps_google-data-{}{}".format(str(re_year), ('-Q' + str_qtr) if str_qtr else '')
+    fname = "out/updateRevExps_google-data-{}{}".format(str(p_year), ('-Q' + str_qtr) if str_qtr else '')
     save_to_json(fname, now, google_data)
     return google_data
 
 
-def send_google_data(mode, re_year, gnc_data):
+def send_google_data(mode:str, p_year:int, gnc_data:list):
     """
     Fill the data list and send to the document
-    :param     mode: string: '.?[send][1]'
-    :param  re_year:    int: year to update
-    :param gnc_data:   list: Gnucash data for each needed quarter
+    :param     mode: '.?[send][1]'
+    :param   p_year: year to update
+    :param gnc_data: Gnucash data for each needed quarter
     :return: server response
     """
     response = None
     try:
-        google_data = fill_google_data(mode, re_year, gnc_data)
+        google_data = fill_google_data(mode, p_year, gnc_data)
 
         rev_exps_body = {
             'valueInputOption': 'USER_ENTERED',
@@ -275,7 +281,7 @@ def send_google_data(mode, re_year, gnc_data):
     return response
 
 
-def update_rev_exps_main(args):
+def update_rev_exps_main(args:list):
     """
     Main: check command line and call functions to get the data from Gnucash book and send to Google document
     :return: string
@@ -291,18 +297,18 @@ def update_rev_exps_main(args):
     mode = args[1].lower()
     print_info("\nrunning in mode '{}' at run-time: {}\n".format(mode, now), CYAN)
 
-    re_year = get_year(args[2], BASE_YEAR)
-    re_quarter = get_quarter(args[3]) if len(args) > 3 else 0
+    target_year = get_int_year(args[2], BASE_YEAR)
+    target_qtr  = get_int_quarter(args[3]) if len(args) > 3 else 0
 
     # either for One Quarter or for Four Quarters if updating an entire Year
-    gnc_data = get_gnucash_data(gnucash_file, re_year, re_quarter)
+    gnc_data = get_gnucash_data(gnucash_file, target_year, target_qtr)
 
-    response = send_google_data(mode, re_year, gnc_data)
+    response = send_google_data(mode, target_year, gnc_data)
 
     print_info("\n >>> PROGRAM ENDED.")
 
     if response:
-        fname = "out/updateRevExps_response-{}{}".format(re_year, ('-Q' + str(re_quarter)) if re_quarter else '')
+        fname = "out/updateRevExps_response-{}{}".format(target_year, ('-Q' + str(target_qtr)) if target_qtr else '')
         save_to_json(fname, now, response)
         return response
     else:
