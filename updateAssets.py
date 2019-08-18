@@ -13,9 +13,9 @@ __author__ = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __python_version__ = 3.6
 __created__ = '2019-04-06'
-__updated__ = '2019-08-03'
+__updated__ = '2019-08-12'
 
-from gnucash import Session
+from gnucash import Session, gnucash_core
 from googleapiclient.discovery import build
 from updateCommon import *
 
@@ -58,12 +58,13 @@ QTR_SPAN:int = 1
 HDR_SPAN:int = 3
 
 
-def get_acct_bal(acct, p_date:date, p_currency):
+# noinspection PyUnresolvedReferences
+def get_acct_bal(acct:gnucash_core.Account, p_date:date, p_currency:gnucash_core.GncCommodity):
     """
     get the balance in this account on this date in this currency
-    :param       acct: Gnucash Account
+    :param       acct: to find
     :param     p_date: to use
-    :param p_currency: Gnucash commodity
+    :param p_currency: to use
     :return: python Decimal with balance
     """
     # CALLS ARE RETRIEVING ASSET VALUES FROM DAY BEFORE!!??
@@ -81,7 +82,7 @@ def get_acct_bal(acct, p_date:date, p_currency):
     return gnc_numeric_to_python_decimal(acct_cad)
 
 
-def get_acct_assets(root_account, end_date:date, p_currency):
+def get_acct_assets(root_account:gnucash_core.Account, end_date:date, p_currency:gnucash_core.GncCommodity):
     """
     Get ASSET data for the specified account for the specified quarter
     :param root_account: Gnucash Account from the Gnucash book
@@ -152,7 +153,7 @@ def get_gnucash_data(gnucash_file:str, p_year:int, p_qtr:int):
         print_error("Exception: {}!".format(ge))
         if "gnucash_session" in locals() and gnucash_session is not None:
             gnucash_session.end()
-        exit(160)
+        exit(155)
 
 
 def fill_google_data(mode:str, p_year:int, gnc_data:list):
@@ -171,52 +172,57 @@ def fill_google_data(mode:str, p_year:int, gnc_data:list):
     :param gnc_data: Gnucash data for each needed quarter
     :return: data list
     """
+    print_info("fill_google_data({}, {}, gnc_data)\n".format(mode, p_year))
     dest = QTR_ASTS_2_SHEET
     if '1' in mode:
         dest = QTR_ASTS_SHEET
-    print_info("dest = {}\n".format(dest))
 
     google_data = list()
-    year_row = BASE_ROW + year_span(p_year, BASE_YEAR, BASE_YEAR_SPAN, HDR_SPAN)
-    # get exact row from Quarter value in each item
-    for item in gnc_data:
-        print_info("{} = {}".format(QTR, item[QTR]))
-        int_qtr = int(item[QTR])
-        dest_row = year_row + ((int_qtr - 1) * QTR_SPAN)
-        print_info("dest_row = {}\n".format(dest_row))
-        for key in item:
-            if key != QTR:
-                # FOR YEAR 2015 OR EARLIER: GET RESP INSTEAD OF Rewards for COLUMN O
-                if key == RESP and p_year > 2015:
-                    continue
-                if key == RWRDS and p_year < 2016:
-                    continue
-                fill_cell(dest, ASSET_COLS[key], dest_row, item[key], google_data)
+    try:
+        year_row = BASE_ROW + year_span(p_year, BASE_YEAR, BASE_YEAR_SPAN, HDR_SPAN)
+        # get exact row from Quarter value in each item
+        for item in gnc_data:
+            print_info("{} = {}".format(QTR, item[QTR]))
+            int_qtr = int(item[QTR])
+            dest_row = year_row + ((int_qtr - 1) * QTR_SPAN)
+            print_info("dest_row = {}\n".format(dest_row))
+            for key in item:
+                if key != QTR:
+                    # FOR YEAR 2015 OR EARLIER: GET RESP INSTEAD OF Rewards for COLUMN O
+                    if key == RESP and p_year > 2015:
+                        continue
+                    if key == RWRDS and p_year < 2016:
+                        continue
+                    fill_cell(dest, ASSET_COLS[key], dest_row, item[key], google_data)
 
-    # fill today's date
-    today_row = BASE_ROW + 1 + year_span(today.year+2, BASE_YEAR, BASE_YEAR_SPAN, HDR_SPAN)
-    fill_cell(dest, ASSET_COLS[DATE], today_row, today.strftime(DAY_STR), google_data)
+        # fill update date & time
+        today_row = BASE_ROW + 1 + year_span(today.year+2, BASE_YEAR, BASE_YEAR_SPAN, HDR_SPAN)
+        fill_cell(dest, ASSET_COLS[DATE], today_row, today.strftime(FILE_DATE_STR), google_data)
+        fill_cell(dest, ASSET_COLS[DATE], today_row+1, today.strftime(CELL_TIME_STR), google_data)
 
-    str_qtr = None
-    if len(gnc_data) == 1:
-        str_qtr = gnc_data[0][QTR]
-    fname = "out/updateAssets_google-data-{}{}".format(str(p_year), ('-Q' + str_qtr) if str_qtr else '')
-    save_to_json(fname, now, google_data)
+        str_qtr = None
+        if len(gnc_data) == 1:
+            str_qtr = gnc_data[0][QTR]
+        fname = "out/updateAssets_google-data-{}{}".format(str(p_year), ('-Q' + str_qtr) if str_qtr else '')
+        save_to_json(fname, now, google_data)
+
+    except Exception as fgde:
+        print_error("Exception: {}!".format(repr(fgde)))
+        exit(210)
+
     return google_data
 
 
-def send_google_data(mode:str, p_year:int, gnc_data:list):
+def send_google_data(mode:str, google_data:list):
     """
     Fill the data list and send to the document
-    :param     mode: '.?[send][1]'
-    :param   p_year: year to update
-    :param gnc_data: Gnucash data for each needed quarter
+    :param        mode: '.?[send][1]'
+    :param google_data: Gnucash data for each needed quarter
     :return: server response
     """
+    print_info("send_google_data({}, google_data)\n".format(mode))
     response = None
     try:
-        google_data = fill_google_data(mode, p_year, gnc_data)
-
         assets_body = {
             'valueInputOption': 'USER_ENTERED',
             'data': google_data
@@ -230,9 +236,9 @@ def send_google_data(mode:str, p_year:int, gnc_data:list):
 
             print_info('\n{} cells updated!'.format(response.get('totalUpdatedCells')))
 
-    except Exception as se:
-        print_error("Exception on Send: {}!".format(se))
-        exit(236)
+    except Exception as sgde:
+        print_error("Exception: {}!".format(repr(sgde)))
+        exit(240)
 
     return response
 
@@ -259,7 +265,8 @@ def update_assets_main(args:list):
     # either for One Quarter or for Four Quarters if updating an entire Year
     gnc_data = get_gnucash_data(gnucash_file, target_year, target_qtr)
 
-    response = send_google_data(mode, target_year, gnc_data)
+    google_data = fill_google_data(mode, target_year, gnc_data)
+    response = send_google_data(mode, google_data)
 
     print_info("\n >>> PROGRAM ENDED.", MAGENTA)
 
