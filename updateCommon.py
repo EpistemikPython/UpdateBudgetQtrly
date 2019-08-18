@@ -137,9 +137,10 @@ TOKEN = SHEETS_EPISTEMIK_RW_TOKEN['P4']
 BASE_ROW = 3
 
 today = dt.now()
-DAY_STR  = "%Y-%m-%d"
-TIME_STR = "%T%H-%M-%S"
-now = today.strftime(DAY_STR + TIME_STR)
+FILE_DATE_STR = "%Y-%m-%d"
+FILE_TIME_STR = "%T%H-%M-%S"
+now = today.strftime(FILE_DATE_STR + FILE_TIME_STR)
+CELL_TIME_STR = "%H:%M:%S"
 
 
 def year_span(target_year:int, base_year:int, base_year_span:int, hdr_span:int):
