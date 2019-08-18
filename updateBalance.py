@@ -288,8 +288,9 @@ def fill_google_data(gnucash_file:str, domain:str, dest:str):
             else:
                 google_data = fill_year(year, root_account, dest, CAD)
 
-        # fill today's date
-        fill_cell(dest, BAL_MTHLY_COLS[DATE], BASE_MTHLY_ROW, today.strftime(DAY_STR), google_data)
+        # fill update date & time
+        fill_cell(dest, BAL_MTHLY_COLS[DATE], BASE_MTHLY_ROW, today.strftime(FILE_DATE_STR), google_data)
+        fill_cell(dest, BAL_MTHLY_COLS[TODAY], BASE_MTHLY_ROW, today.strftime(CELL_TIME_STR), google_data)
 
         # no save needed, we're just reading...
         gnucash_session.end()

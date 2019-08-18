@@ -13,7 +13,7 @@ __author__ = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __python_version__ = 3.6
 __created__ = '2019-03-30'
-__updated__ = '2019-08-03'
+__updated__ = '2019-08-12'
 
 from gnucash import Session
 from googleapiclient.discovery import build
@@ -195,7 +195,7 @@ def get_gnucash_data(gnucash_file:str, p_year:int, p_qtr:int):
         print_error("Exception: {}!".format(ge))
         if "gnucash_session" in locals() and gnucash_session is not None:
             gnucash_session.end()
-        exit(201)
+        exit(198)
 
 
 def fill_google_data(mode:str, p_year:int, gnc_data:list):
@@ -236,10 +236,12 @@ def fill_google_data(mode:str, p_year:int, gnc_data:list):
                     dest = all_inc_dest
                 fill_cell(dest, REV_EXP_COLS[key], dest_row, item[key], google_data)
 
-    # fill today's date
+    # fill update date & time to ALL and NEC
     today_row = BASE_ROW - 1 + year_span(today.year+2, BASE_YEAR, BASE_YEAR_SPAN, 0)
-    fill_cell(nec_inc_dest, REV_EXP_COLS[DATE], today_row, today.strftime(DAY_STR), google_data)
-    fill_cell(all_inc_dest, REV_EXP_COLS[DATE], today_row, today.strftime(DAY_STR), google_data)
+    fill_cell(nec_inc_dest, REV_EXP_COLS[DATE], today_row, today.strftime(FILE_DATE_STR), google_data)
+    fill_cell(nec_inc_dest, REV_EXP_COLS[DATE], today_row+1, today.strftime(CELL_TIME_STR), google_data)
+    fill_cell(all_inc_dest, REV_EXP_COLS[DATE], today_row, today.strftime(FILE_DATE_STR), google_data)
+    fill_cell(all_inc_dest, REV_EXP_COLS[DATE], today_row+1, today.strftime(CELL_TIME_STR), google_data)
 
     str_qtr = None
     if len(gnc_data) == 1:
@@ -275,8 +277,8 @@ def send_google_data(mode:str, p_year:int, gnc_data:list):
             print_info('\n{} cells updated!'.format(response.get('totalUpdatedCells')))
 
     except Exception as se:
-        print_error("Exception on Send: {}!".format(se))
-        exit(277)
+        print_error("Exception on Send: {}!".format(repr(se)))
+        raise se
 
     return response
 
