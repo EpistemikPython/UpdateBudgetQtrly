@@ -3,10 +3,13 @@
 #
 # startUI.py -- run the UI for the update functions
 #
-# @author Mark Sattolo <epistemik@gmail.com>
-# @version Python 3.6
-# @created 2019-04-21
-# @updated 2019-07-14
+# Copyright (c) 2019 Mark Sattolo <epistemik@gmail.com>
+#
+__author__ = 'Mark Sattolo'
+__author_email__ = 'epistemik@gmail.com'
+__python_version__ = 3.6
+__created__ = '2019-03-30'
+__updated__ = '2019-08-18'
 
 import sys
 from PyQt5.QtWidgets import ( QApplication, QComboBox, QVBoxLayout, QGroupBox, QDialog, QFileDialog,
@@ -30,14 +33,14 @@ QTRS:str     = 'Quarters'
 SHEET_1:str  = 'Sheet 1'
 SHEET_2:str  = 'Sheet 2'
 
-PARAMS = {
+PARAMS:dict = {
     REV_EXPS  : ['2019', '2018', '2017', '2016', '2015', '2014', '2013', '2012'] ,
     ASSETS    : ['2011', '2010', '2009', '2008'] ,
     BALANCE   : ['today', 'allyears'] ,
     QTRS      : ['0', '1', '2', '3', '4']
 }
 
-MAIN_FXNS = {
+MAIN_FXNS:dict = {
     REV_EXPS : update_rev_exps_main ,
     ASSETS   : update_assets_main   ,
     BALANCE  : update_balance_main
@@ -165,6 +168,7 @@ class UpdateBudgetQtrly(QDialog):
             self.script = new_script
 
     def mode_change(self):
+        """need the destination sheet if mode is Send"""
         new_mode = self.cb_mode.currentText()
         print_info("Mode changed to '{}'.".format(new_mode), CYAN)
         if new_mode != self.mode:
@@ -178,6 +182,7 @@ class UpdateBudgetQtrly(QDialog):
             self.mode = new_mode
 
     def button_click(self):
+        """assemble the necessary parameters"""
         print_info("Clicked '{}'.".format(self.exe_btn.text()))
         print_info("Script is '{}'.".format(self.cb_script.currentText()))
 
@@ -204,7 +209,8 @@ class UpdateBudgetQtrly(QDialog):
         self.response_box.setText(json.dumps(reply, indent=4))
 
     @staticmethod
-    def selection_change(cb, label):
+    def selection_change(cb:QComboBox, label:str):
+        """info printing only"""
         print_info("ComboBox '{}' selection changed to '{}'.".format(label, cb.currentText()), BLUE)
 
 
