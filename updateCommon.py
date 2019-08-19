@@ -12,9 +12,9 @@ __author__ = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __python_version__ = 3.6
 __created__ = '2019-04-07'
-__updated__ = '2019-08-03'
+__updated__ = '2019-08-18'
 
-from sys import stdout, exit
+from sys import stdout
 from datetime import date, timedelta, datetime as dt
 from bisect import bisect_right
 from decimal import Decimal
@@ -23,51 +23,69 @@ import csv
 import json
 import pickle
 import os.path as osp
-from gnucash import GncNumeric
+from gnucash import GncNumeric, Account
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 import inspect
 
-COLOR_FLAG = '\x1b['
-BLACK   = COLOR_FLAG + '30m'
-RED     = COLOR_FLAG + '31m'
-GREEN   = COLOR_FLAG + '32m'
-YELLOW  = COLOR_FLAG + '33m'
-BLUE    = COLOR_FLAG + '34m'
-MAGENTA = COLOR_FLAG + '35m'
-CYAN    = COLOR_FLAG + '36m'
-WHITE   = COLOR_FLAG + '37m'
-COLOR_OFF = COLOR_FLAG + '0m'
+COLOR_FLAG:str = '\x1b['
+BLACK:str   = COLOR_FLAG + '30m'
+RED:str     = COLOR_FLAG + '31m'
+GREEN:str   = COLOR_FLAG + '32m'
+YELLOW:str  = COLOR_FLAG + '33m'
+BLUE:str    = COLOR_FLAG + '34m'
+MAGENTA:str = COLOR_FLAG + '35m'
+CYAN:str    = COLOR_FLAG + '36m'
+WHITE:str   = COLOR_FLAG + '37m'
+COLOR_OFF:str = COLOR_FLAG + '0m'
 
 
-# TODO: add print_log() to store all info and return a log string
-def print_info(text, color='', inspector=True, newline=True):
-    """
-    Print information with choices of color, inspection info, newline
-    """
-    inspect_line = ''
-    if text is None:
-        text = '==============================================================================================================='
-        inspector = False
-    if inspector:
-        calling_frame = inspect.currentframe().f_back
-        calling_file  = inspect.getfile(calling_frame).split('/')[-1]
-        calling_line  = str(inspect.getlineno(calling_frame))
-        inspect_line  = '[' + calling_file + '@' + calling_line + ']: '
-    print(inspect_line + color + str(text) + COLOR_OFF, end=('\n' if newline else ''))
+class Gnulog:
+    def __init__(self, p_debug:bool):
+        self.debug = p_debug
+        self.log_text = []
 
+    def append(self, obj:object):
+        self.log_text.append(obj)
 
-def print_error(text, newline=True):
-    """
-    Print Error information in RED with inspection info
-    """
-    calling_frame = inspect.currentframe().f_back
-    parent_frame = calling_frame.f_back
-    calling_file = inspect.getfile(calling_frame).split('/')[-1]
-    calling_line = str(inspect.getlineno(calling_frame))
-    parent_line = str(inspect.getlineno(parent_frame))
-    inspect_line = '[' + calling_file + '@' + calling_line + '/' + parent_line + ']: '
-    print(inspect_line + RED + str(text) + COLOR_OFF, end=('\n' if newline else ''))
+    def clear_log(self):
+        self.log_text = []
+
+    def get_log(self) -> list :
+        return self.log_text
+
+    def print_info(self, info:object, color:str='', inspector:bool=True, newline:bool=True):
+        """
+        Print information with choices of color, inspection info, newline
+        """
+        if self.debug:
+            text = self.print_text(info, color, inspector, newline)
+            self.append(text)
+
+    def print_error(self, text:object, newline:bool=True):
+        """
+        Print Error information in RED with inspection info
+        """
+        if self.debug:
+            self.print_text(text, RED, True, newline)
+
+    @staticmethod
+    def print_text(info:object, color:str='', inspector:bool=True, newline:bool=True) -> str :
+        """
+        Print information with choices of color, inspection info, newline
+        """
+        inspect_line = ''
+        if info is None:
+            info = '==========================================================================================================='
+            inspector = False
+        text = str(info)
+        if inspector:
+            calling_frame = inspect.currentframe().f_back
+            calling_file  = inspect.getfile(calling_frame).split('/')[-1]
+            calling_line  = str(inspect.getlineno(calling_frame))
+            inspect_line  = '[' + calling_file + '@' + calling_line + ']: '
+        print(inspect_line + color + text + COLOR_OFF, end=('\n' if newline else ''))
+        return text
 
 
 # constant strings
@@ -100,334 +118,324 @@ CONT  = 'Contingent'
 NEC   = 'Necessary'
 DEDNS = 'Emp_Dedns'
 
-# number of months in the period
-PERIOD_QTR = 3
+# number of months in a Quarter
+PERIOD_QTR:int = 3
 
-NUM_MONTHS = 12
-ONE_DAY = timedelta(days=1)
-ZERO = Decimal(0)
+YEAR_MONTHS:int = 12
+ONE_DAY:timedelta = timedelta(days=1)
+ZERO:Decimal = Decimal(0)
 
-CREDENTIALS = 'secrets/credentials.json'
-
-SHEETS_RW_SCOPE = ['https://www.googleapis.com/auth/spreadsheets']
-
-SHEETS_EPISTEMIK_RW_TOKEN = {
-    'P2' : 'secrets/token.sheets.epistemik.rw.pickle2' ,
-    'P3' : 'secrets/token.sheets.epistemik.rw.pickle3' ,
-    'P4' : 'secrets/token.sheets.epistemik.rw.pickle4'
-}
-
-# Spreadsheet ID
-BUDGET_QTRLY_ID_FILE = 'secrets/Budget-qtrly.id'
 # sheet names in Budget Quarterly
-ALL_INC_SHEET    = 'All Inc 1'
-ALL_INC_2_SHEET  = 'All Inc 2'
-NEC_INC_SHEET    = 'Nec Inc 1'
-NEC_INC_2_SHEET  = 'Nec Inc 2'
-BAL_1_SHEET      = 'Balance 1'
-BAL_2_SHEET      = 'Balance 2'
-QTR_ASTS_SHEET   = 'Assets 1'
-QTR_ASTS_2_SHEET = 'Assets 2'
-ML_WORK_SHEET    = 'ML Work'
-CALCULNS_SHEET   = 'Calculations'
-
-TOKEN = SHEETS_EPISTEMIK_RW_TOKEN['P4']
+ALL_INC_SHEET:str    = 'All Inc 1'
+ALL_INC_2_SHEET:str  = 'All Inc 2'
+NEC_INC_SHEET:str    = 'Nec Inc 1'
+NEC_INC_2_SHEET:str  = 'Nec Inc 2'
+BAL_1_SHEET:str      = 'Balance 1'
+BAL_2_SHEET:str      = 'Balance 2'
+QTR_ASTS_SHEET:str   = 'Assets 1'
+QTR_ASTS_2_SHEET:str = 'Assets 2'
+ML_WORK_SHEET:str    = 'ML Work'
+CALCULNS_SHEET:str   = 'Calculations'
 
 # first data row in Budget-qtrly.gsht
-BASE_ROW = 3
+BASE_ROW:int = 3
 
-today = dt.now()
-FILE_DATE_STR = "%Y-%m-%d"
-FILE_TIME_STR = "%T%H-%M-%S"
-now = today.strftime(FILE_DATE_STR + FILE_TIME_STR)
-CELL_TIME_STR = "%H:%M:%S"
-
-
-def year_span(target_year:int, base_year:int, base_year_span:int, hdr_span:int):
-    """
-    calculate which row to update, factoring in the header row placed every so-many years
-    :param    target_year: year to calculate for
-    :param      base_year: starting year
-    :param base_year_span: number of rows between equivalent positions in adjacent years, not including header rows
-    :param       hdr_span: number of rows between header rows
-    :return: int
-    """
-    year_diff = int(target_year - base_year)
-    hdr_adjustment = 0 if hdr_span <= 0 else (year_diff // int(hdr_span))
-    return int(year_diff * base_year_span) + hdr_adjustment
-
-
-def get_int_year(target_year:str, base_year:int):
-    """
-    convert the string representation of a year to an int
-    :param target_year: to convert
-    :param   base_year: earliest possible year
-    :return: int
-    """
-    if not target_year.isnumeric():
-        print_error("Input MUST be the String representation of a Year, e.g. '2013'!")
-        exit(79)
-    int_year = int(float(target_year))
-    if int_year > today.year or int_year < base_year:
-        print_error("Input MUST be the String representation of a Year between {} and {}!".format(today.year, base_year))
-        exit(83)
-
-    return int_year
-
-
-def get_int_quarter(p_qtr:str):
-    """
-    convert the string representation of a quarter to an int
-    :param  p_qtr: to convert
-    :return: int
-    """
-    if not p_qtr.isnumeric():
-        print_error("Input MUST be a String of 0..4!")
-        exit(138)
-    int_qtr = int(float(p_qtr))
-    if int_qtr > 4 or int_qtr < 0:
-        print_error("Input MUST be a String of 0..4!")
-        exit(142)
-
-    return int_qtr
-
-
-def fill_cell(sheet:str, col:str, row:int, val, data_list:list=None):
-    """
-    Create a dictionary to contain Google Sheets update information for one cell and add to the submitted list
-    :param     sheet:  particular sheet in my Google spreadsheet to update
-    :param       col:  column to update
-    :param       row:  to update
-    :param       val:  str OR Decimal: value to send
-    :param data_list:  list to append with created dict, if needed
-    :return: data_list
-    """
-    if data_list is None:
-        data_list = list()
-    value = val.to_eng_string() if isinstance(val, Decimal) else val
-    cell = {'range': sheet + '!' + col + str(row), 'values': [[value]]}
-    print_info("cell = {}\n".format(cell))
-    data_list.append(cell)
-    return data_list
-
-
-def get_budget_id():
-    """
-    get the budget id string from the file in the secrets folder
-    :return: string
-    """
-    fp = open(BUDGET_QTRLY_ID_FILE, "r")
-    fid = fp.readline().strip()
-    print_info("Budget Id = '{}'\n".format(fid), CYAN)
-    fp.close()
-    return fid
-
-
-def get_credentials():
-    """
-    get the proper credentials needed to write to the Google spreadsheet
-    :return: pickle object
-    """
-    creds = None
-    if osp.exists(TOKEN):
-        with open(TOKEN, 'rb') as token:
-            creds = pickle.load(token)
-
-    # if there are no (valid) credentials available, let the user log in.
-    if creds is None or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
-            flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS, SHEETS_RW_SCOPE)
-            creds = flow.run_local_server()
-        # save the credentials for the next run
-        with open(TOKEN, 'wb') as token:
-            pickle.dump(creds, token, pickle.HIGHEST_PROTOCOL)
-
-    return creds
+today:dt = dt.now()
+FILE_DATE_STR:str = "%Y-%m-%d"
+FILE_TIME_STR:str = "%T%H-%M-%S"
+now:str = today.strftime(FILE_DATE_STR + FILE_TIME_STR)
+CELL_TIME_STR:str = "%H:%M:%S"
 
 
 # noinspection PyUnresolvedReferences
-def gnc_numeric_to_python_decimal(numeric):
-    """
-    convert a GncNumeric value to a python Decimal value
-    :param numeric: GncNumeric value to convert
-    :return: Decimal
-    """
-    negative = numeric.negative_p()
-    sign = 1 if negative else 0
+class CommonUtilities:
+    def __init__(self):
+        self.log = Gnulog(True)
 
-    val = GncNumeric(numeric.num(), numeric.denom())
-    result = val.to_decimal(None)
-    if not result:
-        raise Exception("GncNumeric value '{}' CANNOT be converted to decimal!".format(val.to_string()))
+    @staticmethod
+    def year_span(target_year:int, base_year:int, base_year_span:int, hdr_span:int) -> int :
+        """
+        calculate which row to update, factoring in the header row placed every so-many years
+        :param    target_year: year to calculate for
+        :param      base_year: starting year
+        :param base_year_span: number of rows between equivalent positions in adjacent years, not including header rows
+        :param       hdr_span: number of rows between header rows
+        """
+        year_diff = int(target_year - base_year)
+        hdr_adjustment = 0 if hdr_span <= 0 else (year_diff // int(hdr_span))
+        return int(year_diff * base_year_span) + hdr_adjustment
 
-    digit_tuple = tuple(int(char) for char in str(val.num()) if char != '-')
-    denominator = val.denom()
-    exponent = int(log10(denominator))
-    assert( (10 ** exponent) == denominator )
-    return Decimal((sign, digit_tuple, -exponent))
+    def get_int_year(self, target_year:str, base_year:int) -> int :
+        """
+        convert the string representation of a year to an int
+        :param target_year: to convert
+        :param   base_year: earliest possible year
+        """
+        if not target_year.isnumeric():
+            self.log.print_error("Input MUST be the String representation of a Year, e.g. '2013'!")
+            exit(176)
+        int_year = int(float(target_year))
+        if int_year > today.year or int_year < base_year:
+            self.log.print_error("Input MUST be the String representation of a Year between {} and {}!"
+                                 .format(today.year, base_year))
+            exit(181)
 
+        return int_year
 
-def next_quarter_start(start_year:int, start_month:int):
-    """
-    get the year and month that starts the FOLLOWING quarter
-    :param  start_year
-    :param start_month
-    :return: int, int
-    """
-    # add number of months for a Quarter
-    next_month = start_month + PERIOD_QTR
+    def get_int_quarter(self, p_qtr:str) -> int :
+        """
+        convert the string representation of a quarter to an int
+        :param  p_qtr: to convert
+        """
+        if not p_qtr.isnumeric():
+            self.log.print_error("Input MUST be a String of 0..4!")
+            exit(192)
+        int_qtr = int(float(p_qtr))
+        if int_qtr > 4 or int_qtr < 0:
+            self.log.print_error("Input MUST be a String of 0..4!")
+            exit(196)
 
-    # use integer division to find out if the new end month is in a different year,
-    # what year it is, and what the end month number should be changed to.
-    next_year = start_year + ( (next_month - 1) // NUM_MONTHS )
-    next_month = ( (next_month - 1) % NUM_MONTHS ) + 1
+        return int_qtr
 
-    return next_year, next_month
+    def fill_cell(self, sheet:str, col:str, row:int, val, data:list=None) -> list :
+        """
+        create a dict of update information for one Google Sheets cell and add to the submitted or created list
+        :param sheet:  particular sheet in my Google spreadsheet to update
+        :param   col:  column to update
+        :param   row:  to update
+        :param   val:  str OR Decimal: value to fill with
+        :param  data:  optional list to append with created dict
+        """
+        if data is None:
+            data = list()
 
+        value = val.to_eng_string() if isinstance(val, Decimal) else val
+        cell = {'range': sheet + '!' + col + str(row), 'values': [[value]]}
+        self.log.print_info("cell = {}\n".format(cell))
+        data.append(cell)
 
-def current_quarter_end(start_year:int, start_month:int):
-    """
-    get the year and month that ends the CURRENT quarter
-    :param  start_year
-    :param start_month
-    :return: date
-    """
-    end_year, end_month = next_quarter_start(start_year, start_month)
+        return data
 
-    # last step, the end date is one day back from the start of the next period
-    # so we get a period end like 2010-03-31 instead of 2010-04-01
-    return date(end_year, end_month, 1) - ONE_DAY
+    def get_budget_id(self) -> str :
+        """
+        get the budget id string from the file in the secrets folder
+        """
+        fp = open(CommonUtilities.BUDGET_QTRLY_ID_FILE, "r")
+        fid = fp.readline().strip()
+        self.log.print_info("Budget Id = '{}'\n".format(fid), CYAN)
+        fp.close()
+        return fid
 
+    @staticmethod
+    def get_credentials() -> pickle :
+        """
+        get the proper credentials needed to write to the Google spreadsheet
+        """
+        creds = None
+        if osp.exists(CommonUtilities.TOKEN):
+            with open(CommonUtilities.TOKEN, 'rb') as token:
+                creds = pickle.load(token)
 
-def generate_quarter_boundaries(start_year:int, start_month:int, num_qtrs:int):
-    """
-    get the start and end dates for the quarters in the submitted range
-    :param  start_year
-    :param start_month
-    :param    num_qtrs: number of quarters to calculate
-    :return: date, date
-    """
-    for i in range(num_qtrs):
-        yield(date(start_year, start_month, 1), current_quarter_end(start_year, start_month))
-        start_year, start_month = next_quarter_start(start_year, start_month)
+        # if there are no (valid) credentials available, let the user log in.
+        if creds is None or not creds.valid:
+            if creds and creds.expired and creds.refresh_token:
+                creds.refresh(Request())
+            else:
+                flow = InstalledAppFlow.from_client_secrets_file(CommonUtilities.CREDENTIALS_FILE,
+                                                                 CommonUtilities.SHEETS_RW_SCOPE)
+                creds = flow.run_local_server()
+            # save the credentials for the next run
+            with open(CommonUtilities.TOKEN, 'wb') as token:
+                pickle.dump(creds, token, pickle.HIGHEST_PROTOCOL)
 
+        return creds
 
-def account_from_path(top_account, account_path:list, original_path:list=None):
-    """
-    recursive function to get a Gnucash Account: starting from the top account and following the path
-    :param   top_account: Gnucash base Account
-    :param  account_path: path to follow
-    :param original_path: original call path
-    :return: Gnucash Account
-    """
-    # print("top_account = %s, account_path = %s, original_path = %s" % (top_account, account_path, original_path))
-    if original_path is None:
-        original_path = account_path
-    account, account_path = account_path[0], account_path[1:]
-    # print("account = %s, account_path = %s" % (account, account_path))
+    @staticmethod
+    def gnc_numeric_to_python_decimal(numeric:GncNumeric) -> Decimal :
+        """
+        convert a GncNumeric value to a python Decimal value
+        :param numeric: value to convert
+        """
+        negative = numeric.negative_p()
+        sign = 1 if negative else 0
 
-    account = top_account.lookup_by_name(account)
-    # print("account = " + str(account))
-    if account is None:
-        raise Exception("Path '" + str(original_path) + "' could NOT be found!")
-    if len(account_path) > 0:
-        return account_from_path(account, account_path, original_path)
-    else:
-        return account
+        val = GncNumeric(numeric.num(), numeric.denom())
+        result = val.to_decimal(None)
+        if not result:
+            raise Exception("GncNumeric value '{}' CANNOT be converted to decimal!".format(val.to_string()))
 
+        digit_tuple = tuple(int(char) for char in str(val.num()) if char != '-')
+        denominator = val.denom()
+        exponent = int(log10(denominator))
 
-def save_to_json(fname:str, ts:str, json_data, indt:int=4):
-    """
-    print json data to a file -- add a time string to get a unique file name each run
-    :param     fname: file path and name
-    :param        ts: timestamp to use
-    :param json_data: json compatible struct
-    :param      indt: indentation amount
-    :return: string with file name
-    """
-    out_file = fname + '_' + ts + ".json"
-    print_info("json file is '{}'\n".format(out_file))
-    fp = open(out_file, 'w')
-    json.dump(json_data, fp, indent=indt)
-    fp.close()
-    return out_file
+        assert( (10 ** exponent) == denominator )
+        return Decimal((sign, digit_tuple, -exponent))
 
+    @staticmethod
+    def next_quarter_start(start_year:int, start_month:int) -> (int, int) :
+        """
+        get the year and month that starts the FOLLOWING quarter
+        :param  start_year
+        :param start_month
+        """
+        # add number of months for a Quarter
+        next_month = start_month + PERIOD_QTR
 
-def get_splits(acct, period_starts:list, periods:list):
-    """
-    get the splits for the account and each sub-account
-    :param          acct: Gnucash Account
-    :param period_starts: start date for each period
-    :param   periods: structs with the dates and amounts for each quarter
-    :return: nil
-    """
-    # insert and add all splits in the periods of interest
-    for split in acct.GetSplitList():
-        trans = split.parent
-        # GetDate() returns a datetime but need a date
-        trans_date = trans.GetDate().date()
+        # use integer division to find out if the new end month is in a different year,
+        # what year it is, and what the end month number should be changed to.
+        next_year = start_year + ((next_month - 1) // YEAR_MONTHS)
+        next_month = ((next_month - 1) % YEAR_MONTHS) + 1
 
-        # use binary search to find the period that starts before or on the transaction date
-        period_index = bisect_right(period_starts, trans_date) - 1
+        return next_year, next_month
 
-        # ignore transactions with a date before the matching period start and after the last period_end
-        if period_index >= 0 and trans_date <= periods[len(periods) - 1][1]:
-            # get the period bucket appropriate for the split in question
-            period = periods[period_index]
-            assert( period[1] >= trans_date >= period[0] )
+    def current_quarter_end(self, start_year:int, start_month:int) -> date :
+        """
+        get the date that ends the CURRENT quarter
+        :param  start_year
+        :param start_month
+        """
+        end_year, end_month = self.next_quarter_start(start_year, start_month)
 
-            split_amount = gnc_numeric_to_python_decimal(split.GetAmount())
+        # last step, the end date is one day back from the start of the next period
+        # so we get a period end like 2010-03-31 instead of 2010-04-01
+        return date(end_year, end_month, 1) - ONE_DAY
 
-            # if the amount is negative this is a credit, else a debit
-            debit_credit_offset = 1 if split_amount < ZERO else 0
+    def generate_quarter_boundaries(self, start_year:int, start_month:int, num_qtrs:int) -> (date, date) :
+        """
+        get the start and end dates for the quarters in the submitted range
+        :param  start_year
+        :param start_month
+        :param    num_qtrs: number of quarters to calculate
+        """
+        for i in range(num_qtrs):
+            yield(date(start_year, start_month, 1), self.current_quarter_end(start_year, start_month))
+            start_year, start_month = self.next_quarter_start(start_year, start_month)
 
-            # add the debit or credit to the sum, using the offset to get in the right bucket
-            period[2 + debit_credit_offset] += split_amount
+    def account_from_path(self, top_account:Account, account_path:list, original_path:list=None) -> Account :
+        """
+        RECURSIVE function to get a Gnucash Account: starting from the top account and following the path
+        :param   top_account: base Account
+        :param  account_path: path to follow
+        :param original_path: original call path
+        """
+        # print("top_account = %s, account_path = %s, original_path = %s" % (top_account, account_path, original_path))
+        if original_path is None:
+            original_path = account_path
+        account, account_path = account_path[0], account_path[1:]
+        # print("account = %s, account_path = %s" % (account, account_path))
 
-            # add the debit or credit to the overall total
-            period[4] += split_amount
+        account = top_account.lookup_by_name(account)
+        # print("account = " + str(account))
+        if account is None:
+            raise Exception("Path '" + str(original_path) + "' could NOT be found!")
+        if len(account_path) > 0:
+            return self.account_from_path(account, account_path, original_path)
+        else:
+            return account
 
+    def save_to_json(self, fname:str, ts:str, json_data, indt:int=4) -> str :
+        """
+        print json data to a file -- add a time string to get a unique file name each run
+        :param     fname: file path and name
+        :param        ts: timestamp to use
+        :param json_data: json compatible struct
+        :param      indt: indentation amount
+        :return: file name
+        """
+        out_file = fname + '_' + ts + ".json"
+        self.log.print_info("json file is '{}'\n".format(out_file))
+        fp = open(out_file, 'w')
+        json.dump(json_data, fp, indent=indt)
+        fp.close()
+        return out_file
 
-def fill_splits(root_acct, target_path:list, period_starts:list, periods:list):
-    """
-    fill the period list for each account
-    :param     root_acct: Gnucash Account: from the Gnucash book
-    :param   target_path: account hierarchy from root account to target account
-    :param period_starts: start date for each period
-    :param   periods: structs with the dates and amounts for each quarter
-    :return: string with name of target_acct
-    """
-    account_of_interest = account_from_path(root_acct, target_path)
-    acct_name = account_of_interest.GetName()
-    print_info("\naccount_of_interest = {}".format(acct_name), BLUE)
+    def get_splits(self, acct:Account, period_starts:list, periods:list):
+        """
+        get the splits for the account and each sub-account and add to periods
+        :param          acct: to get splits
+        :param period_starts: start date for each period
+        :param       periods: dates and amounts for each quarter
+        """
+        # insert and add all splits in the periods of interest
+        for split in acct.GetSplitList():
+            trans = split.parent
+            # GetDate() returns a datetime but need a date
+            trans_date = trans.GetDate().date()
 
-    # get the split amounts for the parent account
-    get_splits(account_of_interest, period_starts, periods)
-    descendants = account_of_interest.get_descendants()
-    if len(descendants) > 0:
-        # for EACH sub-account add to the overall total
-        # print("Descendants of {}:".format(account_of_interest.GetName()))
-        for subAcct in descendants:
-            # print("{} balance = {}".format(subAcct.GetName(), gnc_numeric_to_python_decimal(subAcct.GetBalance())))
-            get_splits(subAcct, period_starts, periods)
+            # use binary search to find the period that starts before or on the transaction date
+            period_index = bisect_right(period_starts, trans_date) - 1
 
-    csv_write_period_list(periods)
-    return acct_name
+            # ignore transactions with a date before the matching period start and after the last period_end
+            if period_index >= 0 and trans_date <= periods[len(periods) - 1][1]:
+                # get the period bucket appropriate for the split in question
+                period = periods[period_index]
+                assert( period[1] >= trans_date >= period[0] )
 
+                split_amount = self.gnc_numeric_to_python_decimal(split.GetAmount())
 
-def csv_write_period_list(periods:list):
-    """
-    Write out the details of the submitted period list in csv format
-    :param periods: structs with the dates and amounts for each quarter
-    :return: nil
-    """
-    # write out the column headers
-    csv_writer = csv.writer(stdout)
-    # csv_writer.writerow('')
-    csv_writer.writerow(('period start', 'period end', 'debits', 'credits', 'TOTAL'))
+                # if the amount is negative this is a credit, else a debit
+                debit_credit_offset = 1 if split_amount < ZERO else 0
 
-    # write out the overall totals for the account of interest
-    for start_date, end_date, debit_sum, credit_sum, total in periods:
-        csv_writer.writerow((start_date, end_date, debit_sum, credit_sum, total))
+                # add the debit or credit to the sum, using the offset to get in the right bucket
+                period[2 + debit_credit_offset] += split_amount
+
+                # add the debit or credit to the overall total
+                period[4] += split_amount
+
+    def fill_splits(self, root_acct:Account, target_path:list, period_starts:list, periods:list) -> str :
+        """
+        fill the period list for each account
+        :param     root_acct: from the Gnucash book
+        :param   target_path: account hierarchy from root account to target account
+        :param period_starts: start date for each period
+        :param       periods: structs with the dates and amounts for each quarter
+        :return: name of target_acct
+        """
+        account_of_interest = self.account_from_path(root_acct, target_path)
+        acct_name = account_of_interest.GetName()
+        self.log.print_info("\naccount_of_interest = {}".format(acct_name), BLUE)
+
+        # get the split amounts for the parent account
+        self.get_splits(account_of_interest, period_starts, periods)
+        descendants = account_of_interest.get_descendants()
+        if len(descendants) > 0:
+            # for EACH sub-account add to the overall total
+            # print("Descendants of {}:".format(account_of_interest.GetName()))
+            for subAcct in descendants:
+                # print("{} balance = {}".format(subAcct.GetName(), gnc_numeric_to_python_decimal(subAcct.GetBalance())))
+                self.get_splits(subAcct, period_starts, periods)
+
+        self.csv_write_period_list(periods)
+        return acct_name
+
+    @staticmethod
+    def csv_write_period_list(periods:list):
+        """
+        Write out the details of the submitted period list in csv format
+        :param periods: dates and amounts for each quarter
+        :return: to stdout
+        """
+        # write out the column headers
+        csv_writer = csv.writer(stdout)
+        # csv_writer.writerow('')
+        csv_writer.writerow(('period start', 'period end', 'debits', 'credits', 'TOTAL'))
+
+        # write out the overall totals for the account of interest
+        for start_date, end_date, debit_sum, credit_sum, total in periods:
+            csv_writer.writerow((start_date, end_date, debit_sum, credit_sum, total))
+
+    CREDENTIALS_FILE:str = 'secrets/credentials.json'
+
+    SHEETS_RW_SCOPE:list = ['https://www.googleapis.com/auth/spreadsheets']
+
+    SHEETS_EPISTEMIK_RW_TOKEN:dict = {
+        'P2' : 'secrets/token.sheets.epistemik.rw.pickle2' ,
+        'P3' : 'secrets/token.sheets.epistemik.rw.pickle3' ,
+        'P4' : 'secrets/token.sheets.epistemik.rw.pickle4'
+    }
+    TOKEN:str = SHEETS_EPISTEMIK_RW_TOKEN['P4']
+
+    # Spreadsheet ID
+    BUDGET_QTRLY_ID_FILE:str = 'secrets/Budget-qtrly.id'
+
+# END class CommonUtilities
