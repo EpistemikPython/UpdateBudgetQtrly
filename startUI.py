@@ -47,7 +47,6 @@ MAIN_FXNS:dict = {
 }
 
 
-# noinspection PyAttributeOutsideInit,PyUnresolvedReferences
 class UpdateBudgetQtrly(QDialog):
     """update my 'Budget Quarterly' Google spreadsheet with information from a Gnucash file"""
     def __init__(self):
@@ -58,8 +57,13 @@ class UpdateBudgetQtrly(QDialog):
         self.width = 400
         self.height = 600
         self.gnc_file = None
+        self.script = None
+        self.mode = ''
+        self.log = Gnulog(True)
+        self.log.print_info("{}".format(self.title), GREEN)
         self.init_ui()
 
+    # noinspection PyAttributeOutsideInit
     def init_ui(self):
         self.setWindowTitle(self.title)
         self.setGeometry(self.left, self.top, self.width, self.height)
@@ -83,6 +87,7 @@ class UpdateBudgetQtrly(QDialog):
         self.setLayout(layout)
         self.show()
 
+    # noinspection PyAttributeOutsideInit,PyUnresolvedReferences
     def create_group_box(self):
         self.gb_main = QGroupBox("Parameters:")
         layout = QFormLayout()
@@ -130,16 +135,16 @@ class UpdateBudgetQtrly(QDialog):
                                                    options=options)
         if file_name:
             self.gnc_file = file_name
-            self.gnc_file_display = file_name.split('/')[-1]
-            self.gnc_file_btn.setText(self.gnc_file_display)
+            gnc_file_display = file_name.split('/')[-1]
+            self.gnc_file_btn.setText(gnc_file_display)
 
     def script_change(self):
         """must adjust domain and possibly quarter"""
         new_script = self.cb_script.currentText()
-        print_info("Script changed to: {}".format(new_script), MAGENTA)
+        self.log.print_info("Script changed to: {}".format(new_script), MAGENTA)
         if new_script != self.script:
             initial_domain = self.cb_domain.currentText()
-            print_info("Start with domain = {}".format(initial_domain), YELLOW)
+            self.log.print_info("Start with domain = {}".format(initial_domain), YELLOW)
             if new_script == REV_EXPS:
                 self.cb_domain.clear()
                 self.cb_domain.addItems(PARAMS[REV_EXPS])
@@ -164,13 +169,13 @@ class UpdateBudgetQtrly(QDialog):
                     and initial_domain in [self.cb_domain.itemText(i) for i in range(self.cb_domain.count())]:
                 self.cb_domain.setCurrentText(initial_domain)
 
-            print_info("Finish with domain = {}".format(self.cb_domain.currentText()), YELLOW)
+            self.log.print_info("Finish with domain = {}".format(self.cb_domain.currentText()), YELLOW)
             self.script = new_script
 
     def mode_change(self):
         """need the destination sheet if mode is Send"""
         new_mode = self.cb_mode.currentText()
-        print_info("Mode changed to '{}'.".format(new_mode), CYAN)
+        self.log.print_info("Mode changed to '{}'.".format(new_mode), CYAN)
         if new_mode != self.mode:
             if new_mode == TEST:
                 self.cb_dest.clear()
@@ -183,8 +188,8 @@ class UpdateBudgetQtrly(QDialog):
 
     def button_click(self):
         """assemble the necessary parameters"""
-        print_info("Clicked '{}'.".format(self.exe_btn.text()))
-        print_info("Script is '{}'.".format(self.cb_script.currentText()))
+        self.log.print_info("Clicked '{}'.".format(self.exe_btn.text()))
+        self.log.print_info("Script is '{}'.".format(self.cb_script.currentText()))
 
         if self.gnc_file is None:
             self.response_box.setText('>>> MUST select a Gnucash File!')
@@ -197,21 +202,20 @@ class UpdateBudgetQtrly(QDialog):
                 send_mode += '1'
 
         cl_params = [self.gnc_file, send_mode, self.cb_domain.currentText(), self.cb_qtr.currentText()]
-        print_info(cl_params, GREEN)
+        self.log.print_info(cl_params, GREEN)
 
         main_fxn = MAIN_FXNS[self.cb_script.currentText()]
         if callable(main_fxn):
             reply = main_fxn(cl_params)
         else:
             msg = "Problem with main??!! '{}'".format(main_fxn)
-            print_error(msg)
+            self.log.print_error(msg)
             reply = msg
         self.response_box.setText(json.dumps(reply, indent=4))
 
-    @staticmethod
-    def selection_change(cb:QComboBox, label:str):
+    def selection_change(self, cb:QComboBox, label:str):
         """info printing only"""
-        print_info("ComboBox '{}' selection changed to '{}'.".format(label, cb.currentText()), BLUE)
+        self.log.print_info("ComboBox '{}' selection changed to '{}'.".format(label, cb.currentText()), BLUE)
 
 
 # TODO: print debug output to ui screen
