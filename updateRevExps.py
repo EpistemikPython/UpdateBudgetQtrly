@@ -13,12 +13,39 @@ __author__ = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __python_version__ = 3.6
 __created__ = '2019-03-30'
-__updated__ = '2019-08-23'
+__updated__ = '2019-08-24'
 
 from argparse import ArgumentParser
 from gnucash import Session
-from googleapiclient.discovery import build
 from updateCommon import *
+
+# path to the account in the Gnucash file
+REV_ACCTS = {
+    INV : ["REV_Invest"],
+    OTH : ["REV_Other"],
+    EMP : ["REV_Employment"]
+}
+EXP_ACCTS = {
+    BAL  : ["EXP_Balance"],
+    CONT : ["EXP_CONTINGENT"],
+    NEC  : ["EXP_NECESSARY"]
+}
+DEDNS_BASE = 'DEDNS_Employment'
+DEDN_ACCTS = {
+    "Mark" : [DEDNS_BASE, 'Mark'],
+    "Lulu" : [DEDNS_BASE, 'Lulu'],
+    "ML"   : [DEDNS_BASE, 'Marie-Laure']
+}
+
+# column index in the Google sheets
+REV_EXP_COLS = {
+    DATE  : 'B',
+    REV   : 'D',
+    BAL   : 'P',
+    CONT  : 'O',
+    NEC   : 'G',
+    DEDNS : 'D'
+}
 
 
 class UpdateRevExps:
@@ -27,34 +54,6 @@ class UpdateRevExps:
         self.gncu = GnucashUtilities()
         self.gglu = GoogleUtilities()
         self.util = CommonUtilities()
-
-    # path to the account in the Gnucash file
-    REV_ACCTS = {
-        INV : ["REV_Invest"],
-        OTH : ["REV_Other"],
-        EMP : ["REV_Employment"]
-    }
-    EXP_ACCTS = {
-        BAL  : ["EXP_Balance"],
-        CONT : ["EXP_CONTINGENT"],
-        NEC  : ["EXP_NECESSARY"]
-    }
-    DEDNS_BASE = 'DEDNS_Employment'
-    DEDN_ACCTS = {
-        "Mark" : [DEDNS_BASE, 'Mark'],
-        "Lulu" : [DEDNS_BASE, 'Lulu'],
-        "ML"   : [DEDNS_BASE, 'Marie-Laure']
-    }
-
-    # column index in the Google sheets
-    REV_EXP_COLS = {
-        DATE  : 'B',
-        REV   : 'D',
-        BAL   : 'P',
-        CONT  : 'O',
-        NEC   : 'G',
-        DEDNS : 'D'
-    }
 
     BASE_YEAR:int = 2012
     # number of rows between same quarter in adjacent years
@@ -74,12 +73,12 @@ class UpdateRevExps:
         """
         data_quarter = {}
         str_rev = '= '
-        for item in self.REV_ACCTS:
+        for item in REV_ACCTS:
             # reset the debit and credit totals for each individual account
             periods[0][2] = ZERO
             periods[0][3] = ZERO
 
-            acct_base = self.REV_ACCTS[item]
+            acct_base = REV_ACCTS[item]
             acct_name = self.gncu.fill_splits(root_account, acct_base, period_starts, periods)
 
             sum_revenue = (periods[0][2] + periods[0][3]) * (-1)
@@ -100,12 +99,12 @@ class UpdateRevExps:
         :return: deductions for period
         """
         str_dedns = '= '
-        for item in self.DEDN_ACCTS:
+        for item in DEDN_ACCTS:
             # reset the debit and credit totals for each individual account
             periods[0][2] = ZERO
             periods[0][3] = ZERO
 
-            acct_path = self.DEDN_ACCTS[item]
+            acct_path = DEDN_ACCTS[item]
             acct_name = self.gncu.fill_splits(root_account, acct_path, period_starts, periods)
 
             sum_deductions = periods[0][2] + periods[0][3]
@@ -127,12 +126,12 @@ class UpdateRevExps:
         :return: total expenses for period
         """
         str_total = ''
-        for item in self.EXP_ACCTS:
+        for item in EXP_ACCTS:
             # reset the debit and credit totals for each individual account
             periods[0][2] = ZERO
             periods[0][3] = ZERO
 
-            acct_base = self.EXP_ACCTS[item]
+            acct_base = EXP_ACCTS[item]
             acct_name = self.gncu.fill_splits(root_account, acct_base, period_starts, periods)
 
             sum_expenses = periods[0][2] + periods[0][3]
@@ -243,14 +242,14 @@ class UpdateRevExps:
                     dest = nec_inc_dest
                     if key in (REV, BAL, CONT):
                         dest = all_inc_dest
-                    self.gglu.fill_cell(dest, self.REV_EXP_COLS[key], dest_row, item[key], google_data)
+                    self.gglu.fill_cell(dest, REV_EXP_COLS[key], dest_row, item[key], google_data)
 
         # fill update date & time to ALL and NEC
         today_row = BASE_ROW - 1 + self.util.year_span(today.year+2, self.BASE_YEAR, self.BASE_YEAR_SPAN, 0)
-        self.gglu.fill_cell(nec_inc_dest, self.REV_EXP_COLS[DATE], today_row, today.strftime(FILE_DATE_STR), google_data)
-        self.gglu.fill_cell(nec_inc_dest, self.REV_EXP_COLS[DATE], today_row+1, today.strftime(CELL_TIME_STR), google_data)
-        self.gglu.fill_cell(all_inc_dest, self.REV_EXP_COLS[DATE], today_row, today.strftime(FILE_DATE_STR), google_data)
-        self.gglu.fill_cell(all_inc_dest, self.REV_EXP_COLS[DATE], today_row+1, today.strftime(CELL_TIME_STR), google_data)
+        self.gglu.fill_cell(nec_inc_dest, REV_EXP_COLS[DATE], today_row, today.strftime(FILE_DATE_STR), google_data)
+        self.gglu.fill_cell(nec_inc_dest, REV_EXP_COLS[DATE], today_row+1, today.strftime(CELL_TIME_STR), google_data)
+        self.gglu.fill_cell(all_inc_dest, REV_EXP_COLS[DATE], today_row, today.strftime(FILE_DATE_STR), google_data)
+        self.gglu.fill_cell(all_inc_dest, REV_EXP_COLS[DATE], today_row+1, today.strftime(CELL_TIME_STR), google_data)
 
         str_qtr = None
         if len(gnc_data) == 1:
