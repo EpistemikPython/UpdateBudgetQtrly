@@ -12,7 +12,7 @@ __author__ = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __python_version__ = 3.6
 __created__ = '2019-04-07'
-__updated__ = '2019-08-23'
+__updated__ = '2019-08-24'
 
 from sys import stdout
 from datetime import date, timedelta, datetime as dt
@@ -22,73 +22,12 @@ from math import log10
 import csv
 import json
 import pickle
+import inspect
 import os.path as osp
-from gnucash import GncNumeric, Account
+from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
-import inspect
-
-COLOR_FLAG:str = '\x1b['
-BLACK:str   = COLOR_FLAG + '30m'
-RED:str     = COLOR_FLAG + '31m'
-GREEN:str   = COLOR_FLAG + '32m'
-YELLOW:str  = COLOR_FLAG + '33m'
-BLUE:str    = COLOR_FLAG + '34m'
-MAGENTA:str = COLOR_FLAG + '35m'
-CYAN:str    = COLOR_FLAG + '36m'
-WHITE:str   = COLOR_FLAG + '37m'
-COLOR_OFF:str = COLOR_FLAG + '0m'
-
-
-class Gnulog:
-    def __init__(self, p_debug:bool):
-        self.debug = p_debug
-        self.log_text = []
-
-    def append(self, obj:object):
-        self.log_text.append(obj)
-
-    def clear_log(self):
-        self.log_text = []
-
-    def get_log(self) -> list :
-        return self.log_text
-
-    def print_info(self, info:object, color:str='', inspector:bool=True, newline:bool=True):
-        """
-        Print information with choices of color, inspection info, newline
-        """
-        if self.debug:
-            text = self.print_text(info, color, inspector, newline)
-            self.append(text)
-
-    def print_error(self, text:object, newline:bool=True):
-        """
-        Print Error information in RED with inspection info
-        """
-        if self.debug:
-            self.print_text(text, RED, True, newline)
-
-    @staticmethod
-    def print_text(info:object, color:str='', inspector:bool=True, newline:bool=True) -> str :
-        """
-        Print information with choices of color, inspection info, newline
-        """
-        inspect_line = ''
-        if info is None:
-            info = '==========================================================================================================='
-            inspector = False
-        text = str(info)
-        if inspector:
-            calling_frame = inspect.currentframe().f_back
-            calling_file  = inspect.getfile(calling_frame).split('/')[-1]
-            calling_line  = str(inspect.getlineno(calling_frame))
-            inspect_line  = '[' + calling_file + '@' + calling_line + ']: '
-        print(inspect_line + color + text + COLOR_OFF, end=('\n' if newline else ''))
-        return text
-
-# END class Gnulog
-
+from gnucash import GncNumeric, Account, GncCommodity
 
 # constant strings
 AU    = 'Gold'
@@ -156,6 +95,71 @@ now:str  = today.strftime(FILE_DATE_STR + FILE_TIME_STR)
 DATE_STR_FORMAT = "\u0023%Y-%m-%d\u0025\u0025%H-%M-%S"
 dtnow  = dt.now()
 strnow = dtnow.strftime(DATE_STR_FORMAT)
+
+COLOR_FLAG:str = '\x1b['
+BLACK:str   = COLOR_FLAG + '30m'
+RED:str     = COLOR_FLAG + '31m'
+GREEN:str   = COLOR_FLAG + '32m'
+YELLOW:str  = COLOR_FLAG + '33m'
+BLUE:str    = COLOR_FLAG + '34m'
+MAGENTA:str = COLOR_FLAG + '35m'
+CYAN:str    = COLOR_FLAG + '36m'
+WHITE:str   = COLOR_FLAG + '37m'
+COLOR_OFF:str = COLOR_FLAG + '0m'
+
+
+class Gnulog:
+    def __init__(self, p_debug:bool):
+        self.debug = p_debug
+        self.log_text = []
+
+    def append(self, obj:object):
+        self.log_text.append(obj)
+
+    def clear_log(self):
+        self.log_text = []
+
+    def get_log(self) -> list :
+        return self.log_text
+
+    def print_info(self, info:object, color:str='', inspector:bool=True, newline:bool=True):
+        """
+        Print information with choices of color, inspection info, newline
+        """
+        if self.debug:
+            text = self.print_text(info, color, inspector, newline)
+            self.append(text)
+
+    def print_error(self, text:object, newline:bool=True):
+        """
+        Print Error information in RED with inspection info
+        """
+        if self.debug:
+            self.print_text(text, RED, True, newline)
+
+    @staticmethod
+    def print_warning(info:object) -> str :
+        return Gnulog.print_text(info, RED)
+
+    @staticmethod
+    def print_text(info:object, color:str='', inspector:bool=True, newline:bool=True) -> str :
+        """
+        Print information with choices of color, inspection info, newline
+        """
+        inspect_line = ''
+        if info is None:
+            info = '==========================================================================================================='
+            inspector = False
+        text = str(info)
+        if inspector:
+            calling_frame = inspect.currentframe().f_back
+            calling_file  = inspect.getfile(calling_frame).split('/')[-1]
+            calling_line  = str(inspect.getlineno(calling_frame))
+            inspect_line  = '[' + calling_file + '@' + calling_line + ']: '
+        print(inspect_line + color + text + COLOR_OFF, end=('\n' if newline else ''))
+        return text
+
+# END class Gnulog
 
 
 class CommonUtilities:
@@ -339,6 +343,37 @@ class GoogleUtilities:
 
         return creds
 
+    @staticmethod
+    def send_data(mode:str, data:list) -> dict :
+        """
+        Send the data list to the document
+        :param mode: '.?[send][1]'
+        :param data: Gnucash data for each needed quarter
+        :return: server response
+        """
+        Gnulog.print_text("send_google_data({})\n".format(mode))
+
+        response = None
+        try:
+            assets_body = {
+                'valueInputOption': 'USER_ENTERED',
+                'data': data
+            }
+
+            if 'send' in mode:
+                creds = GoogleUtilities.get_credentials()
+                service = build('sheets', 'v4', credentials=creds)
+                vals = service.spreadsheets().values()
+                response = vals.batchUpdate(spreadsheetId=GoogleUtilities.get_budget_id(), body=assets_body).execute()
+
+                Gnulog.print_text('{} cells updated!\n'.format(response.get('totalUpdatedCells')))
+
+        except Exception as se:
+            Gnulog.print_text("Exception: {}!".format(se), RED)
+            exit(308)
+
+        return response
+
 # END class GoogleUtilities
 
 
@@ -365,6 +400,50 @@ class GnucashUtilities:
 
         assert( (10 ** exponent) == denominator )
         return Decimal((sign, digit_tuple, -exponent))
+
+    @staticmethod
+    def get_account_balance(acct:Account, p_date:date, p_currency:GncCommodity) -> Decimal :
+        """
+        get the BALANCE in this account on this date in this currency
+        :param       acct: Gnucash Account
+        :param     p_date: required
+        :param p_currency: Gnucash commodity
+        :return: Decimal with balance
+        """
+        # CALLS ARE RETRIEVING ACCOUNT BALANCES FROM DAY BEFORE!!??
+        p_date += ONE_DAY
+
+        acct_bal = acct.GetBalanceAsOfDate(p_date)
+        acct_comm = acct.GetCommodity()
+        # check if account is already in the desired currency and convert if necessary
+        acct_cur = acct_bal if acct_comm == p_currency \
+                            else acct.ConvertBalanceToCurrencyAsOfDate(acct_bal, acct_comm, p_currency, p_date)
+
+        return gnc_numeric_to_python_decimal(acct_cur)
+
+    @staticmethod
+    def get_total_balance(root_acct, path: list, p_date: date, p_currency):
+        """
+        get the total BALANCE in the account and all sub-accounts on this path on this date in this currency
+        :param  root_acct: Gnucash Account from the Gnucash book
+        :param       path: path to the account
+        :param     p_date: to get the balance
+        :param p_currency: Gnucash Commodity: currency to use for the totals
+        :return: string, int: account name and account sum
+        """
+        acct = account_from_path(root_acct, path)
+        acct_name = acct.GetName()
+        # get the split amounts for the parent account
+        acct_sum = get_acct_bal(acct, p_date, p_currency)
+        descendants = acct.get_descendants()
+        if len(descendants) > 0:
+            # for EACH sub-account add to the overall total
+            for sub_acct in descendants:
+                # ?? GETTING SLIGHT ROUNDING ERRORS WHEN ADDING MUTUAL FUND VALUES...
+                acct_sum += get_acct_bal(sub_acct, p_date, p_currency)
+
+        print_info("{} on {} = ${}".format(acct_name, p_date, acct_sum), MAGENTA)
+        return acct_name, acct_sum
 
     @staticmethod
     def account_from_path(top_account:Account, account_path:list, original_path:list=None) -> Account :
@@ -395,7 +474,7 @@ class GnucashUtilities:
         get the splits for the account and each sub-account and add to periods
         :param          acct: to get splits
         :param period_starts: start date for each period
-        :param       periods: dates and amounts for each quarter
+        :param       periods: fill with splits for each quarter
         """
         # insert and add all splits in the periods of interest
         for split in acct.GetSplitList():
@@ -430,7 +509,7 @@ class GnucashUtilities:
         :param     root_acct: from the Gnucash book
         :param   target_path: account hierarchy from root account to target account
         :param period_starts: start date for each period
-        :param       periods: structs with the dates and amounts for each quarter
+        :param       periods: fill with the splits dates and amounts for requested time span
         :return: name of target_acct
         """
         account_of_interest = GnucashUtilities.account_from_path(root_acct, target_path)
