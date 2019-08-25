@@ -13,8 +13,9 @@ __author__ = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __python_version__ = 3.6
 __created__ = '2019-04-13'
-__updated__ = '2019-08-24'
+__updated__ = '2019-08-25'
 
+from argparse import ArgumentParser
 from gnucash import Session
 from updateCommon import *
 from updateAssets import QTR_SPAN, ASSET_COLS, BASE_YEAR as AST_BY, BASE_YEAR_SPAN as AST_BYS, HDR_SPAN as AST_HS
@@ -48,8 +49,9 @@ BAL_TODAY_RANGES = {
 
 class UpdateBalance:
     def __init__(self, p_filename:str, p_mode:str, p_domain:str, p_debug:bool):
-        self.log = Gnulog(p_debug)
+        self.log = SattoLog(p_debug)
         self.log.print_text('UpdateBalance', GREEN)
+        self.color = GREY
 
         # cell(s) with location and value to update on Google sheet
         self.data = []
@@ -77,10 +79,12 @@ class UpdateBalance:
     def get_data(self) -> list :
         return self.data
 
+    # noinspection PyUnboundLocalVariable
     def fill_today(self):
         """
         Get Balance data for TODAY: LIABS, House, FAMILY, XCHALET, TRUST
         """
+        self.log.print_text('UpdateBalance.fill_today()', self.color)
         # calls using 'today' ARE NOT off by one day??
         tdate = today - ONE_DAY
         for item in BALANCE_ACCTS:
@@ -95,9 +99,9 @@ class UpdateBalance:
             elif item == ASTS:
                 if house_sum is not None and liab_sum is not None:
                     acct_sum = acct_sum - house_sum - liab_sum
-                    self.log.Gnulog.print_text("Adjusted assets on {} = ${}".format(today, acct_sum.to_eng_string()), MAGENTA)
+                    self.log.print_info("Adjusted assets on {} = ${}".format(today, acct_sum.to_eng_string()), self.color)
                 else:
-                    self.log.Gnulog.print_warning("Do NOT have house sum and liab sum!")
+                    self.log.print_error("Do NOT have house sum and liab sum!")
 
             self.gglu.fill_cell(self.dest, BAL_MTHLY_COLS[TODAY], BAL_TODAY_RANGES[item], acct_sum, self.data)
 
@@ -115,10 +119,11 @@ class UpdateBalance:
         CURRENT YEAR: fill_today() AND: LIABS for ALL completed month_ends; FAMILY for ALL non-3 completed month_ends in year
         """
         self.fill_today()
+        self.log.print_text('UpdateBalance.fill_current_year()', self.color)
 
         for i in range(today.month - 1):
             month_end = date(today.year, i+2, 1)-ONE_DAY
-            Gnulog.print_text("month_end = {}".format(month_end), BLUE)
+            self.log.print_info("month_end = {}".format(month_end), self.color)
 
             row = self.BASE_MTHLY_ROW + month_end.month
             # fill LIABS
@@ -129,72 +134,66 @@ class UpdateBalance:
             if month_end.month % 3 != 0:
                 acct_name, acct_sum = self.gncu.get_total_balance(self.root_account, BALANCE_ACCTS[ASTS], month_end, self.currency)
                 adjusted_assets = acct_sum - liab_sum
-                Gnulog.print_text("Adjusted assets on {} = ${}".format(month_end, adjusted_assets.to_eng_string()), MAGENTA)
+                self.log.print_info("Adjusted assets on {} = ${}".format(month_end, adjusted_assets.to_eng_string()), self.color)
                 self.gglu.fill_cell(self.dest, BAL_MTHLY_COLS[ASTS], row, adjusted_assets, self.data)
             else:
-                Gnulog.print_text('Update reference to Assets sheet for Mar, June, Sep or Dec', GREEN)
+                self.log.print_info('Update reference to Assets sheet for Mar, June, Sep or Dec', self.color)
                 # have to update the CELL REFERENCE to current year/qtr ASSETS
                 year_row = BASE_ROW + self.util.year_span(today.year, AST_BY, AST_BYS, AST_HS)
-                # Gnulog.print_text('year_row = {}'.format(year_row))
                 int_qtr = (month_end.month // 3) - 1
-                # Gnulog.print_text("int_qtr = {}".format(int_qtr))
                 dest_row = year_row + (int_qtr * QTR_SPAN)
-                # Gnulog.print_text("dest_row = {}".format(dest_row))
                 val_num = '1' if '1' in self.dest else '2'
-                # Gnulog.print_text("val_num = {}".format(val_num))
                 value = "='Assets " + val_num + "'!" + ASSET_COLS[TOTAL] + str(dest_row)
-                # Gnulog.print_text("value = {}".format(value))
                 self.gglu.fill_cell(self.dest, BAL_MTHLY_COLS[ASTS], row, value, self.data)
 
             # fill DATE for month column
             self.gglu.fill_cell(self.dest, BAL_MTHLY_COLS[MTH], row, str(month_end), self.data)
 
-    def fill_previous_year(self, root_account, dest:str, p_currency):
+    def fill_previous_year(self):
         """
         PREVIOUS YEAR: LIABS for ALL NON-completed months; FAMILY for ALL non-3 NON-completed months in year
-        :param root_account: Gnucash Account from the Gnucash book
-        :param         dest: Google sheet to update
-        :param   p_currency: Gnucash Commodity: currency to use for the totals
-        :return: list of cell(s) with location and value to update on Google sheet
         """
+        self.log.print_text('UpdateBalance.fill_current_year()', self.color)
+
         year = today.year - 1
         for i in range(12-today.month):
             dte = date(year, i+today.month+1, 1)-ONE_DAY
-            Gnulog.print_text("date = {}".format(dte), BLUE)
+            self.log.print_info("date = {}".format(dte), self.color)
 
             row = self.BASE_MTHLY_ROW + dte.month
             # fill LIABS
-            acct_name, liab_sum = self.gncu.get_total_balance(root_account, BALANCE_ACCTS[LIAB], dte, p_currency)
-            self.gglu.fill_cell(dest, BAL_MTHLY_COLS[LIAB][MTH], row, liab_sum, self.data)
+            acct_name, liab_sum = self.gncu.get_total_balance(self.root_account, BALANCE_ACCTS[LIAB], dte, self.currency)
+            self.gglu.fill_cell(self.dest, BAL_MTHLY_COLS[LIAB][MTH], row, liab_sum, self.data)
 
             # fill ASSETS for months NOT covered by the Assets sheet
             if dte.month % 3 != 0:
-                acct_name, acct_sum = self.gncu.get_total_balance(root_account, BALANCE_ACCTS[ASTS], dte, p_currency)
+                acct_name, acct_sum = self.gncu.get_total_balance(self.root_account, BALANCE_ACCTS[ASTS], dte, self.currency)
                 adjusted_assets = acct_sum - liab_sum
-                Gnulog.print_text("Adjusted assets on {} = ${}".format(dte, adjusted_assets.to_eng_string()), MAGENTA)
-                self.gglu.fill_cell(dest, BAL_MTHLY_COLS[ASTS], row, adjusted_assets, self.data)
+                self.log.print_info("Adjusted assets on {} = ${}".format(dte, adjusted_assets.to_eng_string()), self.color)
+                self.gglu.fill_cell(self.dest, BAL_MTHLY_COLS[ASTS], row, adjusted_assets, self.data)
 
         # LIABS entry for year end
         year_end = date(year, 12, 31)
-        acct_name, liab_sum = self.gncu.get_total_balance(root_account, BALANCE_ACCTS[LIAB], year_end, p_currency)
+        acct_name, liab_sum = self.gncu.get_total_balance(self.root_account, BALANCE_ACCTS[LIAB], year_end, self.currency)
         # month column
-        self.gglu.fill_cell(dest, BAL_MTHLY_COLS[LIAB][MTH], self.BASE_MTHLY_ROW + 12, liab_sum, self.data)
+        self.gglu.fill_cell(self.dest, BAL_MTHLY_COLS[LIAB][MTH], self.BASE_MTHLY_ROW + 12, liab_sum, self.data)
         # year column
         self.fill_year(year)
 
     def fill_year(self, year:int):
         """
-        :param         year: to get data for
+        :param year: to get data for
         """
         year_end = date(year, 12, 31)
-        Gnulog.print_text("year_end = {}".format(year_end), BLUE)
+        self.log.print_info("UpdateBalance.fill_year(): year_end = {}".format(year_end), self.color)
 
         # fill LIABS
         acct_name, liab_sum = self.gncu.get_total_balance(self.root_account, BALANCE_ACCTS[LIAB], year_end, self.currency)
         yr_span = self.util.year_span(year, self.BASE_YEAR, self.BASE_YEAR_SPAN, self.HDR_SPAN)
         self.gglu.fill_cell(self.dest, BAL_MTHLY_COLS[LIAB][YR], BASE_ROW + yr_span, liab_sum, self.data)
 
-    def fill_google_cells(self):
+    # noinspection PyAttributeOutsideInit,PyUnboundLocalVariable
+    def fill_google_cells(self, p_save):
         """
         Get Balance data for TODAY:
           LIABS, House, FAMILY, XCHALET, TRUST
@@ -202,9 +201,10 @@ class UpdateBalance:
           IF CURRENT YEAR: TODAY & LIABS for ALL completed months; FAMILY for ALL non-3 completed months in year
           IF PREVIOUS YEAR: LIABS for ALL NON-completed months; FAMILY for ALL non-3 NON-completed months in year
           ELSE: LIABS for year
+        :param: p_save: save data to json file
         :return: list of cell(s) with location and value to update on Google sheet
         """
-        Gnulog.print_text("fill_google_cells(): find Balances in {} for {}".format(gnucash_file, self.domain), GREEN)
+        self.log.print_info("UpdateBalance.fill_google_cells()", self.color)
 
         try:
             gnucash_session = Session(self.gnucash_file, is_new=False)
@@ -237,7 +237,7 @@ class UpdateBalance:
                 self.util.save_to_json(fname, now, self.data)
 
         except Exception as ge:
-            Gnulog.print_warning("Exception: {}!".format(ge))
+            self.log.print_error("Exception: {}!".format(ge))
             if "gnucash_session" in locals() and gnucash_session is not None:
                 gnucash_session.end()
             exit(279)
@@ -247,42 +247,73 @@ class UpdateBalance:
         Send the data to the Google sheet
         :return: server response
         """
-        Gnulog.print_text("send_to_google_sheet()\n")
+        self.log.print_info("UpdateBalance.send_to_google_sheet()", self.color)
 
-        return self.gglu.send_data(self.mode, self.data)
+        if PROD in self.mode:
+            return self.gglu.send_data(self.mode, self.data)
+        return {'mode':TEST}
+
+# END class UpdateBalance
+
+
+def process_args():
+    arg_parser = ArgumentParser(description='Update the Balance section of my Google Sheet', prog='updateBalance.py')
+    # required arguments
+    required = arg_parser.add_argument_group('REQUIRED')
+    required.add_argument('-g', '--gnucash_file', required=True, help='path & filename of the Gnucash file to use')
+    required.add_argument('-m', '--mode', required=True, choices=[TEST, PROD], help='write to Google sheet or just test')
+    required.add_argument('-d', '--domain', required=True, help="'today' | 'current year' | 'previous year' | year | 'allyears'")
+    # optional arguments
+    arg_parser.add_argument('--json',  action='store_true', help='Write the Google formatted data to a JSON file')
+    arg_parser.add_argument('--debug', action='store_true', help='GENERATE DEBUG OUTPUT: MANY LINES!')
+
+    return arg_parser
+
+
+def process_input_parameters(argv:list):
+    args = process_args().parse_args(argv)
+    SattoLog.print_text("\nargs = {}".format(args), BROWN)
+
+    if args.debug:
+        SattoLog.print_text('Printing ALL Debug output!!', RED)
+
+    if not osp.isfile(args.gnucash_file):
+        SattoLog.print_text("File path '{}' does not exist! Exiting...".format(args.gnucash_file), RED)
+        exit(282)
+    SattoLog.print_text("\nGnucash file = {}".format(args.gnucash_file), CYAN)
+
+    return args.gnucash_file, args.json, args.debug, args.mode, args.domain
 
 
 # TODO: fill in date column for previous month when updating 'today', check to update 'today' or 'tomorrow'
 def update_balance_main(args:list):
     """
-    Main: check command line and call functions to get the data from Gnucash book and send to Google document
-    :return: string
+    Main: check command line then use UpdateBalance to get the data from Gnucash file and send to Google sheet
     """
-    if len(args) < 3:
-        Gnulog.print_warning("NOT ENOUGH parameters!")
-        usage = "usage: py36 updateBalance.py <book url> mode=<.?[send][1]> <year | 'today' | 'allyears'>"
-        Gnulog.print_text(usage, GREEN)
-        Gnulog.print_warning("PROGRAM EXIT!")
-        return usage
+    SattoLog.print_text("Parameters = \n{}".format(json.dumps(args, indent=4)), GREEN)
+    gnucash_file, save_json, debug, mode, domain = process_input_parameters(args)
 
-    gnucash_file = args[0]
+    ub_now = dt.now().strftime(DATE_STR_FORMAT)
+    SattoLog.print_text("update_balance_main(): Runtime = {}".format(ub_now), BLUE)
 
-    Gnulog.print_text("\nrunning in mode '{}' at run-time: {}\n".format(mode, now), CYAN)
+    response = 'No Response'
+    try:
+        updater = UpdateBalance(gnucash_file, mode, domain, debug)
 
-    updater = UpdateBalance(gnucash_file, args[1].lower(), args[2].lower(), debug)
-    # get the requested data from Gnucash and package in the update format required by Google spreadsheets
-    updater.fill_google_cells()
+        # get the requested data from Gnucash and package in the update format required by Google sheets
+        updater.fill_google_cells(save_json)
 
-    response = updater.send_to_google_sheet()
+        response = updater.send_to_google_sheet()
 
-    Gnulog.print_text(" >>> PROGRAM ENDED.\n", GREEN)
-
-    if response:
         fname = "out/updateBalance_{}-response".format(domain)
-        CommonUtilities.save_to_json(fname, now, response)
-        return response
-    else:
-        return updater.get_data()
+        CommonUtilities.save_to_json(fname, ub_now, response)
+
+    except Exception as e:
+        msg = "update_balance_main() EXCEPTION!! '{}'".format(repr(e))
+        SattoLog.print_warning(msg)
+
+    SattoLog.print_text(" >>> PROGRAM ENDED.\n", GREEN)
+    return response
 
 
 if __name__ == "__main__":
