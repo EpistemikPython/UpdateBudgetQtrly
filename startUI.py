@@ -9,7 +9,7 @@ __author__ = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __python_version__ = 3.6
 __created__ = '2019-03-30'
-__updated__ = '2019-08-18'
+__updated__ = '2019-08-25'
 
 import sys
 from PyQt5.QtWidgets import ( QApplication, QComboBox, QVBoxLayout, QGroupBox, QDialog, QFileDialog,
@@ -59,7 +59,7 @@ class UpdateBudgetQtrly(QDialog):
         self.gnc_file = None
         self.script = None
         self.mode = ''
-        self.log = Gnulog(True)
+        self.log = SattoLog(True)
         self.log.print_info("{}".format(self.title), GREEN)
         self.init_ui()
 
@@ -144,7 +144,7 @@ class UpdateBudgetQtrly(QDialog):
         self.log.print_info("Script changed to: {}".format(new_script), MAGENTA)
         if new_script != self.script:
             initial_domain = self.cb_domain.currentText()
-            self.log.print_info("Start with domain = {}".format(initial_domain), YELLOW)
+            self.log.print_info("Start with domain = {}".format(initial_domain), BROWN)
             if new_script == REV_EXPS:
                 self.cb_domain.clear()
                 self.cb_domain.addItems(PARAMS[REV_EXPS])
@@ -169,7 +169,7 @@ class UpdateBudgetQtrly(QDialog):
                     and initial_domain in [self.cb_domain.itemText(i) for i in range(self.cb_domain.count())]:
                 self.cb_domain.setCurrentText(initial_domain)
 
-            self.log.print_info("Finish with domain = {}".format(self.cb_domain.currentText()), YELLOW)
+            self.log.print_info("Finish with domain = {}".format(self.cb_domain.currentText()), BROWN)
             self.script = new_script
 
     def mode_change(self):

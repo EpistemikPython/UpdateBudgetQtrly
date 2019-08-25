@@ -12,13 +12,14 @@ __author__ = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __python_version__ = 3.6
 __created__ = '2019-04-07'
-__updated__ = '2019-08-24'
+__updated__ = '2019-08-25'
 
 from sys import stdout
 from datetime import date, timedelta, datetime as dt
 from bisect import bisect_right
 from decimal import Decimal
 from math import log10
+from types import FrameType
 import csv
 import json
 import pickle
@@ -61,8 +62,8 @@ DEDNS = 'Emp_Dedns'
 TRADE = 'Trade'
 PRICE = 'Price'
 BOTH  = 'Both'
-TEST  = 'Test'
-PROD  = 'Prod'
+TEST  = 'test'
+PROD  = 'prod'
 
 # number of months in a Quarter
 PERIOD_QTR:int = 3
@@ -88,7 +89,7 @@ BASE_ROW:int = 3
 
 CELL_TIME_STR:str = "%H:%M:%S"
 FILE_DATE_STR:str = "%Y-%m-%d"
-FILE_TIME_STR:str = "%T%H-%M-%S"
+FILE_TIME_STR:str = "T%H-%M-%S"
 today:dt = dt.now()
 now:str  = today.strftime(FILE_DATE_STR + FILE_TIME_STR)
 
@@ -97,18 +98,25 @@ dtnow  = dt.now()
 strnow = dtnow.strftime(DATE_STR_FORMAT)
 
 COLOR_FLAG:str = '\x1b['
-BLACK:str   = COLOR_FLAG + '30m'
 RED:str     = COLOR_FLAG + '31m'
 GREEN:str   = COLOR_FLAG + '32m'
-YELLOW:str  = COLOR_FLAG + '33m'
+BROWN:str   = COLOR_FLAG + '33m'
 BLUE:str    = COLOR_FLAG + '34m'
 MAGENTA:str = COLOR_FLAG + '35m'
 CYAN:str    = COLOR_FLAG + '36m'
-WHITE:str   = COLOR_FLAG + '37m'
+BR_RED:str   = COLOR_FLAG + '91m'
+BR_GREEN:str = COLOR_FLAG + '92m'
+YELLOW:str   = COLOR_FLAG + '93m'
+BR_BLUE:str  = COLOR_FLAG + '94m'
+PINK:str     = COLOR_FLAG + '95m'
+BR_CYAN:str  = COLOR_FLAG + '96m'
+BLACK:str     = COLOR_FLAG + '30m'
+GREY:str      = COLOR_FLAG + '90m'
+WHITE:str     = COLOR_FLAG + '37m'
 COLOR_OFF:str = COLOR_FLAG + '0m'
 
 
-class Gnulog:
+class SattoLog:
     def __init__(self, p_debug:bool):
         self.debug = p_debug
         self.log_text = []
@@ -122,27 +130,38 @@ class Gnulog:
     def get_log(self) -> list :
         return self.log_text
 
-    def print_info(self, info:object, color:str='', inspector:bool=True, newline:bool=True):
+    def print_info(self, info:object, color:str='', inspector:bool=True, newline:bool=True) -> str :
         """
         Print information with choices of color, inspection info, newline
         """
+        text = str(info)
         if self.debug:
-            text = self.print_text(info, color, inspector, newline)
+            calling_frame = inspect.currentframe().f_back
+            # print(inspect.getframeinfo(calling_frame))
+            # print("frame type = {}, class = {}, module = {}, class module = {}, package = {}"
+            #       .format(type(calling_frame), calling_frame.__class__, inspect.getmodule(calling_frame),
+            #               'calling_frame.__class__.__module__', 'calling_frame.__package__'))
+            self.print_text(info, color, inspector, newline, calling_frame)
             self.append(text)
+        return text
 
-    def print_error(self, text:object, newline:bool=True):
+    def print_error(self, info:object) -> str :
         """
         Print Error information in RED with inspection info
         """
+        text = str(info)
         if self.debug:
-            self.print_text(text, RED, True, newline)
+            calling_frame = inspect.currentframe().f_back
+            self.print_warning(info, calling_frame)
+        return text
 
     @staticmethod
-    def print_warning(info:object) -> str :
-        return Gnulog.print_text(info, RED)
+    def print_warning(info:object, p_frame:FrameType=None) -> str :
+        calling_frame = p_frame if p_frame is not None else inspect.currentframe().f_back
+        return SattoLog.print_text(info, BR_RED, p_frame=calling_frame)
 
     @staticmethod
-    def print_text(info:object, color:str='', inspector:bool=True, newline:bool=True) -> str :
+    def print_text(info:object, color:str='', inspector:bool=True, newline:bool=True, p_frame:FrameType=None) -> str :
         """
         Print information with choices of color, inspection info, newline
         """
@@ -152,17 +171,24 @@ class Gnulog:
             inspector = False
         text = str(info)
         if inspector:
-            calling_frame = inspect.currentframe().f_back
+            calling_frame = p_frame if p_frame is not None else inspect.currentframe().f_back
+            parent_frame = calling_frame.f_back
             calling_file  = inspect.getfile(calling_frame).split('/')[-1]
+            parent_file  = inspect.getfile(parent_frame).split('/')[-1]
             calling_line  = str(inspect.getlineno(calling_frame))
-            inspect_line  = '[' + calling_file + '@' + calling_line + ']: '
+            parent_line  = str(inspect.getlineno(parent_frame))
+            inspect_line  = '[' + parent_file + '@' + parent_line + '->' + calling_file + '@' + calling_line + ']: '
         print(inspect_line + color + text + COLOR_OFF, end=('\n' if newline else ''))
         return text
 
-# END class Gnulog
+# END class SattoLog
 
 
 class CommonUtilities:
+    def __init__(self):
+        SattoLog.print_text("CommonUtilities", GREEN)
+
+    my_color = BROWN
 
     @staticmethod
     def year_span(target_year:int, base_year:int, base_year_span:int, hdr_span:int) -> int :
@@ -173,6 +199,8 @@ class CommonUtilities:
         :param base_year_span: number of rows between equivalent positions in adjacent years, not including header rows
         :param       hdr_span: number of rows between header rows
         """
+        SattoLog.print_text("CommonUtilities.year_span()", CommonUtilities.my_color)
+
         year_diff = int(target_year - base_year)
         hdr_adjustment = 0 if hdr_span <= 0 else (year_diff // int(hdr_span))
         return int(year_diff * base_year_span) + hdr_adjustment
@@ -184,14 +212,16 @@ class CommonUtilities:
         :param target_year: to convert
         :param   base_year: earliest possible year
         """
+        SattoLog.print_text("CommonUtilities.get_int_year()", CommonUtilities.my_color)
+
         if not target_year.isnumeric():
-            Gnulog.print_text("Input MUST be the String representation of a Year, e.g. '2013'!")
-            exit(177)
+            SattoLog.print_warning("Input MUST be the String representation of a Year, e.g. '2013'!")
+            exit(214)
         int_year = int(float(target_year))
         if int_year > today.year or int_year < base_year:
-            Gnulog.print_text("Input MUST be the String representation of a Year between {} and {}!"
-                              .format(today.year, base_year))
-            exit(182)
+            SattoLog.print_warning("Input MUST be the String representation of a Year between {} and {}!"
+                                   .format(today.year, base_year))
+            exit(219)
 
         return int_year
 
@@ -201,13 +231,15 @@ class CommonUtilities:
         convert the string representation of a quarter to an int
         :param  p_qtr: to convert
         """
+        SattoLog.print_text("CommonUtilities.get_int_quarter()", CommonUtilities.my_color)
+
         if not p_qtr.isnumeric():
-            Gnulog.print_text("Input MUST be a String of 0..4!", RED)
-            exit(193)
+            SattoLog.print_warning("Input MUST be a String of 0..4!")
+            exit(233)
         int_qtr = int(float(p_qtr))
         if int_qtr > 4 or int_qtr < 0:
-            Gnulog.print_text("Input MUST be a String of 0..4!", RED)
-            exit(197)
+            SattoLog.print_warning("Input MUST be a String of 0..4!")
+            exit(237)
 
         return int_qtr
 
@@ -218,6 +250,8 @@ class CommonUtilities:
         :param  start_year
         :param start_month
         """
+        SattoLog.print_text("CommonUtilities.next_quarter_start()", CommonUtilities.my_color)
+
         # add number of months for a Quarter
         next_month = start_month + PERIOD_QTR
 
@@ -235,6 +269,8 @@ class CommonUtilities:
         :param  start_year
         :param start_month
         """
+        SattoLog.print_text("CommonUtilities.current_quarter_end()", CommonUtilities.my_color)
+
         end_year, end_month = CommonUtilities.next_quarter_start(start_year, start_month)
 
         # last step, the end date is one day back from the start of the next period
@@ -249,6 +285,8 @@ class CommonUtilities:
         :param start_month
         :param    num_qtrs: number of quarters to calculate
         """
+        SattoLog.print_text("CommonUtilities.generate_quarter_boundaries()", CommonUtilities.my_color)
+
         for i in range(num_qtrs):
             yield(date(start_year, start_month, 1), CommonUtilities.current_quarter_end(start_year, start_month))
             start_year, start_month = CommonUtilities.next_quarter_start(start_year, start_month)
@@ -263,8 +301,10 @@ class CommonUtilities:
         :param      indt: indentation amount
         :return: file name
         """
+        SattoLog.print_text("CommonUtilities.save_to_json()", CommonUtilities.my_color)
+
         out_file = fname + '_' + ts + ".json"
-        Gnulog.print_text("json file is '{}'\n".format(out_file), MAGENTA)
+        SattoLog.print_text("json file is '{}'\n".format(out_file), MAGENTA)
         fp = open(out_file, 'w')
         json.dump(json_data, fp, indent=indt)
         fp.close()
@@ -274,6 +314,11 @@ class CommonUtilities:
 
 
 class GoogleUtilities:
+    def __init__(self):
+        SattoLog.print_text("GoogleUtilities", GREEN)
+
+    my_color = CYAN
+
     CREDENTIALS_FILE:str = 'secrets/credentials.json'
 
     SHEETS_RW_SCOPE:list = ['https://www.googleapis.com/auth/spreadsheets']
@@ -298,12 +343,14 @@ class GoogleUtilities:
         :param   val:  str OR Decimal: value to fill with
         :param  data:  optional list to append with created dict
         """
+        # SattoLog.print_text("GoogleUtilities.fill_cell()", GoogleUtilities.my_color)
+
         if data is None:
             data = list()
 
         value = val.to_eng_string() if isinstance(val, Decimal) else val
         cell = {'range': sheet + '!' + col + str(row), 'values': [[value]]}
-        Gnulog.print_text("cell = {}\n".format(cell), GREEN)
+        SattoLog.print_text("GoogleUtilities.fill_cell() = {}\n".format(cell), GoogleUtilities.my_color)
         data.append(cell)
 
         return data
@@ -313,9 +360,11 @@ class GoogleUtilities:
         """
         get the budget id string from the file in the secrets folder
         """
+        SattoLog.print_text("GoogleUtilities.get_budget_id()", GoogleUtilities.my_color)
+
         fp = open(GoogleUtilities.BUDGET_QTRLY_ID_FILE, "r")
         fid = fp.readline().strip()
-        Gnulog.print_text("Budget Id = '{}'\n".format(fid), CYAN)
+        SattoLog.print_text("Budget Id = '{}'\n".format(fid), GoogleUtilities.my_color)
         fp.close()
         return fid
 
@@ -324,6 +373,8 @@ class GoogleUtilities:
         """
         get the proper credentials needed to write to the Google spreadsheet
         """
+        SattoLog.print_text("GoogleUtilities.get_credentials()", GoogleUtilities.my_color)
+
         creds = None
         if osp.exists(GoogleUtilities.TOKEN):
             with open(GoogleUtilities.TOKEN, 'rb') as token:
@@ -351,7 +402,7 @@ class GoogleUtilities:
         :param data: Gnucash data for each needed quarter
         :return: server response
         """
-        Gnulog.print_text("send_google_data({})\n".format(mode))
+        SattoLog.print_text("GoogleUtilities.send_data({})\n".format(mode), GoogleUtilities.my_color)
 
         response = None
         try:
@@ -366,19 +417,22 @@ class GoogleUtilities:
                 vals = service.spreadsheets().values()
                 response = vals.batchUpdate(spreadsheetId=GoogleUtilities.get_budget_id(), body=assets_body).execute()
 
-                Gnulog.print_text('{} cells updated!\n'.format(response.get('totalUpdatedCells')))
+                SattoLog.print_text('{} cells updated!\n'.format(response.get('totalUpdatedCells')), GoogleUtilities.my_color)
 
         except Exception as se:
-            Gnulog.print_text("Exception: {}!".format(se), RED)
-            exit(308)
+            SattoLog.print_warning("Exception: {}!".format(se))
+            exit(419)
 
         return response
 
 # END class GoogleUtilities
 
 
-# noinspection PyUnresolvedReferences
 class GnucashUtilities:
+    def __init__(self):
+        SattoLog.print_text("GnucashUtilities", GREEN)
+
+    my_color = MAGENTA
 
     @staticmethod
     def gnc_numeric_to_python_decimal(numeric:GncNumeric) -> Decimal :
@@ -386,6 +440,8 @@ class GnucashUtilities:
         convert a GncNumeric value to a python Decimal value
         :param numeric: value to convert
         """
+        # SattoLog.print_text("GnucashUtilities.gnc_numeric_to_python_decimal()", GnucashUtilities.my_color)
+
         negative = numeric.negative_p()
         sign = 1 if negative else 0
 
@@ -410,6 +466,8 @@ class GnucashUtilities:
         :param p_currency: Gnucash commodity
         :return: Decimal with balance
         """
+        # SattoLog.print_text("GnucashUtilities.get_account_balance()", GnucashUtilities.my_color)
+
         # CALLS ARE RETRIEVING ACCOUNT BALANCES FROM DAY BEFORE!!??
         p_date += ONE_DAY
 
@@ -419,7 +477,7 @@ class GnucashUtilities:
         acct_cur = acct_bal if acct_comm == p_currency \
                             else acct.ConvertBalanceToCurrencyAsOfDate(acct_bal, acct_comm, p_currency, p_date)
 
-        return gnc_numeric_to_python_decimal(acct_cur)
+        return GnucashUtilities.gnc_numeric_to_python_decimal(acct_cur)
 
     @staticmethod
     def get_total_balance(root_acct, path: list, p_date: date, p_currency):
@@ -431,18 +489,20 @@ class GnucashUtilities:
         :param p_currency: Gnucash Commodity: currency to use for the totals
         :return: string, int: account name and account sum
         """
-        acct = account_from_path(root_acct, path)
+        # SattoLog.print_text("GnucashUtilities.get_total_balance()", GnucashUtilities.my_color)
+
+        acct = GnucashUtilities.account_from_path(root_acct, path)
         acct_name = acct.GetName()
         # get the split amounts for the parent account
-        acct_sum = get_acct_bal(acct, p_date, p_currency)
+        acct_sum = GnucashUtilities.get_account_balance(acct, p_date, p_currency)
         descendants = acct.get_descendants()
         if len(descendants) > 0:
             # for EACH sub-account add to the overall total
             for sub_acct in descendants:
                 # ?? GETTING SLIGHT ROUNDING ERRORS WHEN ADDING MUTUAL FUND VALUES...
-                acct_sum += get_acct_bal(sub_acct, p_date, p_currency)
+                acct_sum += GnucashUtilities.get_account_balance(sub_acct, p_date, p_currency)
 
-        print_info("{} on {} = ${}".format(acct_name, p_date, acct_sum), MAGENTA)
+        SattoLog.print_text("GnucashUtilities.get_total_balance(): {} on {} = ${}".format(acct_name, p_date, acct_sum), GnucashUtilities.my_color)
         return acct_name, acct_sum
 
     @staticmethod
@@ -453,6 +513,9 @@ class GnucashUtilities:
         :param  account_path: path to follow
         :param original_path: original call path
         """
+        SattoLog.print_text("GnucashUtilities.account_from_path({}:{})"
+                            .format(top_account.GetName(), account_path), GnucashUtilities.my_color)
+
         # print("top_account = %s, account_path = %s, original_path = %s" % (top_account, account_path, original_path))
         if original_path is None:
             original_path = account_path
@@ -476,6 +539,8 @@ class GnucashUtilities:
         :param period_starts: start date for each period
         :param       periods: fill with splits for each quarter
         """
+        SattoLog.print_text("GnucashUtilities.get_splits()", GnucashUtilities.my_color)
+
         # insert and add all splits in the periods of interest
         for split in acct.GetSplitList():
             trans = split.parent
@@ -512,9 +577,11 @@ class GnucashUtilities:
         :param       periods: fill with the splits dates and amounts for requested time span
         :return: name of target_acct
         """
+        SattoLog.print_text("GnucashUtilities.fill_splits()", GnucashUtilities.my_color)
+
         account_of_interest = GnucashUtilities.account_from_path(root_acct, target_path)
         acct_name = account_of_interest.GetName()
-        Gnulog.print_text("\naccount_of_interest = {}".format(acct_name), BLUE)
+        SattoLog.print_text("\naccount_of_interest = {}".format(acct_name), GnucashUtilities.my_color)
 
         # get the split amounts for the parent account
         GnucashUtilities.get_splits(account_of_interest, period_starts, periods)
@@ -536,6 +603,8 @@ class GnucashUtilities:
         :param periods: dates and amounts for each quarter
         :return: to stdout
         """
+        SattoLog.print_text("GnucashUtilities.csv_write_period_list()", GnucashUtilities.my_color)
+
         # write out the column headers
         csv_writer = csv.writer(stdout)
         # csv_writer.writerow('')

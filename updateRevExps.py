@@ -50,7 +50,7 @@ REV_EXP_COLS = {
 
 class UpdateRevExps:
     def __init__(self):
-        self.log = Gnulog(True)
+        self.log = SattoLog(True)
         self.gncu = GnucashUtilities()
         self.gglu = GoogleUtilities()
         self.util = CommonUtilities()
@@ -314,28 +314,28 @@ def process_args():
 
 def process_input_parameters(argv:list):
     args = process_args().parse_args(argv)
-    Gnulog.print_text("\nargs = {}".format(args), YELLOW)
+    SattoLog.print_text("\nargs = {}".format(args), BROWN)
 
     if args.debug:
-        Gnulog.print_text('Printing ALL Debug output!!', RED)
+        SattoLog.print_text('Printing ALL Debug output!!', RED)
 
     if not osp.isfile(args.monarch):
-        Gnulog.print_text("File path '{}' does not exist! Exiting...".format(args.monarch), RED)
+        SattoLog.print_text("File path '{}' does not exist! Exiting...".format(args.monarch), RED)
         exit(325)
-    Gnulog.print_text("\nMonarch file = {}".format(args.monarch), CYAN)
+    SattoLog.print_text("\nMonarch file = {}".format(args.monarch), CYAN)
 
     domain = BOTH
     mode = TEST
     gnc_file = None
     if 'filename' in args:
         if not osp.isfile(args.filename):
-            Gnulog.print_text("File path '{}' does not exist. Exiting...".format(args.filename), RED)
+            SattoLog.print_text("File path '{}' does not exist. Exiting...".format(args.filename), RED)
             exit(334)
         gnc_file = args.filename
-        Gnulog.print_text("\nGnucash file = {}".format(gnc_file), CYAN)
+        SattoLog.print_text("\nGnucash file = {}".format(gnc_file), CYAN)
         mode = PROD
         domain = args.type
-        Gnulog.print_text("Saving '{}' transaction types to Gnucash.".format(domain), YELLOW)
+        SattoLog.print_text("Saving '{}' transaction types to Gnucash.".format(domain), BROWN)
 
     return args.monarch, args.json, args.debug, mode, gnc_file, domain
 
@@ -344,23 +344,23 @@ def update_rev_exps_main(args:list):
     """
     Main: check command line and call functions to get the data from Gnucash book and send to Google document
     """
-    # Gnulog.print_text("Parameters = \n{}".format(json.dumps(args, indent=4)), GREEN)
+    # SattoLog.print_text("Parameters = \n{}".format(json.dumps(args, indent=4)), GREEN)
     # gnucash_file, mode, str_year, str_qtr = process_input_parameters(args)
 
     revexp_now = dt.now().strftime(DATE_STR_FORMAT)
-    Gnulog.print_text("update_rev_exps_main(): Runtime = {}".format(revexp_now), BLUE)
+    SattoLog.print_text("update_rev_exps_main(): Runtime = {}".format(revexp_now), BLUE)
 
     # try:
     if len(args) < 3:
-        Gnulog.print_text("NOT ENOUGH parameters!", RED)
+        SattoLog.print_text("NOT ENOUGH parameters!", RED)
         usage = 'usage: py36 updateRevExps.py <book url> mode=<.?[send][1]> <year> [quarter]'
-        Gnulog.print_text(usage, GREEN)
-        Gnulog.print_text("PROGRAM EXIT!", MAGENTA)
+        SattoLog.print_text(usage, GREEN)
+        SattoLog.print_text("PROGRAM EXIT!", MAGENTA)
         return usage
 
     gnucash_file = args[0]
     mode = args[1].lower()
-    Gnulog.print_text("\nrunning in mode '{}' at run-time: {}\n".format(mode, revexp_now), CYAN)
+    SattoLog.print_text("\nrunning in mode '{}' at run-time: {}\n".format(mode, revexp_now), CYAN)
 
     updater = UpdateRevExps()
     target_year = CommonUtilities.get_int_year(args[2], updater.BASE_YEAR)
@@ -371,7 +371,7 @@ def update_rev_exps_main(args:list):
 
     response = updater.send_google_data(mode, target_year, gnc_data)
 
-    Gnulog.print_text("\n >>> PROGRAM ENDED.")
+    SattoLog.print_text("\n >>> PROGRAM ENDED.")
 
     if response:
         fname = "out/updateRevExps_response-{}{}".format(target_year, ('-Q' + str(target_qtr)) if target_qtr else '')
