@@ -13,12 +13,12 @@ __author__ = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __python_version__ = 3.6
 __created__ = '2019-04-13'
-__updated__ = '2019-08-25'
+__updated__ = '2019-08-31'
 
 from argparse import ArgumentParser
 from gnucash import Session
 from updateCommon import *
-from updateAssets import QTR_SPAN, ASSET_COLS, BASE_YEAR as AST_BY, BASE_YEAR_SPAN as AST_BYS, HDR_SPAN as AST_HS
+from updateAssets import ASSET_COLS, UpdateAssets as UA
 
 # path to the accounts in the Gnucash file
 BALANCE_ACCTS = {
@@ -139,9 +139,9 @@ class UpdateBalance:
             else:
                 self.log.print_info('Update reference to Assets sheet for Mar, June, Sep or Dec', self.color)
                 # have to update the CELL REFERENCE to current year/qtr ASSETS
-                year_row = BASE_ROW + self.util.year_span(today.year, AST_BY, AST_BYS, AST_HS)
+                year_row = BASE_ROW + self.util.year_span(today.year, UA.BASE_YEAR, UA.BASE_YEAR_SPAN, UA.HDR_SPAN)
                 int_qtr = (month_end.month // 3) - 1
-                dest_row = year_row + (int_qtr * QTR_SPAN)
+                dest_row = year_row + (int_qtr * UA.QTR_SPAN)
                 val_num = '1' if '1' in self.dest else '2'
                 value = "='Assets " + val_num + "'!" + ASSET_COLS[TOTAL] + str(dest_row)
                 self.gglu.fill_cell(self.dest, BAL_MTHLY_COLS[ASTS], row, value, self.data)
