@@ -11,81 +11,44 @@ __author__ = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __python_version__ = 3.6
 __created__ = '2019-04-07'
-__updated__ = '2019-08-30'
+__updated__ = '2019-08-31'
 
 from sys import stdout, path
 path.append("/home/marksa/dev/git/Python/Utilities/")
-from datetime import date, timedelta
 from bisect import bisect_right
 from decimal import Decimal
 from math import log10
 import csv
-from gnucash import GncNumeric, Account, GncCommodity
+from gnucash import Session, GncNumeric, Account, GncCommodity, GncCommodityTable
 from python_utilities import *
-
-# constant strings
-AU    = 'Gold'
-AG    = 'Silver'
-CASH  = 'Cash'
-BANK  = 'Bank'
-RWRDS = 'Rewards'
-RESP  = 'RESP'
-OPEN  = 'OPEN'
-RRSP  = 'RRSP'
-TFSA  = 'TFSA'
-HOUSE = 'House'
-TOTAL = 'Total'
-ASTS  = 'FAMILY'
-LIAB  = 'LIABS'
-TRUST = 'TRUST'
-CHAL  = 'XCHALET'
-DATE  = 'Date'
-TODAY = 'Today'
-QTR   = 'Quarter'
-YR    = 'Year'
-MTH   = 'Month'
-REV   = 'Revenue'
-INV   = 'Invest'
-OTH   = 'Other'
-EMP   = 'Employment'
-BAL   = 'Balance'
-CONT  = 'Contingent'
-NEC   = 'Necessary'
-DEDNS = 'Emp_Dedns'
-TRADE = 'Trade'
-PRICE = 'Price'
-BOTH  = 'Both'
-TEST  = 'test'
-PROD  = 'prod'
-
-# number of months in a Quarter
-PERIOD_QTR:int = 3
-
-YEAR_MONTHS:int = 12
-ONE_DAY:timedelta = timedelta(days=1)
-ZERO:Decimal = Decimal(0)
-
-# sheet names in Budget Quarterly
-ALL_INC_SHEET:str    = 'All Inc 1'
-ALL_INC_2_SHEET:str  = 'All Inc 2'
-NEC_INC_SHEET:str    = 'Nec Inc 1'
-NEC_INC_2_SHEET:str  = 'Nec Inc 2'
-BAL_1_SHEET:str      = 'Balance 1'
-BAL_2_SHEET:str      = 'Balance 2'
-QTR_ASTS_SHEET:str   = 'Assets 1'
-QTR_ASTS_2_SHEET:str = 'Assets 2'
-ML_WORK_SHEET:str    = 'ML Work'
-CALCULNS_SHEET:str   = 'Calculations'
-
-# first data row in Budget-qtrly.gsht
-BASE_ROW:int = 3
 
 
 class GnucashUtilities:
     def __init__(self):
         SattoLog.print_text("GnucashUtilities", GREEN)
 
+    ZERO: Decimal = Decimal(0)
     my_color = MAGENTA
+
+    @staticmethod
+    def begin_session(p_filename:str, p_new:bool) -> (Session, Account, GncCommodityTable) :
+        gnucash_session = Session(p_filename, is_new=p_new)
+        root_account = gnucash_session.book.get_root_account()
+        commod_table = gnucash_session.book.get_table()
+        return gnucash_session, root_account, commod_table
+
+    @staticmethod
+    def end_session(p_session:Session, p_save:bool):
+        if p_save:
+            p_session.save()
+        p_session.end()
+        # not needed?
+        # p_session.destroy()
+
+    @staticmethod
+    def check_end_session(p_session:Session, p_locals:dict):
+        if "gnucash_session" in locals() and p_session is not None:
+            p_session.end()
 
     @staticmethod
     def gnc_numeric_to_python_decimal(numeric:GncNumeric) -> Decimal :
@@ -159,6 +122,39 @@ class GnucashUtilities:
         return acct_name, acct_sum
 
     @staticmethod
+    def get_account_assets(root_account:Account, asset_accts:dict, end_date:date, p_currency:GncCommodity):
+        """
+        Get ASSET data for the specified account for the specified quarter
+        :param  asset_accts:
+        :param root_account: Gnucash Account from the Gnucash book
+        :param     end_date: read the account total at the end of the quarter
+        :param   p_currency: Gnucash Commodity: currency to use for the totals
+        :return: string with sum of totals
+        """
+        data = {}
+        for item in asset_accts:
+            acct_path = asset_accts[item]
+            acct = GnucashUtilities.account_from_path(root_account, acct_path)
+            acct_name = acct.GetName()
+
+            # get the split amounts for the parent account
+            acct_sum = GnucashUtilities.get_account_balance(acct, end_date, p_currency)
+            descendants = acct.get_descendants()
+            if len(descendants) > 0:
+                # for EACH sub-account add to the overall total
+                # print_info("Descendants of {}:".format(acct_name))
+                for sub_acct in descendants:
+                    # ?? GETTING SLIGHT ROUNDING ERRORS WHEN ADDING MUTUAL FUND VALUES...
+                    acct_sum += GnucashUtilities.get_account_balance(sub_acct, end_date, p_currency)
+
+            str_sum = acct_sum.to_eng_string()
+            SattoLog.print_text("Assets for {} on {} = ${}\n".format(acct_name, end_date, str_sum), MAGENTA)
+            data[item] = str_sum
+
+        return data
+
+    # noinspection PyUnboundLocalVariable,PyUnresolvedReferences
+    @staticmethod
     def account_from_path(top_account:Account, account_path:list, original_path:list=None) -> Account :
         """
         RECURSIVE function to get a Gnucash Account: starting from the top account and following the path
@@ -212,7 +208,7 @@ class GnucashUtilities:
                 split_amount = GnucashUtilities.gnc_numeric_to_python_decimal(split.GetAmount())
 
                 # if the amount is negative this is a credit, else a debit
-                debit_credit_offset = 1 if split_amount < ZERO else 0
+                debit_credit_offset = 1 if split_amount < GnucashUtilities.ZERO else 0
 
                 # add the debit or credit to the sum, using the offset to get in the right bucket
                 period[2 + debit_credit_offset] += split_amount
