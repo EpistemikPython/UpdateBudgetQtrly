@@ -96,10 +96,10 @@ class GnucashUtilities:
         return GnucashUtilities.gnc_numeric_to_python_decimal(acct_cur)
 
     @staticmethod
-    def get_total_balance(root_acct, p_path: list, p_date: date, p_currency):
+    def get_total_balance(p_root:Account, p_path:list, p_date:date, p_currency:GncCommodity):
         """
         get the total BALANCE in the account and all sub-accounts on this path on this date in this currency
-        :param  root_acct: Gnucash Account from the Gnucash book
+        :param  p_root: Gnucash Account from the Gnucash book
         :param     p_path: path to the account
         :param     p_date: to get the balance
         :param p_currency: Gnucash Commodity: currency to use for the totals
@@ -107,7 +107,7 @@ class GnucashUtilities:
         """
         # SattoLog.print_text("GnucashUtilities.get_total_balance()", GnucashUtilities.my_color)
 
-        acct = GnucashUtilities.account_from_path(root_acct, p_path)
+        acct = GnucashUtilities.account_from_path(p_root, p_path)
         acct_name = acct.GetName()
         # get the split amounts for the parent account
         acct_sum = GnucashUtilities.get_account_balance(acct, p_date, p_currency)
@@ -122,11 +122,11 @@ class GnucashUtilities:
         return acct_name, acct_sum
 
     @staticmethod
-    def get_account_assets(root_account:Account, asset_accts:dict, end_date:date, p_currency:GncCommodity):
+    def get_account_assets(p_root:Account, asset_accts:dict, end_date:date, p_currency:GncCommodity):
         """
         Get ASSET data for the specified account for the specified quarter
         :param  asset_accts:
-        :param root_account: Gnucash Account from the Gnucash book
+        :param p_root: Gnucash Account from the Gnucash book
         :param     end_date: read the account total at the end of the quarter
         :param   p_currency: Gnucash Commodity: currency to use for the totals
         :return: string with sum of totals
@@ -134,7 +134,7 @@ class GnucashUtilities:
         data = {}
         for item in asset_accts:
             acct_path = asset_accts[item]
-            acct = GnucashUtilities.account_from_path(root_account, acct_path)
+            acct = GnucashUtilities.account_from_path(p_root, acct_path)
             acct_name = acct.GetName()
 
             # get the split amounts for the parent account
@@ -217,10 +217,10 @@ class GnucashUtilities:
                 period[4] += split_amount
 
     @staticmethod
-    def fill_splits(root_acct:Account, target_path:list, period_starts:list, periods:list) -> str :
+    def fill_splits(p_root:Account, target_path:list, period_starts:list, periods:list) -> str :
         """
         fill the period list for each account
-        :param     root_acct: from the Gnucash book
+        :param     p_root: from the Gnucash book
         :param   target_path: account hierarchy from root account to target account
         :param period_starts: start date for each period
         :param       periods: fill with the splits dates and amounts for requested time span
@@ -228,7 +228,7 @@ class GnucashUtilities:
         """
         SattoLog.print_text("GnucashUtilities.fill_splits()", GnucashUtilities.my_color)
 
-        account_of_interest = GnucashUtilities.account_from_path(root_acct, target_path)
+        account_of_interest = GnucashUtilities.account_from_path(p_root, target_path)
         acct_name = account_of_interest.GetName()
         SattoLog.print_text("\naccount_of_interest = {}".format(acct_name), GnucashUtilities.my_color)
 
@@ -262,5 +262,24 @@ class GnucashUtilities:
         # write out the overall totals for the account of interest
         for start_date, end_date, debit_sum, credit_sum, total in periods:
             csv_writer.writerow((start_date, end_date, debit_sum, credit_sum, total))
+
+    @staticmethod
+    def show_account(p_root:Account, p_path:list):
+        """
+        display an account and its descendants
+        :param p_root: Gnucash root
+        :param p_path: to the account
+        :return: nil
+        """
+        acct = GnucashUtilities.account_from_path(p_root, p_path)
+        acct_name = acct.GetName()
+        SattoLog.print_text("account = " + acct_name)
+        descendants = acct.get_descendants()
+        if len(descendants) == 0 :
+            SattoLog.print_text("{} has NO Descendants!".format(acct_name))
+        else :
+            SattoLog.print_text("Descendants of {}:".format(acct_name))
+            # for subAcct in descendants:
+            # print_info("{}".format(subAcct.GetName()))
 
 # END class GnucashUtilities
