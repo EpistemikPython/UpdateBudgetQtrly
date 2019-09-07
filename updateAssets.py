@@ -10,7 +10,7 @@ __author__ = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __python_version__ = 3.6
 __created__ = '2019-04-06'
-__updated__ = '2019-08-31'
+__updated__ = '2019-09-06'
 
 from sys import path
 path.append("/home/marksa/dev/git/Python/Gnucash/createGncTxs")
@@ -54,7 +54,7 @@ ASSET_COLS = {
 class UpdateAssets:
     def __init__(self, p_filename:str, p_mode:str, p_debug:bool):
         self.log = SattoLog(p_debug)
-        self.log.print_text('UpdateAssets', GREEN)
+        self.log.print_info('UpdateAssets', GREEN)
         self.color = CYAN
 
         self.gnucash_file = p_filename
@@ -67,6 +67,7 @@ class UpdateAssets:
         self.dest = QTR_ASTS_2_SHEET
         if '1' in self.mode:
             self.dest = QTR_ASTS_SHEET
+        self.log.print_info("dest = {}".format(self.dest), self.color)
 
         self.gncu = GnucashUtilities()
         self.gglu = GoogleUtilities()
@@ -186,7 +187,7 @@ def process_args():
     required.add_argument('-g', '--gnucash_file', required=True, help='path & filename of the Gnucash file to use')
     required.add_argument('-m', '--mode', required=True, choices=[TEST, PROD+'1', PROD+'2'],
                           help='write to Google sheet (1 or 2) OR just test')
-    required.add_argument('-y', '--year', required=True, help="year to update: 2007..2019")
+    required.add_argument('-y', '--year', required=True, help="year to update: {}..2019".format(UpdateAssets.BASE_YEAR))
     # optional arguments
     required.add_argument('-q', '--quarter', choices=['1','2','3','4'], help="quarter to update: 1..4")
     arg_parser.add_argument('--gnc_save',  action='store_true', help='Write the Gnucash formatted data to a JSON file')
@@ -196,8 +197,8 @@ def process_args():
     return arg_parser
 
 
-def process_input_parameters(argv:list):
-    args = process_args().parse_args(argv)
+def process_input_parameters(argl:list):
+    args = process_args().parse_args(argl)
     SattoLog.print_text("\nargs = {}".format(args), BROWN)
 
     if args.debug:
@@ -215,17 +216,14 @@ def process_input_parameters(argv:list):
 
 
 # TODO: fill in date column for previous month when updating 'today', check to update 'today' or 'tomorrow'
-def update_assets_main(args:list):
-    """
-    Main: check command line then use UpdateBalance to get the data from Gnucash file and send to Google sheet
-    """
+def update_assets_main(args:list) -> dict :
     SattoLog.print_text("Parameters = \n{}".format(json.dumps(args, indent=4)), GREEN)
     gnucash_file, save_gnc, save_ggl, debug, mode, target_year, target_qtr = process_input_parameters(args)
 
     ub_now = dt.now().strftime(DATE_STR_FORMAT)
     SattoLog.print_text("update_balance_main(): Runtime = {}".format(ub_now), BLUE)
 
-    response = 'No Response'
+    response = {'Response' : 'None'}
     try:
         updater = UpdateAssets(gnucash_file, mode, debug)
 
@@ -235,18 +233,21 @@ def update_assets_main(args:list):
         # get the requested data from Gnucash and package in the update format required by Google sheets
         updater.fill_google_data(target_year, save_ggl)
 
-        response = GoogleUtilities.send_data(mode, updater.get_google_data())
-        fname = "out/updateAssets_response-{}{}".format(target_year , ('-Q' + str(target_qtr)) if target_qtr else '')
-        CommonUtilities.save_to_json(fname, ub_now, response)
+        # send data if in PROD mode
+        if PROD in mode:
+            response = GoogleUtilities.send_data(updater.get_google_data())
+            fname = "out/updateAssets_response-{}{}".format(target_year , ('-Q' + str(target_qtr)) if target_qtr else '')
+            CommonUtilities.save_to_json(fname, ub_now, response)
 
-    except Exception as e:
-        msg = "update_balance_main() EXCEPTION!! '{}'".format(repr(e))
+    except Exception as ae:
+        msg = "update_balance_main() EXCEPTION!! '{}'".format(repr(ae))
         SattoLog.print_warning(msg)
+        response['Response'] = msg
 
     SattoLog.print_text(" >>> PROGRAM ENDED.\n", GREEN)
     return response
 
 
 if __name__ == "__main__":
-    import sys
-    update_assets_main(sys.argv[1:])
+    from sys import argv
+    update_assets_main(argv[1:])
