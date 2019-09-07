@@ -9,25 +9,25 @@ __author__ = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __python_version__ = 3.6
 __created__ = '2019-03-30'
-__updated__ = '2019-08-25'
+__updated__ = '2019-09-07'
 
-import sys
+from sys import argv, path
+path.append("/home/marksa/dev/git/Python/Gnucash/createGncTxs")
 from PyQt5.QtWidgets import ( QApplication, QComboBox, QVBoxLayout, QGroupBox, QDialog, QFileDialog,
-                              QPushButton, QFormLayout, QDialogButtonBox, QLabel, QTextEdit )
+                              QPushButton, QFormLayout, QDialogButtonBox, QLabel, QTextEdit, QCheckBox )
 from functools import partial
-from updateCommon import *
 from updateRevExps import update_rev_exps_main
 from updateAssets import update_assets_main
 from updateBalance import update_balance_main
+from investment import *
 
 
 # constant strings
-DOMAIN:str   = 'Domain'
 REV_EXPS:str = 'Rev & Exps'
 ASSETS:str   = 'Assets'
 BALANCE:str  = 'Balance'
+DOMAIN:str   = 'Domain'
 DEST:str     = 'Destination'
-TEST:str     = 'test'
 SEND:str     = 'send'
 QTRS:str     = 'Quarters'
 SHEET_1:str  = 'Sheet 1'
@@ -37,7 +37,7 @@ PARAMS:dict = {
     REV_EXPS  : ['2019', '2018', '2017', '2016', '2015', '2014', '2013', '2012'] ,
     ASSETS    : ['2011', '2010', '2009', '2008'] ,
     BALANCE   : ['today', 'allyears'] ,
-    QTRS      : ['0', '1', '2', '3', '4']
+    QTRS      : ['ALL', '1', '2', '3', '4']
 }
 
 MAIN_FXNS:dict = {
@@ -52,12 +52,12 @@ class UpdateBudgetQtrly(QDialog):
     def __init__(self):
         super().__init__()
         self.title = 'Update Budget Quarterly'
-        self.left = 780
+        self.left = 680
         self.top = 160
-        self.width = 400
-        self.height = 600
-        self.gnc_file = None
-        self.script = None
+        self.width = 600
+        self.height = 800
+        self.gnc_file = ''
+        self.script = ''
         self.mode = ''
         self.log = SattoLog(True)
         self.log.print_info("{}".format(self.title), GREEN)
@@ -122,6 +122,17 @@ class UpdateBudgetQtrly(QDialog):
         self.cb_dest.currentIndexChanged.connect(partial(self.selection_change, self.cb_dest, DEST))
         layout.addRow(QLabel(DEST+':'), self.cb_dest)
 
+        vert_box = QGroupBox("Check:")
+        vert_layout = QVBoxLayout()
+        self.ch_gnc = QCheckBox("Save Gnucash info to JSON file?")
+        self.ch_ggl = QCheckBox("Save Google info to JSON file?")
+        self.ch_debug = QCheckBox("Print DEBUG info?")
+        vert_layout.addWidget(self.ch_gnc)
+        vert_layout.addWidget(self.ch_ggl)
+        vert_layout.addWidget(self.ch_debug)
+        vert_box.setLayout(vert_layout)
+        layout.addRow(QLabel("Options"), vert_box)
+
         self.exe_btn = QPushButton('Go!')
         self.exe_btn.clicked.connect(partial(self.button_click))
         layout.addRow(QLabel("Execute:"), self.exe_btn)
@@ -149,6 +160,7 @@ class UpdateBudgetQtrly(QDialog):
                 self.cb_domain.clear()
                 self.cb_domain.addItems(PARAMS[REV_EXPS])
                 if self.script == BALANCE:
+                    self.cb_qtr.clear()
                     self.cb_qtr.addItems(PARAMS[QTRS])
             else:
                 if self.script == REV_EXPS:
@@ -157,10 +169,12 @@ class UpdateBudgetQtrly(QDialog):
                     if self.script == BALANCE:
                         self.cb_domain.clear()
                         self.cb_domain.addItems(PARAMS[REV_EXPS] + PARAMS[ASSETS])
+                        self.cb_qtr.clear()
                         self.cb_qtr.addItems(PARAMS[QTRS])
                 elif new_script == BALANCE:
                     self.cb_domain.addItems(PARAMS[BALANCE])
                     self.cb_qtr.clear()
+                    self.cb_qtr.addItem('NOT NEEDED')
                 else:
                     raise Exception("INVALID SCRIPT!!?? '{}'".format(new_script))
 
@@ -189,9 +203,10 @@ class UpdateBudgetQtrly(QDialog):
     def button_click(self):
         """assemble the necessary parameters"""
         self.log.print_info("Clicked '{}'.".format(self.exe_btn.text()))
-        self.log.print_info("Script is '{}'.".format(self.cb_script.currentText()))
+        exe = self.cb_script.currentText()
+        self.log.print_info("Script is '{}'.".format(exe))
 
-        if self.gnc_file is None:
+        if self.gnc_file == '':
             self.response_box.setText('>>> MUST select a Gnucash File!')
             return
 
@@ -201,16 +216,31 @@ class UpdateBudgetQtrly(QDialog):
             if self.cb_dest.currentText() == SHEET_1:
                 send_mode += '1'
 
-        cl_params = [self.gnc_file, send_mode, self.cb_domain.currentText(), self.cb_qtr.currentText()]
+        cl_params = ['-g' + self.gnc_file, '-m' + send_mode]
+
+        quarter = self.cb_qtr.currentText()
+        domain_key = '-p'
+        if exe != BALANCE:
+            domain_key = '-y'
+            if quarter != 'ALL' : cl_params.append('-q' + quarter)
+            if self.ch_gnc.isChecked() : cl_params.append('--gnc_save')
+
+        domain = self.cb_domain.currentText()
+        cl_params.append(domain_key + domain)
+
+        if self.ch_ggl.isChecked() : cl_params.append('--ggl_save')
+        if self.ch_debug.isChecked() : cl_params.append('--debug')
+
         self.log.print_info(cl_params, GREEN)
 
-        main_fxn = MAIN_FXNS[self.cb_script.currentText()]
+        main_fxn = MAIN_FXNS[exe]
         if callable(main_fxn):
             reply = main_fxn(cl_params)
         else:
             msg = "Problem with main??!! '{}'".format(main_fxn)
             self.log.print_error(msg)
             reply = msg
+
         self.response_box.setText(json.dumps(reply, indent=4))
 
     def selection_change(self, cb:QComboBox, label:str):
@@ -218,9 +248,8 @@ class UpdateBudgetQtrly(QDialog):
         self.log.print_info("ComboBox '{}' selection changed to '{}'.".format(label, cb.currentText()), BLUE)
 
 
-# TODO: print debug output to ui screen
 def ui_main():
-    app = QApplication(sys.argv)
+    app = QApplication(argv)
     dialog = UpdateBudgetQtrly()
     dialog.show()
     exit(app.exec_())
