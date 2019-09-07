@@ -182,7 +182,7 @@ class UpdateAssets:
 # END class UpdateAssets
 
 
-def process_args():
+def process_args() -> ArgumentParser:
     arg_parser = ArgumentParser(description='Update the Assets section of my Google Sheet', prog='updateAssets.py')
     # required arguments
     required = arg_parser.add_argument_group('REQUIRED')
@@ -199,7 +199,7 @@ def process_args():
     return arg_parser
 
 
-def process_input_parameters(argl:list):
+def process_input_parameters(argl:list) -> (str, bool, bool, bool, str, int, int) :
     args = process_args().parse_args(argl)
     SattoLog.print_text("\nargs = {}".format(args), BROWN)
 

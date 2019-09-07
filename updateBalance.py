@@ -254,7 +254,7 @@ class UpdateBalance:
 # END class UpdateBalance
 
 
-def process_args():
+def process_args() -> ArgumentParser:
     arg_parser = ArgumentParser(description='Update the Balance section of my Google Sheet', prog='updateBalance.py')
     # required arguments
     required = arg_parser.add_argument_group('REQUIRED')
@@ -270,7 +270,7 @@ def process_args():
     return arg_parser
 
 
-def process_input_parameters(argl:list):
+def process_input_parameters(argl:list) -> (str, bool, bool, str, str) :
     args = process_args().parse_args(argl)
     SattoLog.print_text("\nargs = {}".format(args), BROWN)
 
@@ -301,7 +301,7 @@ def update_balance_main(args:list) -> dict :
 
         # send data if in PROD mode
         if PROD in mode:
-            response = send_data(updater.get_data())
+            response = GoogleUtilities.send_data(updater.get_data())
             fname = "out/updateBalance_{}-response".format(domain)
             save_to_json(fname, ub_now, response)
         else:

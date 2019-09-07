@@ -289,7 +289,7 @@ class UpdateRevExps:
 # END class UpdateRevExps
 
 
-def process_args():
+def process_args() -> ArgumentParser:
     arg_parser = ArgumentParser(description='Update the Revenues & Expenses section of my Google Sheet', prog='updateRevExps.py')
     # required arguments
     required = arg_parser.add_argument_group('REQUIRED')
