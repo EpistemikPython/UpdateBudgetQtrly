@@ -69,8 +69,6 @@ class UpdateAssets:
             self.dest = QTR_ASTS_SHEET
         self.log.print_info("dest = {}".format(self.dest), self.color)
 
-        self.gglu = GoogleUtilities()
-
     BASE_YEAR:int = 2007
     # number of rows between same quarter in adjacent years
     BASE_YEAR_SPAN:int = 4
@@ -126,21 +124,23 @@ class UpdateAssets:
             raise gnce
 
     def fill_google_cell(self, p_col:str, p_row:int, p_time:str):
-        self.gglu.fill_cell(self.dest, p_col, p_row, p_time, self.google_data)
+        fill_cell(self.dest, p_col, p_row, p_time, self.google_data)
 
     def fill_google_data(self, p_year:int, save_ggl:bool):
         """
-        Fill the data list:
+        >> NOT really necessary to have a separate variable for the Gnucash data, but useful to have all
+           the Gnucash data in a separate dict instead of just preparing a Google data dict
+        Fill the data list.
         for each item in results, either 1 for one quarter or 4 for four quarters:
-        create 5 cell_data's, one each for REV, BAL, CONT, NEC, DEDNS:
-        fill in the range based on the year and quarter
-        range = SHEET_NAME + '!' + calculated cell
-        fill in the values based on the sheet being updated and the type of cell_data
-        REV string is '= ${INV} + ${OTH} + ${SAL}'
-        DEDNS string is '= ${Mk-Dedns} + ${Lu-Dedns} + ${ML-Dedns}'
-        others are just the string from the item
+            create 5 cell_data's, one each for REV, BAL, CONT, NEC, DEDNS:
+            fill in the range based on the year and quarter
+            range = SHEET_NAME + '!' + calculated cell
+            fill in the values based on the sheet being updated and the type of cell_data
+            REV string is '= ${INV} + ${OTH} + ${SAL}'
+            DEDNS string is '= ${Mk-Dedns} + ${Lu-Dedns} + ${ML-Dedns}'
+            others are just the string from the item
         :param   p_year: year to update
-        :param save_ggl: save Google data to a json file
+        :param save_ggl: save Google data to a JSON file
         """
         self.log.print_info("UA.fill_google_data({},{})\n".format(p_year, save_ggl))
 
@@ -187,7 +187,7 @@ def process_args() -> ArgumentParser:
     required = arg_parser.add_argument_group('REQUIRED')
     required.add_argument('-g', '--gnucash_file', required=True, help='path & filename of the Gnucash file to use')
     required.add_argument('-m', '--mode', required=True, choices=[TEST, PROD+'1', PROD+'2'],
-                          help='write to Google sheet (1 or 2) OR just test')
+                          help='WRITE to Google sheet (1 or 2) OR just TEST (NO write)')
     required.add_argument('-y', '--year', required=True, help="year to update: {}..2019".format(UpdateAssets.BASE_YEAR))
     # optional arguments
     arg_parser.add_argument('-q', '--quarter', choices=['1','2','3','4'], help="quarter to update: 1..4")
@@ -235,7 +235,7 @@ def update_assets_main(args:list) -> dict :
 
         # send data if in PROD mode
         if PROD in mode:
-            response = GoogleUtilities.send_data(updater.get_google_data())
+            response = send_sheets_data(updater.get_google_data())
             fname = "out/updateAssets_response-{}{}".format(target_year , ('-Q' + str(target_qtr)) if target_qtr else '')
             save_to_json(fname, ub_now, response)
         else:

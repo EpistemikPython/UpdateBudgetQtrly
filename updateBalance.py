@@ -67,8 +67,6 @@ class UpdateBalance:
         self.gnucash_file = p_filename
         self.domain = p_domain
 
-        self.gglu = GoogleUtilities()
-
     BASE_MTHLY_ROW = 19
     BASE_YEAR = 2008
     # number of rows between same quarter in adjacent years
@@ -196,7 +194,7 @@ class UpdateBalance:
         self.fill_google_cell(BAL_MTHLY_COLS[LIAB][YR], BASE_ROW + yr_span, liab_sum)
 
     def fill_google_cell(self, p_col:str, p_row:int, p_time:str):
-        self.gglu.fill_cell(self.dest, p_col, p_row, p_time, self.data)
+        fill_cell(self.dest, p_col, p_row, p_time, self.data)
 
     # noinspection PyAttributeOutsideInit,PyUnboundLocalVariable
     def fill_google_data(self, p_save):
@@ -255,7 +253,8 @@ def process_args() -> ArgumentParser:
     # required arguments
     required = arg_parser.add_argument_group('REQUIRED')
     required.add_argument('-g', '--gnucash_file', required=True, help='path & filename of the Gnucash file to use')
-    required.add_argument('-m', '--mode', required=True, choices=[TEST, PROD], help='write to Google sheet or just test')
+    required.add_argument('-m', '--mode', required=True, choices=[TEST, PROD],
+                          help='WRITE to Google sheet or just TEST (NO write)')
     required.add_argument('-p', '--period', required=True,
                           help="'today' | 'current year' | 'previous year' | {}..{} | 'allyears'"
                                .format(UpdateBalance.BASE_YEAR, today.year - 2))
@@ -297,7 +296,7 @@ def update_balance_main(args:list) -> dict :
 
         # send data if in PROD mode
         if PROD in mode:
-            response = GoogleUtilities.send_data(updater.get_data())
+            response = send_sheets_data(updater.get_data())
             fname = "out/updateBalance_{}-response".format(domain)
             save_to_json(fname, ub_now, response)
         else:

@@ -73,8 +73,6 @@ class UpdateRevExps:
         self.log.print_info("all_inc_dest = {}".format(self.all_inc_dest), self.color)
         self.log.print_info("nec_inc_dest = {}\n".format(self.nec_inc_dest), self.color)
 
-        self.gglu = GoogleUtilities()
-
     BASE_YEAR:int = 2012
     # number of rows between same quarter in adjacent years
     BASE_YEAR_SPAN:int = 11
@@ -181,6 +179,8 @@ class UpdateRevExps:
     def fill_gnucash_data(self, save_gnc:bool, p_year:int, p_qtr:int):
         """
         Get REVENUE and EXPENSE data for ONE specified Quarter or ALL four Quarters for the specified Year
+        >> NOT really necessary to have a separate variable for the Gnucash data, but useful to have all
+           the Gnucash data in a separate dict instead of just preparing a Google data dict
         :param save_gnc: save the Gnucash data to a JSON file
         :param   p_year: year to update
         :param    p_qtr: 1..4 for quarter to update or 0 if updating ALL FOUR quarters
@@ -239,7 +239,7 @@ class UpdateRevExps:
         dest = self.nec_inc_dest
         if p_all:
             dest = self.all_inc_dest
-        self.gglu.fill_cell(dest, p_col, p_row, p_time, self.google_data)
+        fill_cell(dest, p_col, p_row, p_time, self.google_data)
 
     def fill_google_data(self, p_year:int, save_google:bool):
         """
@@ -340,7 +340,7 @@ def update_rev_exps_main(args:list) -> dict :
 
         # send data if in PROD mode
         if PROD in mode:
-            response = GoogleUtilities.send_data(updater.get_google_data())
+            response = send_sheets_data(updater.get_google_data())
             fname = "out/updateRevExps_response-{}{}".format(target_year , ('-Q' + str(target_qtr)) if target_qtr else '')
             save_to_json(fname, revexp_now, response)
         else:
