@@ -37,7 +37,7 @@ PARAMS:dict = {
     REV_EXPS  : ['2019', '2018', '2017', '2016', '2015', '2014', '2013', '2012'] ,
     ASSETS    : ['2011', '2010', '2009', '2008'] ,
     BALANCE   : ['today', 'allyears'] ,
-    QTRS      : ['ALL', '1', '2', '3', '4']
+    QTRS      : ['ALL', '#1', '#2', '#3', '#4']
 }
 
 MAIN_FXNS:dict = {
@@ -218,7 +218,7 @@ class UpdateBudgetQtrly(QDialog):
 
         cl_params = ['-g' + self.gnc_file, '-m' + send_mode]
 
-        quarter = self.cb_qtr.currentText()
+        quarter = self.cb_qtr.currentText().replace('#', '')
         domain_key = '-p'
         if exe != BALANCE:
             domain_key = '-y'
@@ -241,7 +241,7 @@ class UpdateBudgetQtrly(QDialog):
             self.log.print_error(msg)
             reply = msg
 
-        self.response_box.setText(json.dumps(reply, indent=4))
+        self.response_box.append(json.dumps(reply, indent=4))
 
     def selection_change(self, cb:QComboBox, label:str):
         """info printing only"""
