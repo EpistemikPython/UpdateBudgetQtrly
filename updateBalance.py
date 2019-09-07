@@ -13,11 +13,15 @@ __author__ = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __python_version__ = 3.6
 __created__ = '2019-04-13'
-__updated__ = '2019-08-31'
+__updated__ = '2019-09-06'
 
+from sys import path
+path.append("/home/marksa/dev/git/Python/Gnucash/createGncTxs")
+path.append("/home/marksa/dev/git/Python/Google")
 from argparse import ArgumentParser
-from gnucash import Session
-from updateCommon import *
+from gnucash_utilities import *
+from google_utilities import *
+from investment import *
 from updateAssets import ASSET_COLS, UpdateAssets as UA
 
 # path to the accounts in the Gnucash file
@@ -50,7 +54,7 @@ BAL_TODAY_RANGES = {
 class UpdateBalance:
     def __init__(self, p_filename:str, p_mode:str, p_domain:str, p_debug:bool):
         self.log = SattoLog(p_debug)
-        self.log.print_text('UpdateBalance', GREEN)
+        self.log.print_info('UpdateBalance', GREEN)
         self.color = GREY
 
         # cell(s) with location and value to update on Google sheet
@@ -61,6 +65,7 @@ class UpdateBalance:
         self.dest = BAL_2_SHEET
         if '1' in self.mode:
             self.dest = BAL_1_SHEET
+        self.log.print_info("dest = {}".format(self.dest), self.color)
 
         self.gnucash_file = p_filename
         self.domain = p_domain
@@ -88,8 +93,8 @@ class UpdateBalance:
         # calls using 'today' ARE NOT off by one day??
         tdate = today - ONE_DAY
         for item in BALANCE_ACCTS:
-            path = BALANCE_ACCTS[item]
-            acct_name, acct_sum = self.gncu.get_total_balance(self.root_account, path, tdate, self.currency)
+            bal_path = BALANCE_ACCTS[item]
+            acct_name, acct_sum = self.gncu.get_total_balance(self.root_account, bal_path, tdate, self.currency)
 
             # need assets NOT INCLUDING house and liabilities, which are reported separately
             if item == HOUSE:
@@ -250,7 +255,7 @@ class UpdateBalance:
         self.log.print_info("UpdateBalance.send_to_google_sheet()", self.color)
 
         if PROD in self.mode:
-            return self.gglu.send_data(self.mode, self.data)
+            return self.gglu.send_data(self.data)
         return {'mode':TEST}
 
 # END class UpdateBalance
@@ -270,8 +275,8 @@ def process_args():
     return arg_parser
 
 
-def process_input_parameters(argv:list):
-    args = process_args().parse_args(argv)
+def process_input_parameters(argl:list):
+    args = process_args().parse_args(argl)
     SattoLog.print_text("\nargs = {}".format(args), BROWN)
 
     if args.debug:
@@ -286,17 +291,14 @@ def process_input_parameters(argv:list):
 
 
 # TODO: fill in date column for previous month when updating 'today', check to update 'today' or 'tomorrow'
-def update_balance_main(args:list):
-    """
-    Main: check command line then use UpdateBalance to get the data from Gnucash file and send to Google sheet
-    """
+def update_balance_main(args:list) -> dict :
     SattoLog.print_text("Parameters = \n{}".format(json.dumps(args, indent=4)), GREEN)
     gnucash_file, save_json, debug, mode, domain = process_input_parameters(args)
 
     ub_now = dt.now().strftime(DATE_STR_FORMAT)
     SattoLog.print_text("update_balance_main(): Runtime = {}".format(ub_now), BLUE)
 
-    response = 'No Response'
+    response = {'Response' : 'None'}
     try:
         updater = UpdateBalance(gnucash_file, mode, domain, debug)
 
@@ -308,14 +310,15 @@ def update_balance_main(args:list):
         fname = "out/updateBalance_{}-response".format(domain)
         CommonUtilities.save_to_json(fname, ub_now, response)
 
-    except Exception as e:
-        msg = "update_balance_main() EXCEPTION!! '{}'".format(repr(e))
+    except Exception as be:
+        msg = "update_balance_main() EXCEPTION!! '{}'".format(repr(be))
         SattoLog.print_warning(msg)
+        response['Response'] = msg
 
     SattoLog.print_text(" >>> PROGRAM ENDED.\n", GREEN)
     return response
 
 
 if __name__ == "__main__":
-    import sys
-    update_balance_main(sys.argv[1:])
+    from sys import argv
+    update_balance_main(argv[1:])
