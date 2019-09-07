@@ -4,9 +4,6 @@
 # updateRevExps.py -- use the Gnucash and Google APIs to update the Revenue and Expenses
 #                     in my BudgetQtrly document for a specified year or quarter
 #
-# some code from account_analysis.py by Mark Jenkins, ParIT Worker Co-operative <mark@parit.ca>
-# some code from Google quickstart spreadsheets examples
-#
 # Copyright (c) 2019 Mark Sattolo <epistemik@gmail.com>
 #
 __author__ = 'Mark Sattolo'
@@ -76,10 +73,8 @@ class UpdateRevExps:
         self.log.print_info("all_inc_dest = {}".format(self.all_inc_dest), self.color)
         self.log.print_info("nec_inc_dest = {}\n".format(self.nec_inc_dest), self.color)
 
-        self.gncu = GnucashUtilities()
         self.gglu = GoogleUtilities()
 
-    ZERO = GnucashUtilities.ZERO
     BASE_YEAR:int = 2012
     # number of rows between same quarter in adjacent years
     BASE_YEAR_SPAN:int = 11
@@ -105,15 +100,16 @@ class UpdateRevExps:
         :param         p_qtr: quarter to read: 1..4
         :return: revenue for period
         """
+        self.log.print_info('UpdateRevExps.get_revenue()', self.color)
         data_quarter = {}
         str_rev = '= '
         for item in REV_ACCTS:
             # reset the debit and credit totals for each individual account
-            periods[0][2] = self.ZERO
-            periods[0][3] = self.ZERO
+            periods[0][2] = ZERO
+            periods[0][3] = ZERO
 
             acct_base = REV_ACCTS[item]
-            acct_name = self.gncu.fill_splits(root_account, acct_base, period_starts, periods)
+            acct_name = fill_splits(root_account, acct_base, period_starts, periods)
 
             sum_revenue = (periods[0][2] + periods[0][3]) * (-1)
             str_rev += sum_revenue.to_eng_string() + (' + ' if item != EMP else '')
@@ -132,14 +128,15 @@ class UpdateRevExps:
         :param      data_qtr: collected data for the quarter
         :return: deductions for period
         """
+        self.log.print_info('UpdateRevExps.get_deductions()', self.color)
         str_dedns = '= '
         for item in DEDN_ACCTS:
             # reset the debit and credit totals for each individual account
-            periods[0][2] = self.ZERO
-            periods[0][3] = self.ZERO
+            periods[0][2] = ZERO
+            periods[0][3] = ZERO
 
             acct_path = DEDN_ACCTS[item]
-            acct_name = self.gncu.fill_splits(root_account, acct_path, period_starts, periods)
+            acct_name = fill_splits(root_account, acct_path, period_starts, periods)
 
             sum_deductions = periods[0][2] + periods[0][3]
             str_dedns += sum_deductions.to_eng_string() + (' + ' if item != "ML" else '')
@@ -159,14 +156,15 @@ class UpdateRevExps:
         :param      data_qtr: collected data for the quarter
         :return: total expenses for period
         """
+        self.log.print_info('UpdateRevExps.get_expenses()', self.color)
         str_total = ''
         for item in EXP_ACCTS:
             # reset the debit and credit totals for each individual account
-            periods[0][2] = self.ZERO
-            periods[0][3] = self.ZERO
+            periods[0][2] = ZERO
+            periods[0][3] = ZERO
 
             acct_base = EXP_ACCTS[item]
-            acct_name = self.gncu.fill_splits(root_account, acct_base, period_starts, periods)
+            acct_name = fill_splits(root_account, acct_base, period_starts, periods)
 
             sum_expenses = periods[0][2] + periods[0][3]
             str_expenses = sum_expenses.to_eng_string()
@@ -188,7 +186,7 @@ class UpdateRevExps:
         :param    p_qtr: 1..4 for quarter to update or 0 if updating ALL FOUR quarters
         """
         num_quarters = 1 if p_qtr else 4
-        self.log.print_info("find Revenue & Expenses in {} for {}{}"
+        self.log.print_info("URE.fill_gnucash_data(): find Revenue & Expenses in {} for {}{}"
                             .format(self.gnucash_file, p_year, ('-Q' + str(p_qtr)) if p_qtr else ''), self.color)
         try:
             gnucash_session = Session(self.gnucash_file, is_new=False)
@@ -203,9 +201,9 @@ class UpdateRevExps:
                 period_list = [
                     [
                         start_date, end_date,
-                        self.ZERO, # debits sum
-                        self.ZERO, # credits sum
-                        self.ZERO  # TOTAL
+                        ZERO, # debits sum
+                        ZERO, # credits sum
+                        ZERO  # TOTAL
                     ]
                     for start_date, end_date in generate_quarter_boundaries(p_year, start_month, 1)
                 ]
@@ -217,7 +215,7 @@ class UpdateRevExps:
                 self.log.print_info("\n{} Revenue for {}-Q{} = ${}"
                                     .format("TOTAL", p_year, qtr, period_list[0][4] * (-1)), self.color)
 
-                period_list[0][4] = self.ZERO
+                period_list[0][4] = ZERO
                 self.get_expenses(root_account, period_starts, period_list, p_year, data_quarter)
                 self.log.print_info("\n{} Expenses for {}-Q{} = ${}\n"
                                     .format("TOTAL", p_year, qtr, period_list[0][4]), self.color)
@@ -257,7 +255,7 @@ class UpdateRevExps:
         :param      p_year: year to update
         :param save_google: save the Google data to a JSON file
         """
-
+        self.log.print_info('UpdateRevExps.fill_google_data()', self.color)
         year_row = BASE_ROW + year_span(p_year, self.BASE_YEAR, self.BASE_YEAR_SPAN, 0)
         # get exact row from Quarter value in each item
         for item in self.gnucash_data:

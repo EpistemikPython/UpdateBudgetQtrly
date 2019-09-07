@@ -178,7 +178,7 @@ def account_from_path(top_account:Account, account_path:list, original_path:list
     if account is None:
         raise Exception("Path '" + str(original_path) + "' could NOT be found!")
     if len(account_path) > 0:
-        return gnucash_utilities.account_from_path(account, account_path, original_path)
+        return account_from_path(account, account_path, original_path)
     else:
         return account
 

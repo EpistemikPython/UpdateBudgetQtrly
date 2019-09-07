@@ -69,7 +69,6 @@ class UpdateAssets:
             self.dest = QTR_ASTS_SHEET
         self.log.print_info("dest = {}".format(self.dest), self.color)
 
-        self.gncu = GnucashUtilities()
         self.gglu = GoogleUtilities()
 
     BASE_YEAR:int = 2007
@@ -96,12 +95,12 @@ class UpdateAssets:
         :param   p_year: year to update
         :param    p_qtr: 1..4 for quarter to update or 0 if updating ALL FOUR quarters
         """
-        self.log.print_info("find Assets in {} for {}{}"
+        self.log.print_info("UA.fill_gnucash_data(): find Assets in {} for {}{}"
                             .format(self.gnucash_file, p_year, ('-Q' + str(p_qtr)) if p_qtr else ''), GREEN)
         num_quarters = 1 if p_qtr else 4
         gnucash_session = None
         try:
-            gnucash_session, root_account, commod_table = self.gncu.begin_session(self.gnucash_file, False)
+            gnucash_session, root_account, commod_table = begin_session(self.gnucash_file, False)
             currency = commod_table.lookup("ISO4217", "CAD")
 
             for i in range(num_quarters):
@@ -109,13 +108,13 @@ class UpdateAssets:
                 start_month = (qtr * 3) - 2
                 end_date = current_quarter_end(p_year, start_month)
 
-                data_quarter = self.gncu.get_account_assets(root_account, ASSET_ACCTS, end_date, currency)
+                data_quarter = get_account_assets(root_account, ASSET_ACCTS, end_date, currency)
                 data_quarter[QTR] = str(qtr)
 
                 self.gnucash_data.append(data_quarter)
 
             # no save needed, we're just reading...
-            self.gncu.end_session(gnucash_session, False)
+            end_session(gnucash_session, False)
 
             if save_gnc:
                 fname = "out/updateAssets_gnc-data-{}{}".format(p_year, ('-Q' + str(p_qtr)) if p_qtr else '')
@@ -123,7 +122,7 @@ class UpdateAssets:
 
         except Exception as gnce:
             self.log.print_error("Exception: {}!".format(repr(gnce)))
-            self.gncu.check_end_session(gnucash_session, locals())
+            check_end_session(gnucash_session, locals())
             raise gnce
 
     def fill_google_cell(self, p_col:str, p_row:int, p_time:str):
@@ -143,7 +142,7 @@ class UpdateAssets:
         :param   p_year: year to update
         :param save_ggl: save Google data to a json file
         """
-        self.log.print_info("fill_google_data({},{})\n".format(p_year, save_ggl))
+        self.log.print_info("UA.fill_google_data({},{})\n".format(p_year, save_ggl))
 
         try:
             year_row = BASE_ROW + year_span(p_year, self.BASE_YEAR, self.BASE_YEAR_SPAN, self.HDR_SPAN)

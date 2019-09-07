@@ -4,9 +4,6 @@
 # updateBalance.py -- use the Gnucash and Google APIs to update the 'Balance' sheet
 #                     in my BudgetQtrly document for today or for a specified year or years
 #
-# some code from account_analysis.py by Mark Jenkins, ParIT Worker Co-operative <mark@parit.ca>
-# some code from Google quickstart spreadsheets examples
-#
 # Copyright (c) 2019 Mark Sattolo <epistemik@gmail.com>
 #
 __author__ = 'Mark Sattolo'
@@ -70,7 +67,6 @@ class UpdateBalance:
         self.gnucash_file = p_filename
         self.domain = p_domain
 
-        self.gncu = GnucashUtilities()
         self.gglu = GoogleUtilities()
 
     BASE_MTHLY_ROW = 19
@@ -91,12 +87,12 @@ class UpdateBalance:
         """
         Get Balance data for TODAY: LIABS, House, FAMILY, XCHALET, TRUST
         """
-        self.log.print_text('UpdateBalance.fill_today()', self.color)
+        self.log.print_info('UpdateBalance.fill_today()', self.color)
         # calls using 'today' ARE NOT off by one day??
         tdate = today - ONE_DAY
         for item in BALANCE_ACCTS:
             bal_path = BALANCE_ACCTS[item]
-            acct_name, acct_sum = self.gncu.get_total_balance(self.root_account, bal_path, tdate, self.currency)
+            acct_name, acct_sum = get_total_balance(self.root_account, bal_path, tdate, self.currency)
 
             # need assets NOT INCLUDING house and liabilities, which are reported separately
             if item == HOUSE:
@@ -126,7 +122,7 @@ class UpdateBalance:
         CURRENT YEAR: fill_today() AND: LIABS for ALL completed month_ends; FAMILY for ALL non-3 completed month_ends in year
         """
         self.fill_today()
-        self.log.print_text('UpdateBalance.fill_current_year()', self.color)
+        self.log.print_info('UpdateBalance.fill_current_year()', self.color)
 
         for i in range(today.month - 1):
             month_end = date(today.year, i+2, 1)-ONE_DAY
@@ -134,12 +130,12 @@ class UpdateBalance:
 
             row = self.BASE_MTHLY_ROW + month_end.month
             # fill LIABS
-            acct_name, liab_sum = self.gncu.get_total_balance(self.root_account, BALANCE_ACCTS[LIAB], month_end, self.currency)
+            acct_name, liab_sum = get_total_balance(self.root_account, BALANCE_ACCTS[LIAB], month_end, self.currency)
             self.fill_google_cell(BAL_MTHLY_COLS[LIAB][MTH], row, liab_sum)
 
             # fill ASSETS for months NOT covered by the Assets sheet
             if month_end.month % 3 != 0:
-                acct_name, acct_sum = self.gncu.get_total_balance(self.root_account, BALANCE_ACCTS[ASTS], month_end, self.currency)
+                acct_name, acct_sum = get_total_balance(self.root_account, BALANCE_ACCTS[ASTS], month_end, self.currency)
                 adjusted_assets = acct_sum - liab_sum
                 self.log.print_info("Adjusted assets on {} = ${}".format(month_end, adjusted_assets.to_eng_string()), self.color)
                 self.fill_google_cell(BAL_MTHLY_COLS[ASTS], row, adjusted_assets)
@@ -160,7 +156,7 @@ class UpdateBalance:
         """
         PREVIOUS YEAR: LIABS for ALL NON-completed months; FAMILY for ALL non-3 NON-completed months in year
         """
-        self.log.print_text('UpdateBalance.fill_current_year()', self.color)
+        self.log.print_info('UpdateBalance.fill_current_year()', self.color)
 
         year = today.year - 1
         for i in range(12-today.month):
@@ -169,19 +165,19 @@ class UpdateBalance:
 
             row = self.BASE_MTHLY_ROW + dte.month
             # fill LIABS
-            acct_name, liab_sum = self.gncu.get_total_balance(self.root_account, BALANCE_ACCTS[LIAB], dte, self.currency)
+            acct_name, liab_sum = get_total_balance(self.root_account, BALANCE_ACCTS[LIAB], dte, self.currency)
             self.fill_google_cell(BAL_MTHLY_COLS[LIAB][MTH], row, liab_sum)
 
             # fill ASSETS for months NOT covered by the Assets sheet
             if dte.month % 3 != 0:
-                acct_name, acct_sum = self.gncu.get_total_balance(self.root_account, BALANCE_ACCTS[ASTS], dte, self.currency)
+                acct_name, acct_sum = get_total_balance(self.root_account, BALANCE_ACCTS[ASTS], dte, self.currency)
                 adjusted_assets = acct_sum - liab_sum
                 self.log.print_info("Adjusted assets on {} = ${}".format(dte, adjusted_assets.to_eng_string()), self.color)
                 self.fill_google_cell(BAL_MTHLY_COLS[ASTS], row, adjusted_assets)
 
         # LIABS entry for year end
         year_end = date(year, 12, 31)
-        acct_name, liab_sum = self.gncu.get_total_balance(self.root_account, BALANCE_ACCTS[LIAB], year_end, self.currency)
+        acct_name, liab_sum = get_total_balance(self.root_account, BALANCE_ACCTS[LIAB], year_end, self.currency)
         # month column
         self.fill_google_cell(BAL_MTHLY_COLS[LIAB][MTH], self.BASE_MTHLY_ROW + 12, liab_sum)
         # year column
@@ -195,7 +191,7 @@ class UpdateBalance:
         self.log.print_info("UpdateBalance.fill_year(): year_end = {}".format(year_end), self.color)
 
         # fill LIABS
-        acct_name, liab_sum = self.gncu.get_total_balance(self.root_account, BALANCE_ACCTS[LIAB], year_end, self.currency)
+        acct_name, liab_sum = get_total_balance(self.root_account, BALANCE_ACCTS[LIAB], year_end, self.currency)
         yr_span = year_span(year, self.BASE_YEAR, self.BASE_YEAR_SPAN, self.HDR_SPAN)
         self.fill_google_cell(BAL_MTHLY_COLS[LIAB][YR], BASE_ROW + yr_span, liab_sum)
 
