@@ -76,9 +76,8 @@ class UpdateRevExps:
         self.log.print_info("all_inc_dest = {}".format(self.all_inc_dest), self.color)
         self.log.print_info("nec_inc_dest = {}\n".format(self.nec_inc_dest), self.color)
 
-        self.gncu = GnucashUtilities()
+        self.gncu = GnucashUtilities(False)
         self.gglu = GoogleUtilities()
-        self.util = CommonUtilities()
 
     ZERO = GnucashUtilities.ZERO
     BASE_YEAR:int = 2012
@@ -230,10 +229,10 @@ class UpdateRevExps:
             self.util.save_to_json(fname, now, self.gnucash_data)
 
         except Exception as ge:
-            self.log.print_error("Exception: {}!".format(ge))
+            self.log.print_error("Exception: {}!".format(repr(ge)))
             if "gnucash_session" in locals() and gnucash_session is not None:
                 gnucash_session.end()
-            exit(208)
+            raise ge
 
     def fill_google_cell(self, p_all:bool, p_col:str, p_row:int, p_time:str):
         dest = self.nec_inc_dest
@@ -296,7 +295,7 @@ def process_args():
                           help='write to Google sheet (1 or 2) OR just test')
     required.add_argument('-y', '--year', required=True, help="year to update: {}..2019".format(UpdateRevExps.BASE_YEAR))
     # optional arguments
-    required.add_argument('-q', '--quarter', choices=['1','2','3','4'], help="quarter to update: 1..4")
+    arg_parser.add_argument('-q', '--quarter', choices=['1','2','3','4'], help="quarter to update: 1..4")
     arg_parser.add_argument('--gnc_save',  action='store_true', help='Write the Gnucash formatted data to a JSON file')
     arg_parser.add_argument('--ggl_save',  action='store_true', help='Write the Google formatted data to a JSON file')
     arg_parser.add_argument('--debug', action='store_true', help='GENERATE DEBUG OUTPUT: MANY LINES!')
@@ -313,11 +312,11 @@ def process_input_parameters(argl:list):
 
     if not osp.isfile(args.gnucash_file):
         SattoLog.print_text("File path '{}' does not exist! Exiting...".format(args.gnucash_file), RED)
-        exit(215)
+        exit(316)
     SattoLog.print_text("\nGnucash file = {}".format(args.gnucash_file), GREEN)
 
-    year = CommonUtilities.get_int_year(args.year, UpdateRevExps.BASE_YEAR)
-    qtr = CommonUtilities.get_int_quarter(args.quarter)
+    year = get_int_year(args.year, UpdateRevExps.BASE_YEAR)
+    qtr = 0 if args.quarter is None else get_int_quarter(args.quarter)
 
     return args.gnucash_file, args.gnc_save, args.ggl_save, args.debug, args.mode, year, qtr
 
@@ -329,7 +328,7 @@ def update_rev_exps_main(args:list) -> dict :
     revexp_now = dt.now().strftime(DATE_STR_FORMAT)
     SattoLog.print_text("update_rev_exps_main(): Runtime = {}".format(revexp_now), BLUE)
 
-    response = {'Response' : 'None'}
+    response = {'Response': 'None'}
     try:
         updater = UpdateRevExps(gnucash_file, mode, debug)
 
@@ -343,7 +342,7 @@ def update_rev_exps_main(args:list) -> dict :
         if PROD in mode:
             response = GoogleUtilities.send_data(updater.get_google_data())
             fname = "out/updateRevExps_response-{}{}".format(target_year , ('-Q' + str(target_qtr)) if target_qtr else '')
-            CommonUtilities.save_to_json(fname, revexp_now, response)
+            save_to_json(fname, revexp_now, response)
 
     except Exception as ree:
         msg = "update_rev_exps_main() EXCEPTION!! '{}'".format(repr(ree))

@@ -71,7 +71,6 @@ class UpdateAssets:
 
         self.gncu = GnucashUtilities()
         self.gglu = GoogleUtilities()
-        self.util = CommonUtilities()
 
     BASE_YEAR:int = 2007
     # number of rows between same quarter in adjacent years
@@ -105,7 +104,7 @@ class UpdateAssets:
             for i in range(num_quarters):
                 qtr = p_qtr if p_qtr else i + 1
                 start_month = (qtr * 3) - 2
-                end_date = self.util.current_quarter_end(p_year, start_month)
+                end_date = current_quarter_end(p_year, start_month)
 
                 data_quarter = self.gncu.get_account_assets(root_account, ASSET_ACCTS, end_date, currency)
                 data_quarter[QTR] = str(qtr)
@@ -117,12 +116,12 @@ class UpdateAssets:
 
             if save_gnc:
                 fname = "out/updateAssets_gnc-data-{}{}".format(p_year, ('-Q' + str(p_qtr)) if p_qtr else '')
-                self.util.save_to_json(fname, now, self.gnucash_data)
+                save_to_json(fname, now, self.gnucash_data)
 
-        except Exception as ge:
-            self.log.print_error("Exception: {}!".format(ge))
+        except Exception as gnce:
+            self.log.print_error("Exception: {}!".format(repr(gnce)))
             self.gncu.check_end_session(gnucash_session, locals())
-            exit(130)
+            raise gnce
 
     def fill_google_cell(self, p_col:str, p_row:int, p_time:str):
         self.gglu.fill_cell(self.dest, p_col, p_row, p_time, self.google_data)
@@ -144,7 +143,7 @@ class UpdateAssets:
         self.log.print_info("fill_google_data({},{})\n".format(p_year, save_ggl))
 
         try:
-            year_row = BASE_ROW + self.util.year_span(p_year, self.BASE_YEAR, self.BASE_YEAR_SPAN, self.HDR_SPAN)
+            year_row = BASE_ROW + year_span(p_year, self.BASE_YEAR, self.BASE_YEAR_SPAN, self.HDR_SPAN)
             # get exact row from Quarter value in each item
             for item in self.gnucash_data:
                 self.log.print_info("{} = {}".format(QTR, item[QTR]))
@@ -161,7 +160,7 @@ class UpdateAssets:
                         self.fill_google_cell(ASSET_COLS[key], dest_row, item[key])
 
             # fill date & time of this update
-            today_row = BASE_ROW + 1 + self.util.year_span(today.year+2, self.BASE_YEAR, self.BASE_YEAR_SPAN, self.HDR_SPAN)
+            today_row = BASE_ROW + 1 + year_span(today.year+2, self.BASE_YEAR, self.BASE_YEAR_SPAN, self.HDR_SPAN)
             self.fill_google_cell(ASSET_COLS[DATE], today_row, today.strftime(FILE_DATE_STR))
             self.fill_google_cell(ASSET_COLS[DATE], today_row+1, today.strftime(CELL_TIME_STR))
 
@@ -171,11 +170,11 @@ class UpdateAssets:
 
             if save_ggl:
                 fname = "out/updateAssets_google-data-{}{}".format(str(p_year), ('-Q' + str_qtr) if str_qtr else '')
-                self.util.save_to_json(fname, now, self.google_data)
+                save_to_json(fname, now, self.google_data)
 
         except Exception as fgde:
             self.log.print_error("Exception: {}!".format(repr(fgde)))
-            exit(185)
+            raise fgde
 
 # END class UpdateAssets
 
@@ -189,7 +188,7 @@ def process_args():
                           help='write to Google sheet (1 or 2) OR just test')
     required.add_argument('-y', '--year', required=True, help="year to update: {}..2019".format(UpdateAssets.BASE_YEAR))
     # optional arguments
-    required.add_argument('-q', '--quarter', choices=['1','2','3','4'], help="quarter to update: 1..4")
+    arg_parser.add_argument('-q', '--quarter', choices=['1','2','3','4'], help="quarter to update: 1..4")
     arg_parser.add_argument('--gnc_save',  action='store_true', help='Write the Gnucash formatted data to a JSON file')
     arg_parser.add_argument('--ggl_save',  action='store_true', help='Write the Google formatted data to a JSON file')
     arg_parser.add_argument('--debug', action='store_true', help='GENERATE DEBUG OUTPUT: MANY LINES!')
@@ -206,11 +205,11 @@ def process_input_parameters(argl:list):
 
     if not osp.isfile(args.gnucash_file):
         SattoLog.print_text("File path '{}' does not exist! Exiting...".format(args.gnucash_file), RED)
-        exit(215)
+        exit(209)
     SattoLog.print_text("\nGnucash file = {}".format(args.gnucash_file), CYAN)
 
-    year = CommonUtilities.get_int_year(args.year, UpdateAssets.BASE_YEAR)
-    qtr = CommonUtilities.get_int_quarter(args.quarter)
+    year = get_int_year(args.year, UpdateAssets.BASE_YEAR)
+    qtr = 0 if args.quarter is None else get_int_quarter(args.quarter)
 
     return args.gnucash_file, args.gnc_save, args.ggl_save, args.debug, args.mode, year, qtr
 
@@ -223,7 +222,7 @@ def update_assets_main(args:list) -> dict :
     ub_now = dt.now().strftime(DATE_STR_FORMAT)
     SattoLog.print_text("update_balance_main(): Runtime = {}".format(ub_now), BLUE)
 
-    response = {'Response' : 'None'}
+    response = {'Response': 'None'}
     try:
         updater = UpdateAssets(gnucash_file, mode, debug)
 
@@ -237,7 +236,7 @@ def update_assets_main(args:list) -> dict :
         if PROD in mode:
             response = GoogleUtilities.send_data(updater.get_google_data())
             fname = "out/updateAssets_response-{}{}".format(target_year , ('-Q' + str(target_qtr)) if target_qtr else '')
-            CommonUtilities.save_to_json(fname, ub_now, response)
+            save_to_json(fname, ub_now, response)
 
     except Exception as ae:
         msg = "update_balance_main() EXCEPTION!! '{}'".format(repr(ae))
