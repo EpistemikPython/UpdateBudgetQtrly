@@ -86,6 +86,9 @@ class UpdateAssets:
     def get_google_data(self) -> list:
         return self.google_data
 
+    def get_log(self) -> list :
+        return self.log.get_log()
+
     def fill_gnucash_data(self, save_gnc:bool, p_year:int, p_qtr:int):
         """
         Get ASSET data for ONE specified Quarter or ALL four Quarters for the specified Year
@@ -222,7 +225,6 @@ def update_assets_main(args:list) -> dict :
     ub_now = dt.now().strftime(DATE_STR_FORMAT)
     SattoLog.print_text("update_balance_main(): Runtime = {}".format(ub_now), BLUE)
 
-    response = {'Response': 'None'}
     try:
         updater = UpdateAssets(gnucash_file, mode, debug)
 
@@ -237,11 +239,13 @@ def update_assets_main(args:list) -> dict :
             response = GoogleUtilities.send_data(updater.get_google_data())
             fname = "out/updateAssets_response-{}{}".format(target_year , ('-Q' + str(target_qtr)) if target_qtr else '')
             save_to_json(fname, ub_now, response)
+        else:
+            response = updater.get_log()
 
     except Exception as ae:
-        msg = "update_balance_main() EXCEPTION!! '{}'".format(repr(ae))
+        msg = repr(ae)
         SattoLog.print_warning(msg)
-        response['Response'] = msg
+        response = {"update_assets_main() EXCEPTION:": "{}".format(msg)}
 
     SattoLog.print_text(" >>> PROGRAM ENDED.\n", GREEN)
     return response

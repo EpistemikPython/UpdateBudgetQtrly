@@ -83,6 +83,9 @@ class UpdateBalance:
     def get_data(self) -> list :
         return self.data
 
+    def get_log(self) -> list :
+        return self.log.get_log()
+
     # noinspection PyUnboundLocalVariable
     def fill_today(self):
         """
@@ -248,17 +251,6 @@ class UpdateBalance:
                 gnucash_session.end()
             raise fgce
 
-    def send_to_google_sheet(self) -> dict :
-        """
-        Send the data to the Google sheet
-        :return: server response
-        """
-        self.log.print_info("UpdateBalance.send_to_google_sheet()", self.color)
-
-        if PROD in self.mode:
-            return self.gglu.send_data(self.data)
-        return {'mode':TEST}
-
 # END class UpdateBalance
 
 
@@ -301,22 +293,24 @@ def update_balance_main(args:list) -> dict :
     ub_now = dt.now().strftime(DATE_STR_FORMAT)
     SattoLog.print_text("update_balance_main(): Runtime = {}".format(ub_now), BLUE)
 
-    response = {'Response': 'None'}
     try:
         updater = UpdateBalance(gnucash_file, mode, domain, debug)
 
         # get the requested data from Gnucash and package in the update format required by Google sheets
         updater.fill_google_data(save_json)
 
-        response = updater.send_to_google_sheet()
-
-        fname = "out/updateBalance_{}-response".format(domain)
-        save_to_json(fname, ub_now, response)
+        # send data if in PROD mode
+        if PROD in mode:
+            response = send_data(updater.get_data())
+            fname = "out/updateBalance_{}-response".format(domain)
+            save_to_json(fname, ub_now, response)
+        else:
+            response = updater.get_log()
 
     except Exception as be:
-        msg = "update_balance_main() EXCEPTION!! '{}'".format(repr(be))
+        msg = repr(be)
         SattoLog.print_warning(msg)
-        response['Response'] = msg
+        response = {"update_balance_main() EXCEPTION:": "{}".format(msg)}
 
     SattoLog.print_text(" >>> PROGRAM ENDED.\n", GREEN)
     return response

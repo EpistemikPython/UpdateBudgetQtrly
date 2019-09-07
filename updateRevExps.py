@@ -76,7 +76,7 @@ class UpdateRevExps:
         self.log.print_info("all_inc_dest = {}".format(self.all_inc_dest), self.color)
         self.log.print_info("nec_inc_dest = {}\n".format(self.nec_inc_dest), self.color)
 
-        self.gncu = GnucashUtilities(False)
+        self.gncu = GnucashUtilities()
         self.gglu = GoogleUtilities()
 
     ZERO = GnucashUtilities.ZERO
@@ -91,6 +91,9 @@ class UpdateRevExps:
 
     def get_google_data(self) -> list:
         return self.google_data
+
+    def get_log(self) -> list :
+        return self.log.get_log()
 
     def get_revenue(self, root_account:Account, period_starts:list, periods:list, p_year:int, p_qtr:int) -> dict :
         """
@@ -204,7 +207,7 @@ class UpdateRevExps:
                         self.ZERO, # credits sum
                         self.ZERO  # TOTAL
                     ]
-                    for start_date, end_date in self.util.generate_quarter_boundaries(p_year, start_month, 1)
+                    for start_date, end_date in generate_quarter_boundaries(p_year, start_month, 1)
                 ]
                 # a copy of the above list with just the period start dates
                 period_starts = [e[0] for e in period_list]
@@ -226,7 +229,7 @@ class UpdateRevExps:
             gnucash_session.end()
 
             fname = "out/updateRevExps_gnc-data-{}{}".format(p_year, ('-Q' + str(p_qtr)) if p_qtr else '')
-            self.util.save_to_json(fname, now, self.gnucash_data)
+            save_to_json(fname, now, self.gnucash_data)
 
         except Exception as ge:
             self.log.print_error("Exception: {}!".format(repr(ge)))
@@ -255,11 +258,11 @@ class UpdateRevExps:
         :param save_google: save the Google data to a JSON file
         """
 
-        year_row = BASE_ROW + self.util.year_span(p_year, self.BASE_YEAR, self.BASE_YEAR_SPAN, 0)
+        year_row = BASE_ROW + year_span(p_year, self.BASE_YEAR, self.BASE_YEAR_SPAN, 0)
         # get exact row from Quarter value in each item
         for item in self.gnucash_data:
             self.log.print_info("{} = {}".format(QTR, item[QTR]))
-            dest_row = year_row + ((self.util.get_int_quarter(item[QTR]) - 1) * self.QTR_SPAN)
+            dest_row = year_row + ((get_int_quarter(item[QTR]) - 1) * self.QTR_SPAN)
             self.log.print_info("dest_row = {}\n".format(dest_row), self.color)
             for key in item:
                 if key != QTR:
@@ -269,7 +272,7 @@ class UpdateRevExps:
                     self.fill_google_cell(dest, REV_EXP_COLS[key], dest_row, item[key])
 
         # fill update date & time to ALL and NEC
-        today_row = BASE_ROW - 1 + self.util.year_span(today.year+2, self.BASE_YEAR, self.BASE_YEAR_SPAN, 0)
+        today_row = BASE_ROW - 1 + year_span(today.year+2, self.BASE_YEAR, self.BASE_YEAR_SPAN, 0)
         self.fill_google_cell(BOOL_NEC_INC, REV_EXP_COLS[DATE], today_row, today.strftime(FILE_DATE_STR))
         self.fill_google_cell(BOOL_NEC_INC, REV_EXP_COLS[DATE], today_row+1, today.strftime(CELL_TIME_STR))
         self.fill_google_cell(BOOL_ALL_INC, REV_EXP_COLS[DATE], today_row, today.strftime(FILE_DATE_STR))
@@ -281,7 +284,7 @@ class UpdateRevExps:
 
         if save_google:
             fname = "out/updateRevExps_google-data-{}{}".format(str(p_year), ('-Q' + str_qtr) if str_qtr else '')
-            self.util.save_to_json(fname, now, self.google_data)
+            save_to_json(fname, now, self.google_data)
 
 # END class UpdateRevExps
 
@@ -303,7 +306,7 @@ def process_args():
     return arg_parser
 
 
-def process_input_parameters(argl:list):
+def process_input_parameters(argl:list) -> (str, bool, bool, bool, str, int, int) :
     args = process_args().parse_args(argl)
     SattoLog.print_text("\nargs = {}".format(args), BROWN)
 
@@ -312,7 +315,7 @@ def process_input_parameters(argl:list):
 
     if not osp.isfile(args.gnucash_file):
         SattoLog.print_text("File path '{}' does not exist! Exiting...".format(args.gnucash_file), RED)
-        exit(316)
+        exit(318)
     SattoLog.print_text("\nGnucash file = {}".format(args.gnucash_file), GREEN)
 
     year = get_int_year(args.year, UpdateRevExps.BASE_YEAR)
@@ -328,7 +331,6 @@ def update_rev_exps_main(args:list) -> dict :
     revexp_now = dt.now().strftime(DATE_STR_FORMAT)
     SattoLog.print_text("update_rev_exps_main(): Runtime = {}".format(revexp_now), BLUE)
 
-    response = {'Response': 'None'}
     try:
         updater = UpdateRevExps(gnucash_file, mode, debug)
 
@@ -343,11 +345,13 @@ def update_rev_exps_main(args:list) -> dict :
             response = GoogleUtilities.send_data(updater.get_google_data())
             fname = "out/updateRevExps_response-{}{}".format(target_year , ('-Q' + str(target_qtr)) if target_qtr else '')
             save_to_json(fname, revexp_now, response)
+        else:
+            response = updater.get_log()
 
     except Exception as ree:
-        msg = "update_rev_exps_main() EXCEPTION!! '{}'".format(repr(ree))
+        msg = repr(ree)
         SattoLog.print_warning(msg)
-        response['Response'] = msg
+        response = {"update_rev_exps_main() EXCEPTION:": "{}".format(msg)}
 
     SattoLog.print_text(" >>> PROGRAM ENDED.\n", GREEN)
     return response
