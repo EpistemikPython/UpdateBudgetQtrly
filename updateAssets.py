@@ -16,8 +16,8 @@ from sys import path
 path.append("/home/marksa/dev/git/Python/Gnucash/createGncTxs")
 path.append("/home/marksa/dev/git/Python/Google")
 from argparse import ArgumentParser
-from gnucash_utilities import *
-from google_utilities import *
+from gnucash_utilities import begin_session, end_session, check_end_session, get_account_assets
+from google_utilities import send_sheets_data, fill_cell, BASE_ROW
 from investment import *
 
 # path to the account in the Gnucash file
@@ -50,12 +50,15 @@ ASSET_COLS = {
     TOTAL : 'H'
 }
 
+# sheet names in Budget Quarterly
+QTR_ASTS_SHEET:str   = 'Assets 1'
+QTR_ASTS_2_SHEET:str = 'Assets 2'
+
 
 class UpdateAssets:
     def __init__(self, p_filename:str, p_mode:str, p_debug:bool):
-        self.log = SattoLog(p_debug)
+        self.log = SattoLog(my_color=CYAN, do_logging=p_debug)
         self.log.print_info('UpdateAssets', GREEN)
-        self.color = CYAN
 
         self.gnucash_file = p_filename
         self.gnucash_data = []
@@ -67,7 +70,7 @@ class UpdateAssets:
         self.dest = QTR_ASTS_2_SHEET
         if '1' in self.mode:
             self.dest = QTR_ASTS_SHEET
-        self.log.print_info("dest = {}".format(self.dest), self.color)
+        self.log.print_info("dest = {}".format(self.dest))
 
     BASE_YEAR:int = 2007
     # number of rows between same quarter in adjacent years
@@ -94,7 +97,7 @@ class UpdateAssets:
         :param    p_qtr: 1..4 for quarter to update or 0 if updating ALL FOUR quarters
         """
         self.log.print_info("UA.fill_gnucash_data(): find Assets in {} for {}{}"
-                            .format(self.gnucash_file, p_year, ('-Q' + str(p_qtr)) if p_qtr else ''), GREEN)
+                            .format(self.gnucash_file, p_year, ('-Q' + str(p_qtr)) if p_qtr else ''))
         num_quarters = 1 if p_qtr else 4
         gnucash_session = None
         try:
@@ -186,8 +189,8 @@ def process_args() -> ArgumentParser:
     # required arguments
     required = arg_parser.add_argument_group('REQUIRED')
     required.add_argument('-g', '--gnucash_file', required=True, help='path & filename of the Gnucash file to use')
-    required.add_argument('-m', '--mode', required=True, choices=[TEST, PROD+'1', PROD+'2'],
-                          help='WRITE to Google sheet (1 or 2) OR just TEST (NO write)')
+    required.add_argument('-m', '--mode', required=True, choices=[TEST,SEND+'1',SEND+'2'],
+                          help='SEND to Google sheet (1 or 2) OR just TEST')
     required.add_argument('-y', '--year', required=True, help="year to update: {}..2019".format(UpdateAssets.BASE_YEAR))
     # optional arguments
     arg_parser.add_argument('-q', '--quarter', choices=['1','2','3','4'], help="quarter to update: 1..4")
@@ -203,12 +206,12 @@ def process_input_parameters(argl:list) -> (str, bool, bool, bool, str, int, int
     SattoLog.print_text("\nargs = {}".format(args), BROWN)
 
     if args.debug:
-        SattoLog.print_text('Printing ALL Debug output!!', RED)
+        SattoLog.print_warning('Printing ALL Debug output!!')
 
     if not osp.isfile(args.gnucash_file):
-        SattoLog.print_text("File path '{}' does not exist! Exiting...".format(args.gnucash_file), RED)
+        SattoLog.print_warning("File path '{}' does not exist! Exiting...".format(args.gnucash_file))
         exit(209)
-    SattoLog.print_text("\nGnucash file = {}".format(args.gnucash_file), CYAN)
+    SattoLog.print_text("\nGnucash file = {}".format(args.gnucash_file), GREEN)
 
     year = get_int_year(args.year, UpdateAssets.BASE_YEAR)
     qtr = 0 if args.quarter is None else get_int_quarter(args.quarter)
@@ -218,7 +221,7 @@ def process_input_parameters(argl:list) -> (str, bool, bool, bool, str, int, int
 
 # TODO: fill in date column for previous month when updating 'today', check to update 'today' or 'tomorrow'
 def update_assets_main(args:list) -> dict :
-    SattoLog.print_text("Parameters = \n{}".format(json.dumps(args, indent=4)), GREEN)
+    SattoLog.print_text("Parameters = \n{}".format(json.dumps(args, indent=4)), BROWN)
     gnucash_file, save_gnc, save_ggl, debug, mode, target_year, target_qtr = process_input_parameters(args)
 
     ub_now = dt.now().strftime(DATE_STR_FORMAT)
@@ -234,7 +237,7 @@ def update_assets_main(args:list) -> dict :
         updater.fill_google_data(target_year, save_ggl)
 
         # send data if in PROD mode
-        if PROD in mode:
+        if SEND in mode:
             response = send_sheets_data(updater.get_google_data())
             fname = "out/updateAssets_response-{}{}".format(target_year , ('-Q' + str(target_qtr)) if target_qtr else '')
             save_to_json(fname, ub_now, response)
