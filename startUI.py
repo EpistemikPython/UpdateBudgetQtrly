@@ -28,7 +28,6 @@ ASSETS:str   = 'Assets'
 BALANCE:str  = 'Balance'
 DOMAIN:str   = 'Domain'
 DEST:str     = 'Destination'
-SEND:str     = 'send'
 QTRS:str     = 'Quarters'
 SHEET_1:str  = 'Sheet 1'
 SHEET_2:str  = 'Sheet 2'
@@ -59,7 +58,7 @@ class UpdateBudgetQtrly(QDialog):
         self.gnc_file = ''
         self.script = ''
         self.mode = ''
-        self.log = SattoLog(True)
+        self.log = SattoLog(do_logging=True)
         self.log.print_info("{}".format(self.title), GREEN)
         self.init_ui()
 
@@ -103,7 +102,7 @@ class UpdateBudgetQtrly(QDialog):
         layout.addRow(QLabel("Gnucash File:"), self.gnc_file_btn)
 
         self.cb_mode = QComboBox()
-        self.cb_mode.addItems([TEST, SEND])
+        self.cb_mode.addItems([TEST,SEND])
         self.cb_mode.currentIndexChanged.connect(partial(self.mode_change))
         layout.addRow(QLabel("Mode:"), self.cb_mode)
         self.mode = self.cb_mode.currentText()
@@ -142,8 +141,8 @@ class UpdateBudgetQtrly(QDialog):
     def open_file_name_dialog(self):
         options = QFileDialog.Options()
         options |= QFileDialog.DontUseNativeDialog
-        file_name, _ = QFileDialog.getOpenFileName(self, "Get Gnucash Files", "", "Gnucash Files (*.gnc);;All Files (*)",
-                                                   options=options)
+        file_name, _ = QFileDialog.getOpenFileName(self, "Get Gnucash Files", "",
+                                                   "Gnucash Files (*.gnc);;All Files (*)", options=options)
         if file_name:
             self.gnc_file = file_name
             gnc_file_display = file_name.split('/')[-1]
@@ -210,16 +209,19 @@ class UpdateBudgetQtrly(QDialog):
             self.response_box.setText('>>> MUST select a Gnucash File!')
             return
 
-        # adjust the mode string if Sheet 1 is the destination
+        # if sending, adjust the mode string to match the Sheet selected
         send_mode = self.cb_mode.currentText()
         if send_mode == SEND:
             if self.cb_dest.currentText() == SHEET_1:
                 send_mode += '1'
+            elif self.cb_dest.currentText() == SHEET_2:
+                send_mode += '2'
 
         cl_params = ['-g' + self.gnc_file, '-m' + send_mode]
 
-        quarter = self.cb_qtr.currentText().replace('#', '')
+        quarter = self.cb_qtr.currentText().replace('#','')
         domain_key = '-p'
+        # BALANCE has slightly different parameters than REV_EXPS and ASSETS
         if exe != BALANCE:
             domain_key = '-y'
             if quarter != 'ALL' : cl_params.append('-q' + quarter)
