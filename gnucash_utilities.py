@@ -17,11 +17,78 @@ from sys import stdout, path
 path.append("/home/marksa/dev/git/Python/Utilities/")
 from bisect import bisect_right
 from math import log10
-from decimal import Decimal
-from datetime import date
+from copy import copy
 import csv
-from gnucash import Session, GncNumeric, Account, GncCommodity, GncCommodityTable
-from python_utilities import SattoLog, ONE_DAY, ZERO
+from gnucash import *
+from investment import *
+
+
+# TODO: SHOULD BE class GnucashSession ?? because NEED to store root_account, book, Commod_table, PriceDB etc ??
+def __init__(self, p_monrec: InvestmentRecord, p_mode: str, p_gncfile: str, p_debug: bool, p_domain: str,
+             p_pdb: GncPriceDB = None, p_book: Book = None, p_root: Account = None,
+             p_curr: GncCommodity = None, p_invrec: InvestmentRecord = None) :
+    """
+    Create and manage a Gnucash session
+    """
+    self.logger = Gnulog(p_debug)
+    # self.monarch_record = p_mrec
+    # self.gnucash_record = p_grec
+    self.gnc_file = p_gncfile
+    # self.mode = p_mode
+    # self.domain = p_domain
+    self.price_db = p_pdb
+    self.book = p_book
+    self.root_acct = p_root
+    self.currency = p_curr
+
+    self.logger.print_info("class GnucashSession: Runtime = {}\n".format(dt.now().strftime(DATE_STR_FORMAT)), MAGENTA)
+
+
+def set_gnc_rec(self, p_gncrec: InvestmentRecord) :
+    self.gnucash_record = p_gncrec
+
+
+# noinspection PyUnboundLocalVariable
+def prepare_session(self) :
+    """
+    initialization needed for a Gnucash session
+    :return: message
+    """
+    self.logger.print_info("prepare_session()", BLUE)
+    msg = TEST
+    try :
+        session = Session(self.gnc_file)
+        self.book = session.book
+
+        owner = self.monarch_record.get_owner()
+        self.logger.print_info("Owner = {}".format(owner), GREEN)
+        self.set_gnc_rec(InvestmentRecord(owner))
+
+        self.create_gnucash_info()
+
+        if self.mode == PROD :
+            self.logger.print_info("Mode = {}: COMMIT Price DB edits and Save session.".format(self.mode), GREEN)
+
+            if self.domain != TRADE :
+                self.price_db.commit_edit()
+
+            # only ONE session save for the entire run
+            session.save()
+
+        session.end()
+        # session.destroy()
+
+        msg = self.logger.get_log()
+
+    except Exception as se :
+        msg = "prepare_session() EXCEPTION!! '{}'".format(repr(se))
+        self.logger.print_error(msg)
+        if "session" in locals() and session is not None :
+            session.end()
+            # session.destroy()
+        raise se
+
+    return msg
 
 
 def begin_session(p_filename:str, p_new:bool=False) -> (Session, Account, GncCommodityTable):
@@ -66,6 +133,32 @@ def gnc_numeric_to_python_decimal(numeric:GncNumeric, logger:SattoLog=None) -> D
 
     assert( (10 ** exponent) == denominator )
     return Decimal((sign, digit_tuple, -exponent))
+
+
+def get_accounts(ast_parent: Account, asset_acct_name: str, rev_acct: Account, logger:SattoLog=None) -> (Account, Account) :
+    """
+    Find the proper Asset and Revenue accounts
+    :param      ast_parent: Asset account parent
+    :param asset_acct_name: Asset account name
+    :param        rev_acct: Revenue account
+    :param  logger: debug printing
+    :return: Gnucash account, Gnucash account
+    """
+    logger.print_info('get_accounts()')
+    asset_parent = ast_parent
+    # special locations for Trust Revenue and Asset accounts
+    if asset_acct_name == TRUST_AST_ACCT :
+        asset_parent = root_acct.lookup_by_name(TRUST)
+        logger.print_info("asset_parent = {}".format(asset_parent.GetName()))
+        rev_acct = root_acct.lookup_by_name(TRUST_REV_ACCT)
+        logger.print_info("MODIFIED rev_acct = {}".format(rev_acct.GetName()))
+    # get the asset account
+    asset_acct = asset_parent.lookup_by_name(asset_acct_name)
+    if asset_acct is None :
+        raise Exception("[164] Could NOT find acct '{}' under parent '{}'".format(asset_acct_name, asset_parent.GetName()))
+
+    logger.print_info("asset_acct = {}".format(asset_acct.GetName()))
+    return asset_acct, rev_acct
 
 
 def get_account_balance(acct:Account, p_date:date, p_currency:GncCommodity, logger:SattoLog=None) -> Decimal:
@@ -151,6 +244,37 @@ def get_account_assets(p_root:Account, asset_accts:dict, end_date:date, p_curren
         data[item] = str_sum
 
     return data
+
+
+def get_asset_revenue_info(plan_type: str, logger:SattoLog=None) -> (Account, Account) :
+    """
+    Get the required asset and/or revenue information from each plan
+    :param plan_type: plan names from Configuration.InvestmentRecord
+    :param    logger: debug printing
+    :return: Gnucash account, Gnucash account: revenue account and asset parent account
+    """
+    logger.print_info("gnucash_utilities.get_asset_revenue_info()")
+    rev_path = copy(ACCT_PATHS[REVENUE])
+    rev_path.append(plan_type)
+    ast_parent_path = copy(ACCT_PATHS[ASSET])
+    ast_parent_path.append(plan_type)
+
+    pl_owner = gnucash_record.get_owner()
+    if plan_type != OPEN :
+        if pl_owner == '' :
+            raise Exception("PROBLEM[355]!! Trying to process plan type '{}' but NO Owner value found"
+                            " in Tx Collection!!".format(plan_type))
+        rev_path.append(ACCT_PATHS[pl_owner])
+        ast_parent_path.append(ACCT_PATHS[pl_owner])
+    logger.print_info("rev_path = {}".format(str(rev_path)))
+
+    rev_acct = account_from_path(root_acct, rev_path)
+    logger.print_info("rev_acct = {}".format(rev_acct.GetName()))
+    logger.print_info("asset_parent_path = {}".format(str(ast_parent_path)))
+    asset_parent = account_from_path(root_acct, ast_parent_path)
+    logger.print_info("asset_parent = {}".format(asset_parent.GetName()))
+
+    return asset_parent, rev_acct
 
 
 # noinspection PyUnboundLocalVariable,PyUnresolvedReferences
@@ -241,6 +365,126 @@ def fill_splits(p_root:Account, target_path:list, period_starts:list, periods:li
 
     csv_write_period_list(periods)
     return acct_name
+
+
+def create_gnc_price_txs(mtx:dict, ast_parent:Account, rev_acct:Account, logger:SattoLog=None) :
+    """
+    Create and load Gnucash prices to the Gnucash PriceDB
+    :param        mtx: InvestmentRecord transaction
+    :param ast_parent: Asset parent account
+    :param   rev_acct: Revenue account
+    :param     logger: debug printing
+    :return: nil
+    """
+    logger.print_info('create_gnc_price_txs()')
+    conv_date = dt.strptime(mtx[DATE], "%d-%b-%Y")
+    pr_date = dt(conv_date.year, conv_date.month, conv_date.day)
+    datestring = pr_date.strftime("%Y-%m-%d")
+
+    fund_name = mtx[FUND]
+    if fund_name in MONEY_MKT_FUNDS:
+        return
+
+    int_price = int(mtx[PRICE].replace('.','').replace('$',''))
+    val = GncNumeric(int_price, 10000)
+    logger.print_info("Adding: {}[{}] @ ${}".format(fund_name, datestring, val))
+
+    pr1 = GncPrice(book)
+    pr1.begin_edit()
+    pr1.set_time64(pr_date)
+
+    asset_acct, rev_acct = get_accounts(ast_parent, fund_name, rev_acct)
+    comm = asset_acct.GetCommodity()
+    logger.print_info("Commodity = {}:{}".format(comm.get_namespace(), comm.get_printname()))
+    pr1.set_commodity(comm)
+
+    pr1.set_currency(currency)
+    pr1.set_value(val)
+    pr1.set_source_string("user:price")
+    pr1.set_typestr('nav')
+    pr1.commit_edit()
+
+    if mode == PROD:
+        logger.print_info("Mode = {}: Add Price to DB.".format(self.mode), GREEN)
+        price_db.add_price(pr1)
+    else:
+        logger.print_info("Mode = {}: ABANDON Prices!\n".format(self.mode), RED)
+
+
+def create_gnc_trade_txs(tx1:dict, tx2:dict, logger:SattoLog=None) :
+    """
+    Create and load Gnucash transactions to the Gnucash file
+    :param    tx1: first transaction
+    :param    tx2: matching transaction if a switch
+    :param logger: debug printing
+    :return: nil
+    """
+    logger.print_info('create_gnc_trade_txs()')
+    # create a gnucash Tx
+    gtx = Transaction(book)
+    # gets a guid on construction
+
+    gtx.BeginEdit()
+
+    gtx.SetCurrency(currency)
+    gtx.SetDate(tx1[TRADE_DAY], tx1[TRADE_MTH], tx1[TRADE_YR])
+    # self.dbg.print_info("gtx date = {}".format(gtx.GetDate()), BLUE)
+    logger.print_info("tx1[DESC] = {}".format(tx1[DESC]))
+    gtx.SetDescription(tx1[DESC])
+
+    # create the ASSET split for the Tx
+    spl_ast = Split(book)
+    spl_ast.SetParent(gtx)
+    # set the account, value, and units of the Asset split
+    spl_ast.SetAccount(tx1[ACCT])
+    spl_ast.SetValue(GncNumeric(tx1[GROSS], 100))
+    spl_ast.SetAmount(GncNumeric(tx1[UNITS], 10000))
+
+    if tx1[SWITCH]:
+        # create the second ASSET split for the Tx
+        spl_ast2 = Split(book)
+        spl_ast2.SetParent(gtx)
+        # set the Account, Value, and Units of the second ASSET split
+        spl_ast2.SetAccount(tx2[ACCT])
+        spl_ast2.SetValue(GncNumeric(tx2[GROSS], 100))
+        spl_ast2.SetAmount(GncNumeric(tx2[UNITS], 10000))
+        # set Actions for the splits
+        spl_ast2.SetAction("Buy" if tx1[UNITS] < 0 else "Sell")
+        spl_ast.SetAction("Buy" if tx1[UNITS] > 0 else "Sell")
+        # combine Notes for the Tx and set Memos for the splits
+        gtx.SetNotes(tx1[NOTES] + " | " + tx2[NOTES])
+        spl_ast.SetMemo(tx1[NOTES])
+        spl_ast2.SetMemo(tx2[NOTES])
+    else:
+        # the second split is for a REVENUE account
+        spl_rev = Split(book)
+        spl_rev.SetParent(gtx)
+        # set the Account, Value and Reconciled of the REVENUE split
+        spl_rev.SetAccount(tx1[REVENUE])
+        rev_gross = tx1[GROSS] * -1
+        # self.dbg.print_info("revenue gross = {}".format(rev_gross))
+        spl_rev.SetValue(GncNumeric(rev_gross, 100))
+        spl_rev.SetReconcile(CREC)
+        # set Notes for the Tx
+        gtx.SetNotes(tx1[NOTES])
+        # set Action for the ASSET split
+        action = FEE if FEE in tx1[DESC] else ("Sell" if tx1[UNITS] < 0 else DIST)
+        logger.print_info("action = {}".format(action))
+        spl_ast.SetAction(action)
+
+    # ROLL BACK if something went wrong and the two splits DO NOT balance
+    if not gtx.GetImbalanceValue().zero_p():
+        logger.print_error("Gnc tx IMBALANCE = {}!! Roll back transaction changes!"
+                                .format(gtx.GetImbalanceValue().to_string()))
+        gtx.RollbackEdit()
+        return
+
+    if mode == PROD:
+        logger.print_info("Mode = {}: Commit transaction changes.\n".format(mode), GREEN)
+        gtx.CommitEdit()
+    else:
+        logger.print_info("Mode = {}: Roll back transaction changes!\n".format(mode), RED)
+        gtx.RollbackEdit()
 
 
 def csv_write_period_list(periods:list, logger:SattoLog=None):
