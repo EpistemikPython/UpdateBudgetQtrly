@@ -10,14 +10,14 @@ __author__ = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __python_version__ = 3.6
 __created__ = '2019-04-13'
-__updated__ = '2019-09-08'
+__updated__ = '2019-09-10'
 
 from sys import path
 path.append("/home/marksa/dev/git/Python/Gnucash/createGncTxs")
 path.append("/home/marksa/dev/git/Python/Google")
 from argparse import ArgumentParser
 from gnucash_utilities import begin_session, end_session, check_end_session, get_total_balance
-from google_utilities import send_sheets_data, fill_cell, BASE_ROW
+from google_utilities import GoogleUpdate, BASE_ROW
 from investment import *
 from updateAssets import ASSET_COLS, UpdateAssets as UA
 
@@ -54,21 +54,20 @@ BAL_2_SHEET:str = 'Balance 2'
 
 class UpdateBalance:
     def __init__(self, p_filename:str, p_mode:str, p_domain:str, p_debug:bool):
-        self.log = SattoLog(my_color=GREY, do_logging=p_debug)
-        self.log.print_info('UpdateBalance', GREEN)
-
-        # cell(s) with location and value to update on Google sheet
-        self.data = []
+        self.logger = SattoLog(my_color=GREY, do_logging=p_debug)
+        self.logger.print_info('UpdateBalance', GREEN)
 
         self.mode = p_mode
         # Google sheet to update
         self.dest = BAL_2_SHEET
         if '1' in self.mode:
             self.dest = BAL_1_SHEET
-        self.log.print_info("dest = {}".format(self.dest))
+        self.logger.print_info("dest = {}".format(self.dest))
 
         self.gnucash_file = p_filename
         self.domain = p_domain
+
+        self.gglu = GoogleUpdate(self.logger)
 
     BASE_YEAR:int = 2008
     # number of rows between same quarter in adjacent years
@@ -78,17 +77,17 @@ class UpdateBalance:
     BASE_MTHLY_ROW:int = 19
 
     def get_data(self) -> list :
-        return self.data
+        return self.gglu.get_data()
 
     def get_log(self) -> list :
-        return self.log.get_log()
+        return self.logger.get_log()
 
     # noinspection PyUnboundLocalVariable
     def fill_today(self):
         """
         Get Balance data for TODAY: LIABS, House, FAMILY, XCHALET, TRUST
         """
-        self.log.print_info('UpdateBalance.fill_today()')
+        self.logger.print_info('UpdateBalance.fill_today()')
         # calls using 'today' ARE NOT off by one day??
         tdate = today - ONE_DAY
         for item in BALANCE_ACCTS:
@@ -103,9 +102,9 @@ class UpdateBalance:
             elif item == ASTS:
                 if house_sum is not None and liab_sum is not None:
                     acct_sum = acct_sum - house_sum - liab_sum
-                    self.log.print_info("Adjusted assets on {} = ${}".format(today, acct_sum.to_eng_string()))
+                    self.logger.print_info("Adjusted assets on {} = ${}".format(today, acct_sum.to_eng_string()))
                 else:
-                    self.log.print_error("Do NOT have house sum and liab sum!")
+                    self.logger.print_error("Do NOT have house sum and liab sum!")
 
             self.fill_google_cell(BAL_MTHLY_COLS[TODAY], BAL_TODAY_RANGES[item], acct_sum)
 
@@ -123,11 +122,11 @@ class UpdateBalance:
         CURRENT YEAR: fill_today() AND: LIABS for ALL completed month_ends; FAMILY for ALL non-3 completed month_ends in year
         """
         self.fill_today()
-        self.log.print_info('UpdateBalance.fill_current_year()')
+        self.logger.print_info('UpdateBalance.fill_current_year()')
 
         for i in range(today.month - 1):
             month_end = date(today.year, i+2, 1)-ONE_DAY
-            self.log.print_info("month_end = {}".format(month_end))
+            self.logger.print_info("month_end = {}".format(month_end))
 
             row = self.BASE_MTHLY_ROW + month_end.month
             # fill LIABS
@@ -138,10 +137,10 @@ class UpdateBalance:
             if month_end.month % 3 != 0:
                 acct_name, acct_sum = get_total_balance(self.root_account, BALANCE_ACCTS[ASTS], month_end, self.currency)
                 adjusted_assets = acct_sum - liab_sum
-                self.log.print_info("Adjusted assets on {} = ${}".format(month_end, adjusted_assets.to_eng_string()))
+                self.logger.print_info("Adjusted assets on {} = ${}".format(month_end, adjusted_assets.to_eng_string()))
                 self.fill_google_cell(BAL_MTHLY_COLS[ASTS], row, adjusted_assets)
             else:
-                self.log.print_info('Update reference to Assets sheet for Mar, June, Sep or Dec')
+                self.logger.print_info('Update reference to Assets sheet for Mar, June, Sep or Dec')
                 # have to update the CELL REFERENCE to current year/qtr ASSETS
                 year_row = BASE_ROW + year_span(today.year, UA.BASE_YEAR, UA.BASE_YEAR_SPAN, UA.HDR_SPAN)
                 int_qtr = (month_end.month // 3) - 1
@@ -157,12 +156,12 @@ class UpdateBalance:
         """
         PREVIOUS YEAR: LIABS for ALL NON-completed months; FAMILY for ALL non-3 NON-completed months in year
         """
-        self.log.print_info('UpdateBalance.fill_current_year()')
+        self.logger.print_info('UpdateBalance.fill_current_year()')
 
         year = today.year - 1
         for i in range(12-today.month):
             dte = date(year, i+today.month+1, 1)-ONE_DAY
-            self.log.print_info("date = {}".format(dte))
+            self.logger.print_info("date = {}".format(dte))
 
             row = self.BASE_MTHLY_ROW + dte.month
             # fill LIABS
@@ -173,7 +172,7 @@ class UpdateBalance:
             if dte.month % 3 != 0:
                 acct_name, acct_sum = get_total_balance(self.root_account, BALANCE_ACCTS[ASTS], dte, self.currency)
                 adjusted_assets = acct_sum - liab_sum
-                self.log.print_info("Adjusted assets on {} = ${}".format(dte, adjusted_assets.to_eng_string()))
+                self.logger.print_info("Adjusted assets on {} = ${}".format(dte, adjusted_assets.to_eng_string()))
                 self.fill_google_cell(BAL_MTHLY_COLS[ASTS], row, adjusted_assets)
 
         # LIABS entry for year end
@@ -189,7 +188,7 @@ class UpdateBalance:
         :param year: to get data for
         """
         year_end = date(year, 12, 31)
-        self.log.print_info("UpdateBalance.fill_year(): year_end = {}".format(year_end))
+        self.logger.print_info("UpdateBalance.fill_year(): year_end = {}".format(year_end))
 
         # fill LIABS
         acct_name, liab_sum = get_total_balance(self.root_account, BALANCE_ACCTS[LIAB], year_end, self.currency)
@@ -197,7 +196,7 @@ class UpdateBalance:
         self.fill_google_cell(BAL_MTHLY_COLS[LIAB][YR], BASE_ROW + yr_span, liab_sum)
 
     def fill_google_cell(self, p_col:str, p_row:int, p_time:str):
-        fill_cell(self.dest, p_col, p_row, p_time, self.data)
+        self.gglu.fill_cell(self.dest, p_col, p_row, p_time)
 
     # noinspection PyAttributeOutsideInit,PyUnboundLocalVariable
     def fill_google_data(self, p_save:bool):
@@ -210,7 +209,7 @@ class UpdateBalance:
           ELSE: LIABS for year
         :param: p_save: save data to json file
         """
-        self.log.print_info("UpdateBalance.fill_google_data()")
+        self.logger.print_info("UpdateBalance.fill_google_data()")
 
         try:
             gnucash_session, self.root_account, commod_tab = begin_session(self.gnucash_file)
@@ -236,12 +235,12 @@ class UpdateBalance:
             # no save needed, we're just reading...
             end_session(gnucash_session, False)
 
-            if p_save and len(self.data) > 0:
+            if p_save and len(self.get_data()) > 0:
                 fname = "out/updateBalance_{}".format(self.domain)
-                save_to_json(fname, now, self.data)
+                save_to_json(fname, now, self.get_data())
 
         except Exception as fgce:
-            self.log.print_error("Exception: {}!".format(repr(fgce)))
+            self.logger.print_error("Exception: {}!".format(repr(fgce)))
             check_end_session(gnucash_session, locals())
             raise fgce
 
@@ -296,7 +295,7 @@ def update_balance_main(args:list) -> dict :
 
         # send data if in PROD mode
         if SEND in mode:
-            response = send_sheets_data(updater.get_data())
+            response = updater.gglu.send_sheets_data()
             fname = "out/updateBalance_{}-response".format(domain)
             save_to_json(fname, ub_now, response)
         else:

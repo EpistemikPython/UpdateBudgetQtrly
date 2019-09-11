@@ -30,7 +30,7 @@ def __init__(self, p_monrec: InvestmentRecord, p_mode: str, p_gncfile: str, p_de
     """
     Create and manage a Gnucash session
     """
-    self.logger = Gnulog(p_debug)
+    self.logger = SattoLog(do_logging=p_debug)
     # self.monarch_record = p_mrec
     # self.gnucash_record = p_grec
     self.gnc_file = p_gncfile
@@ -66,7 +66,7 @@ def prepare_session(self) :
 
         self.create_gnucash_info()
 
-        if self.mode == PROD :
+        if self.mode == SEND :
             self.logger.print_info("Mode = {}: COMMIT Price DB edits and Save session.".format(self.mode), GREEN)
 
             if self.domain != TRADE :
@@ -404,7 +404,7 @@ def create_gnc_price_txs(mtx:dict, ast_parent:Account, rev_acct:Account, logger:
     pr1.set_typestr('nav')
     pr1.commit_edit()
 
-    if mode == PROD:
+    if mode == SEND:
         logger.print_info("Mode = {}: Add Price to DB.".format(self.mode), GREEN)
         price_db.add_price(pr1)
     else:

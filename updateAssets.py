@@ -10,14 +10,14 @@ __author__ = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __python_version__ = 3.6
 __created__ = '2019-04-06'
-__updated__ = '2019-09-06'
+__updated__ = '2019-09-10'
 
 from sys import path
 path.append("/home/marksa/dev/git/Python/Gnucash/createGncTxs")
 path.append("/home/marksa/dev/git/Python/Google")
 from argparse import ArgumentParser
 from gnucash_utilities import begin_session, end_session, check_end_session, get_account_assets
-from google_utilities import send_sheets_data, fill_cell, BASE_ROW
+from google_utilities import GoogleUpdate, BASE_ROW
 from investment import *
 
 # path to the account in the Gnucash file
@@ -57,20 +57,20 @@ QTR_ASTS_2_SHEET:str = 'Assets 2'
 
 class UpdateAssets:
     def __init__(self, p_filename:str, p_mode:str, p_debug:bool):
-        self.log = SattoLog(my_color=CYAN, do_logging=p_debug)
-        self.log.print_info('UpdateAssets', GREEN)
+        self.logger = SattoLog(my_color=CYAN, do_logging=p_debug)
+        self.logger.print_info('UpdateAssets', GREEN)
 
         self.gnucash_file = p_filename
         self.gnucash_data = []
-        # cell(s) with location and value to update on Google sheet
-        self.google_data = []
+
+        self.gglu = GoogleUpdate(self.logger)
 
         self.mode = p_mode
         # Google sheet to update
         self.dest = QTR_ASTS_2_SHEET
         if '1' in self.mode:
             self.dest = QTR_ASTS_SHEET
-        self.log.print_info("dest = {}".format(self.dest))
+        self.logger.print_info("dest = {}".format(self.dest))
 
     BASE_YEAR:int = 2007
     # number of rows between same quarter in adjacent years
@@ -84,10 +84,10 @@ class UpdateAssets:
         return self.gnucash_data
 
     def get_google_data(self) -> list:
-        return self.google_data
+        return self.gglu.get_data()
 
     def get_log(self) -> list :
-        return self.log.get_log()
+        return self.logger.get_log()
 
     def fill_gnucash_data(self, save_gnc:bool, p_year:int, p_qtr:int):
         """
@@ -96,8 +96,8 @@ class UpdateAssets:
         :param   p_year: year to update
         :param    p_qtr: 1..4 for quarter to update or 0 if updating ALL FOUR quarters
         """
-        self.log.print_info("UA.fill_gnucash_data(): find Assets in {} for {}{}"
-                            .format(self.gnucash_file, p_year, ('-Q' + str(p_qtr)) if p_qtr else ''))
+        self.logger.print_info("UA.fill_gnucash_data(): find Assets in {} for {}{}"
+                               .format(self.gnucash_file, p_year, ('-Q' + str(p_qtr)) if p_qtr else ''))
         num_quarters = 1 if p_qtr else 4
         gnucash_session = None
         try:
@@ -122,12 +122,12 @@ class UpdateAssets:
                 save_to_json(fname, now, self.gnucash_data)
 
         except Exception as gnce:
-            self.log.print_error("Exception: {}!".format(repr(gnce)))
+            self.logger.print_error("Exception: {}!".format(repr(gnce)))
             check_end_session(gnucash_session, locals())
             raise gnce
 
     def fill_google_cell(self, p_col:str, p_row:int, p_time:str):
-        fill_cell(self.dest, p_col, p_row, p_time, self.google_data)
+        self.gglu.fill_cell(self.dest, p_col, p_row, p_time)
 
     def fill_google_data(self, p_year:int, save_ggl:bool):
         """
@@ -145,16 +145,16 @@ class UpdateAssets:
         :param   p_year: year to update
         :param save_ggl: save Google data to a JSON file
         """
-        self.log.print_info("UA.fill_google_data({},{})\n".format(p_year, save_ggl))
+        self.logger.print_info("UA.fill_google_data({},{})\n".format(p_year, save_ggl))
 
         try:
             year_row = BASE_ROW + year_span(p_year, self.BASE_YEAR, self.BASE_YEAR_SPAN, self.HDR_SPAN)
             # get exact row from Quarter value in each item
             for item in self.gnucash_data:
-                self.log.print_info("{} = {}".format(QTR, item[QTR]))
+                self.logger.print_info("{} = {}".format(QTR, item[QTR]))
                 int_qtr = int(item[QTR])
                 dest_row = year_row + ((int_qtr - 1) * self.QTR_SPAN)
-                self.log.print_info("dest_row = {}\n".format(dest_row))
+                self.logger.print_info("dest_row = {}\n".format(dest_row))
                 for key in item:
                     if key != QTR:
                         # FOR YEAR 2015 OR EARLIER: GET RESP INSTEAD OF Rewards for COLUMN O
@@ -175,10 +175,10 @@ class UpdateAssets:
 
             if save_ggl:
                 fname = "out/updateAssets_google-data-{}{}".format(str(p_year), ('-Q' + str_qtr) if str_qtr else '')
-                save_to_json(fname, now, self.google_data)
+                save_to_json(fname, now, self.get_google_data())
 
         except Exception as fgde:
-            self.log.print_error("Exception: {}!".format(repr(fgde)))
+            self.logger.print_error("Exception: {}!".format(repr(fgde)))
             raise fgde
 
 # END class UpdateAssets
@@ -238,7 +238,7 @@ def update_assets_main(args:list) -> dict :
 
         # send data if in PROD mode
         if SEND in mode:
-            response = send_sheets_data(updater.get_google_data())
+            response = updater.gglu.send_sheets_data()
             fname = "out/updateAssets_response-{}{}".format(target_year , ('-Q' + str(target_qtr)) if target_qtr else '')
             save_to_json(fname, ub_now, response)
         else:

@@ -10,14 +10,14 @@ __author__ = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __python_version__ = 3.6
 __created__ = '2019-03-30'
-__updated__ = '2019-09-06'
+__updated__ = '2019-09-10'
 
 from sys import path
 path.append("/home/marksa/dev/git/Python/Gnucash/createGncTxs")
 path.append("/home/marksa/dev/git/Python/Google")
 from argparse import ArgumentParser
 from gnucash_utilities import Account, fill_splits, begin_session, end_session, check_end_session
-from google_utilities import send_sheets_data, fill_cell, BASE_ROW
+from google_utilities import GoogleUpdate, BASE_ROW
 from investment import *
 
 # path to the account in the Gnucash file
@@ -60,13 +60,13 @@ BOOL_ALL_INC = True
 
 class UpdateRevExps:
     def __init__(self, p_filename:str, p_mode:str, p_debug:bool):
-        self.log = SattoLog(my_color=BROWN, do_logging=p_debug)
-        self.log.print_info('UpdateRevExps', GREEN)
+        self.logger = SattoLog(my_color=BROWN, do_logging=p_debug)
+        self.logger.print_info('UpdateRevExps', GREEN)
 
         self.gnucash_file = p_filename
         self.gnucash_data = []
-        # cell(s) with location and value to update on Google sheet
-        self.google_data = []
+
+        self.gglu = GoogleUpdate(self.logger)
 
         self.mode = p_mode
         # Google sheet to update
@@ -75,8 +75,8 @@ class UpdateRevExps:
         if '1' in self.mode:
             self.all_inc_dest = ALL_INC_SHEET
             self.nec_inc_dest = NEC_INC_SHEET
-        self.log.print_info("all_inc_dest = {}".format(self.all_inc_dest))
-        self.log.print_info("nec_inc_dest = {}\n".format(self.nec_inc_dest))
+        self.logger.print_info("all_inc_dest = {}".format(self.all_inc_dest))
+        self.logger.print_info("nec_inc_dest = {}\n".format(self.nec_inc_dest))
 
     BASE_YEAR:int = 2012
     # number of rows between same quarter in adjacent years
@@ -88,10 +88,10 @@ class UpdateRevExps:
         return self.gnucash_data
 
     def get_google_data(self) -> list:
-        return self.google_data
+        return self.gglu.get_data()
 
     def get_log(self) -> list :
-        return self.log.get_log()
+        return self.logger.get_log()
 
     def get_revenue(self, root_account:Account, period_starts:list, periods:list, p_year:int, p_qtr:int) -> dict :
         """
@@ -103,7 +103,7 @@ class UpdateRevExps:
         :param         p_qtr: quarter to read: 1..4
         :return: revenue for period
         """
-        self.log.print_info('UpdateRevExps.get_revenue()')
+        self.logger.print_info('UpdateRevExps.get_revenue()')
         data_quarter = {}
         str_rev = '= '
         for item in REV_ACCTS:
@@ -116,7 +116,7 @@ class UpdateRevExps:
 
             sum_revenue = (periods[0][2] + periods[0][3]) * (-1)
             str_rev += sum_revenue.to_eng_string() + (' + ' if item != EMP else '')
-            self.log.print_info("{} Revenue for {}-Q{} = ${}".format(acct_name, p_year, p_qtr, sum_revenue))
+            self.logger.print_info("{} Revenue for {}-Q{} = ${}".format(acct_name, p_year, p_qtr, sum_revenue))
 
         data_quarter[REV] = str_rev
         return data_quarter
@@ -131,7 +131,7 @@ class UpdateRevExps:
         :param      data_qtr: collected data for the quarter
         :return: deductions for period
         """
-        self.log.print_info('UpdateRevExps.get_deductions()')
+        self.logger.print_info('UpdateRevExps.get_deductions()')
         str_dedns = '= '
         for item in DEDN_ACCTS:
             # reset the debit and credit totals for each individual account
@@ -143,8 +143,8 @@ class UpdateRevExps:
 
             sum_deductions = periods[0][2] + periods[0][3]
             str_dedns += sum_deductions.to_eng_string() + (' + ' if item != "ML" else '')
-            self.log.print_info("{} {} Deductions for {}-Q{} = ${}"
-                                .format(acct_name, EMP, p_year, data_qtr[QTR], sum_deductions))
+            self.logger.print_info("{} {} Deductions for {}-Q{} = ${}"
+                                   .format(acct_name, EMP, p_year, data_qtr[QTR], sum_deductions))
 
         data_qtr[DEDNS] = str_dedns
         return str_dedns
@@ -159,7 +159,7 @@ class UpdateRevExps:
         :param      data_qtr: collected data for the quarter
         :return: total expenses for period
         """
-        self.log.print_info('UpdateRevExps.get_expenses()')
+        self.logger.print_info('UpdateRevExps.get_expenses()')
         str_total = ''
         for item in EXP_ACCTS:
             # reset the debit and credit totals for each individual account
@@ -172,8 +172,8 @@ class UpdateRevExps:
             sum_expenses = periods[0][2] + periods[0][3]
             str_expenses = sum_expenses.to_eng_string()
             data_qtr[item] = str_expenses
-            self.log.print_info("{} Expenses for {}-Q{} = ${}"
-                                .format(acct_name.split('_')[-1], p_year, data_qtr[QTR], str_expenses))
+            self.logger.print_info("{} Expenses for {}-Q{} = ${}"
+                                   .format(acct_name.split('_')[-1], p_year, data_qtr[QTR], str_expenses))
             str_total += str_expenses + ' + '
 
         self.get_deductions(root_account, period_starts, periods, p_year, data_qtr)
@@ -191,8 +191,8 @@ class UpdateRevExps:
         :param    p_qtr: 1..4 for quarter to update or 0 if updating ALL FOUR quarters
         """
         num_quarters = 1 if p_qtr else 4
-        self.log.print_info("URE.fill_gnucash_data(): find Revenue & Expenses in {} for {}{}"
-                            .format(self.gnucash_file, p_year, ('-Q' + str(p_qtr)) if p_qtr else ''))
+        self.logger.print_info("URE.fill_gnucash_data(): find Revenue & Expenses in {} for {}{}"
+                               .format(self.gnucash_file, p_year, ('-Q' + str(p_qtr)) if p_qtr else ''))
         try:
             gnucash_session, root_account, _ = begin_session(self.gnucash_file)
 
@@ -215,16 +215,16 @@ class UpdateRevExps:
 
                 data_quarter = self.get_revenue(root_account, period_starts, period_list, p_year, qtr)
                 data_quarter[QTR] = str(qtr)
-                self.log.print_info("\n{} Revenue for {}-Q{} = ${}"
-                                    .format("TOTAL", p_year, qtr, period_list[0][4] * (-1)))
+                self.logger.print_info("\n{} Revenue for {}-Q{} = ${}"
+                                       .format("TOTAL", p_year, qtr, period_list[0][4] * (-1)))
 
                 period_list[0][4] = ZERO
                 self.get_expenses(root_account, period_starts, period_list, p_year, data_quarter)
-                self.log.print_info("\n{} Expenses for {}-Q{} = ${}\n"
-                                    .format("TOTAL", p_year, qtr, period_list[0][4]))
+                self.logger.print_info("\n{} Expenses for {}-Q{} = ${}\n"
+                                       .format("TOTAL", p_year, qtr, period_list[0][4]))
 
                 self.gnucash_data.append(data_quarter)
-                self.log.print_info(json.dumps(data_quarter, indent=4))
+                self.logger.print_info(json.dumps(data_quarter, indent=4))
 
             # no save needed, we're just reading...
             end_session(gnucash_session, False)
@@ -234,7 +234,7 @@ class UpdateRevExps:
                 save_to_json(fname, now, self.gnucash_data)
 
         except Exception as fgde:
-            self.log.print_error("Exception: {}!".format(repr(fgde)))
+            self.logger.print_error("Exception: {}!".format(repr(fgde)))
             check_end_session(gnucash_session, locals())
             raise fgde
 
@@ -242,7 +242,7 @@ class UpdateRevExps:
         dest = self.nec_inc_dest
         if p_all:
             dest = self.all_inc_dest
-        fill_cell(dest, p_col, p_row, p_time, self.google_data)
+        self.gglu.fill_cell(dest, p_col, p_row, p_time)
 
     def fill_google_data(self, p_year:int, save_google:bool):
         """
@@ -258,13 +258,13 @@ class UpdateRevExps:
         :param      p_year: year to update
         :param save_google: save the Google data to a JSON file
         """
-        self.log.print_info('UpdateRevExps.fill_google_data()')
+        self.logger.print_info('UpdateRevExps.fill_google_data()')
         year_row = BASE_ROW + year_span(p_year, self.BASE_YEAR, self.BASE_YEAR_SPAN, 0)
         # get exact row from Quarter value in each item
         for item in self.gnucash_data:
-            self.log.print_info("{} = {}".format(QTR, item[QTR]))
+            self.logger.print_info("{} = {}".format(QTR, item[QTR]))
             dest_row = year_row + ((get_int_quarter(item[QTR]) - 1) * self.QTR_SPAN)
-            self.log.print_info("dest_row = {}\n".format(dest_row))
+            self.logger.print_info("dest_row = {}\n".format(dest_row))
             for key in item:
                 if key != QTR:
                     dest = BOOL_NEC_INC
@@ -285,7 +285,7 @@ class UpdateRevExps:
 
         if save_google:
             fname = "out/updateRevExps_google-data-{}{}".format(str(p_year), ('-Q' + str_qtr) if str_qtr else '')
-            save_to_json(fname, now, self.google_data)
+            save_to_json(fname, now, self.get_google_data())
 
 # END class UpdateRevExps
 
@@ -343,7 +343,7 @@ def update_rev_exps_main(args:list) -> dict :
 
         # send data if in PROD mode
         if SEND in mode:
-            response = send_sheets_data(updater.get_google_data())
+            response = updater.gglu.send_sheets_data()
             fname = "out/updateRevExps_response-{}{}".format(target_year , ('-Q' + str(target_qtr)) if target_qtr else '')
             save_to_json(fname, revexp_now, response)
         else:
