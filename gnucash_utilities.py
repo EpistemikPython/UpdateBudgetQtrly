@@ -11,7 +11,7 @@ __author__ = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __python_version__ = 3.6
 __created__ = '2019-04-07'
-__updated__ = '2019-09-28'
+__updated__ = '2019-09-29'
 
 from sys import stdout, path
 path.append("/home/marksa/dev/git/Python/Utilities/")
@@ -78,25 +78,29 @@ class GnucashSession:
                 balances from account(s)
                 splits
             create:
-                txs
-                prices
+                trade txs
+                price txs
         """
+        self.logger = SattoLog(my_color=GREEN, do_logging=p_debug)
+        self.__log("\nclass GnucashSession: Runtime = {}\n".format(dt.now().strftime(DATE_STR_FORMAT)), MAGENTA)
+
         self.gnc_file = p_gncfile
         self.mode = p_mode
         self.domain = p_domain
-        self.currency = p_currency
+
+        self.currency = None
+        self.set_currency(p_currency)
+
         self.session = None
         self.price_db = None
         self.book = None
         self.root_acct = None
         self.commod_table = None
 
-        self.logger = SattoLog(my_color=GREEN, do_logging=p_debug)
-        self.__log("class GnucashSession: Runtime = {}\n".format(dt.now().strftime(DATE_STR_FORMAT)), MAGENTA)
-
     def __log(self, p_msg:str, p_color:str=''):
         if self.logger:
-            self.logger.print_info(p_msg, p_color)
+            calling_frame = inspect.currentframe().f_back
+            self.logger.print_info(p_msg, p_color, p_frame=calling_frame)
 
     def __err(self, p_msg:str):
         self.__log(p_msg, BR_RED)
@@ -104,14 +108,24 @@ class GnucashSession:
     def get_domain(self) -> str:
         return self.domain
 
-    def begin_session(self, p_filename:str, p_new:bool=False):
+    def set_currency(self, p_curr:GncCommodity):
+        if not p_curr:
+            self.__log("NO currency!")
+            return
+        if isinstance(p_curr, GncCommodity):
+            self.currency = p_curr
+        else:
+            self.__log("BAD currency '{}' of type: {}".format(str(p_curr), type(p_curr)))
+
+    def begin_session(self, p_new:bool=False):
         self.__log('GnucashSession.begin_session()')
-        self.session = Session(p_filename, is_new=p_new)
+        self.session = Session(self.gnc_file, is_new=p_new)
         self.book = self.session.book
         self.root_acct = self.book.get_root_account()
         self.root_acct.get_instance()
         self.commod_table = self.book.get_table()
-        self.currency = self.commod_table.lookup("ISO4217", "CAD")
+        if self.currency is None:
+            self.set_currency(self.commod_table.lookup("ISO4217", "CAD"))
 
         if self.domain != TRADE:
             self.price_db = self.book.get_price_db()
@@ -263,24 +277,21 @@ class GnucashSession:
 
         return asset_parent, rev_acct
 
-    def account_from_path(self, top_account:Account, account_path:list, original_path:list=None) -> Account:
+    def account_from_path(self, top_account:Account, account_path:list) -> Account:
         """
         RECURSIVE function to get a Gnucash Account: starting from the top account and following the path
         :param   top_account: base Account
         :param  account_path: path to follow
-        :param original_path: original call path
         """
         self.__log("GnucashSession.account_from_path({}:{})".format(top_account.GetName(), account_path))
 
-        if original_path is None:
-            original_path = account_path
         acct_str, acct_path = account_path[0], account_path[1:]
 
         acct = top_account.lookup_by_name(acct_str)
         if acct is None:
-            raise Exception("Path '" + str(original_path) + "' could NOT be found!")
-        if len(account_path) > 0:
-            return self.account_from_path(acct, acct_path, original_path)
+            raise Exception("Path '" + str(account_path) + "' could NOT be found!")
+        if len(acct_path) > 0:
+            return self.account_from_path(acct, acct_path)
         else:
             return acct
 
