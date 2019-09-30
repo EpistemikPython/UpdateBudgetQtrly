@@ -10,15 +10,14 @@ __author__ = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __python_version__ = 3.6
 __created__ = '2019-04-06'
-__updated__ = '2019-09-10'
+__updated__ = '2019-09-29'
 
 from sys import path
 path.append("/home/marksa/dev/git/Python/Gnucash/createGncTxs")
 path.append("/home/marksa/dev/git/Python/Google")
 from argparse import ArgumentParser
-from gnucash_utilities import begin_session, end_session, check_end_session, get_account_assets
+from gnucash_utilities import *
 from google_utilities import GoogleUpdate, BASE_ROW
-from investment import *
 
 # path to the account in the Gnucash file
 ASSET_ACCTS = {
@@ -57,13 +56,15 @@ QTR_ASTS_2_SHEET:str = 'Assets 2'
 
 class UpdateAssets:
     def __init__(self, p_filename:str, p_mode:str, p_debug:bool):
+        self.debug = p_debug
         self.logger = SattoLog(my_color=CYAN, do_logging=p_debug)
         self.logger.print_info('UpdateAssets', GREEN)
 
         self.gnucash_file = p_filename
         self.gnucash_data = []
 
-        self.gglu = GoogleUpdate(self.logger)
+        self.gnc_session = None
+        self.ggl_update = GoogleUpdate(self.logger)
 
         self.mode = p_mode
         # Google sheet to update
@@ -84,7 +85,7 @@ class UpdateAssets:
         return self.gnucash_data
 
     def get_google_data(self) -> list:
-        return self.gglu.get_data()
+        return self.ggl_update.get_data()
 
     def get_log(self) -> list :
         return self.logger.get_log()
@@ -99,23 +100,22 @@ class UpdateAssets:
         self.logger.print_info("UA.fill_gnucash_data(): find Assets in {} for {}{}"
                                .format(self.gnucash_file, p_year, ('-Q' + str(p_qtr)) if p_qtr else ''))
         num_quarters = 1 if p_qtr else 4
-        gnucash_session = None
         try:
-            gnucash_session, root_account, commod_table = begin_session(self.gnucash_file, False)
-            currency = commod_table.lookup("ISO4217", "CAD")
+            self.gnc_session = GnucashSession(self.mode, self.gnucash_file, self.debug, BOTH)
+            self.gnc_session.begin_session()
 
             for i in range(num_quarters):
                 qtr = p_qtr if p_qtr else i + 1
                 start_month = (qtr * 3) - 2
                 end_date = current_quarter_end(p_year, start_month)
 
-                data_quarter = get_account_assets(root_account, ASSET_ACCTS, end_date, currency)
+                data_quarter = self.gnc_session.get_account_assets(ASSET_ACCTS, end_date)
                 data_quarter[QTR] = str(qtr)
 
                 self.gnucash_data.append(data_quarter)
 
             # no save needed, we're just reading...
-            end_session(gnucash_session, False)
+            self.gnc_session.end_session(False)
 
             if save_gnc:
                 fname = "out/updateAssets_gnc-data-{}{}".format(p_year, ('-Q' + str(p_qtr)) if p_qtr else '')
@@ -123,11 +123,11 @@ class UpdateAssets:
 
         except Exception as gnce:
             self.logger.print_error("Exception: {}!".format(repr(gnce)))
-            check_end_session(gnucash_session, locals())
+            self.gnc_session.check_end_session(locals())
             raise gnce
 
     def fill_google_cell(self, p_col:str, p_row:int, p_time:str):
-        self.gglu.fill_cell(self.dest, p_col, p_row, p_time)
+        self.ggl_update.fill_cell(self.dest, p_col, p_row, p_time)
 
     def fill_google_data(self, p_year:int, save_ggl:bool):
         """
@@ -238,7 +238,7 @@ def update_assets_main(args:list) -> dict :
 
         # send data if in PROD mode
         if SEND in mode:
-            response = updater.gglu.send_sheets_data()
+            response = updater.ggl_update.send_sheets_data()
             fname = "out/updateAssets_response-{}{}".format(target_year , ('-Q' + str(target_qtr)) if target_qtr else '')
             save_to_json(fname, ub_now, response)
         else:

@@ -10,15 +10,14 @@ __author__ = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __python_version__ = 3.6
 __created__ = '2019-04-13'
-__updated__ = '2019-09-10'
+__updated__ = '2019-09-29'
 
 from sys import path
 path.append("/home/marksa/dev/git/Python/Gnucash/createGncTxs")
 path.append("/home/marksa/dev/git/Python/Google")
 from argparse import ArgumentParser
-from gnucash_utilities import begin_session, end_session, check_end_session, get_total_balance
+from gnucash_utilities import *
 from google_utilities import GoogleUpdate, BASE_ROW
-from investment import *
 from updateAssets import ASSET_COLS, UpdateAssets as UA
 
 # path to the accounts in the Gnucash file
@@ -54,6 +53,7 @@ BAL_2_SHEET:str = 'Balance 2'
 
 class UpdateBalance:
     def __init__(self, p_filename:str, p_mode:str, p_domain:str, p_debug:bool):
+        self.debug = p_debug
         self.logger = SattoLog(my_color=GREY, do_logging=p_debug)
         self.logger.print_info('UpdateBalance', GREEN)
 
@@ -65,6 +65,7 @@ class UpdateBalance:
         self.logger.print_info("dest = {}".format(self.dest))
 
         self.gnucash_file = p_filename
+        self.gnc_session = None
         self.domain = p_domain
 
         self.gglu = GoogleUpdate(self.logger)
@@ -82,7 +83,9 @@ class UpdateBalance:
     def get_log(self) -> list :
         return self.logger.get_log()
 
-    # noinspection PyUnboundLocalVariable
+    def get_total_balance(self, bal_path, p_date):
+        return self.gnc_session.get_total_balance(self.gnc_session.get_root_acct(), bal_path, p_date)
+
     def fill_today(self):
         """
         Get Balance data for TODAY: LIABS, House, FAMILY, XCHALET, TRUST
@@ -92,7 +95,7 @@ class UpdateBalance:
         tdate = today - ONE_DAY
         for item in BALANCE_ACCTS:
             bal_path = BALANCE_ACCTS[item]
-            acct_name, acct_sum = get_total_balance(self.root_account, bal_path, tdate, self.currency)
+            acct_name, acct_sum = self.get_total_balance(bal_path, tdate)
 
             # need assets NOT INCLUDING house and liabilities, which are reported separately
             if item == HOUSE:
@@ -130,12 +133,12 @@ class UpdateBalance:
 
             row = self.BASE_MTHLY_ROW + month_end.month
             # fill LIABS
-            acct_name, liab_sum = get_total_balance(self.root_account, BALANCE_ACCTS[LIAB], month_end, self.currency)
+            acct_name, liab_sum = self.get_total_balance(BALANCE_ACCTS[LIAB], month_end)
             self.fill_google_cell(BAL_MTHLY_COLS[LIAB][MTH], row, liab_sum)
 
             # fill ASSETS for months NOT covered by the Assets sheet
             if month_end.month % 3 != 0:
-                acct_name, acct_sum = get_total_balance(self.root_account, BALANCE_ACCTS[ASTS], month_end, self.currency)
+                acct_name, acct_sum = self.get_total_balance(BALANCE_ACCTS[ASTS], month_end)
                 adjusted_assets = acct_sum - liab_sum
                 self.logger.print_info("Adjusted assets on {} = ${}".format(month_end, adjusted_assets.to_eng_string()))
                 self.fill_google_cell(BAL_MTHLY_COLS[ASTS], row, adjusted_assets)
@@ -165,19 +168,19 @@ class UpdateBalance:
 
             row = self.BASE_MTHLY_ROW + dte.month
             # fill LIABS
-            acct_name, liab_sum = get_total_balance(self.root_account, BALANCE_ACCTS[LIAB], dte, self.currency)
+            acct_name, liab_sum = self.get_total_balance(BALANCE_ACCTS[LIAB], dte)
             self.fill_google_cell(BAL_MTHLY_COLS[LIAB][MTH], row, liab_sum)
 
             # fill ASSETS for months NOT covered by the Assets sheet
             if dte.month % 3 != 0:
-                acct_name, acct_sum = get_total_balance(self.root_account, BALANCE_ACCTS[ASTS], dte, self.currency)
+                acct_name, acct_sum = self.get_total_balance(BALANCE_ACCTS[ASTS], dte)
                 adjusted_assets = acct_sum - liab_sum
                 self.logger.print_info("Adjusted assets on {} = ${}".format(dte, adjusted_assets.to_eng_string()))
                 self.fill_google_cell(BAL_MTHLY_COLS[ASTS], row, adjusted_assets)
 
         # LIABS entry for year end
         year_end = date(year, 12, 31)
-        acct_name, liab_sum = get_total_balance(self.root_account, BALANCE_ACCTS[LIAB], year_end, self.currency)
+        acct_name, liab_sum = self.get_total_balance(BALANCE_ACCTS[LIAB], year_end)
         # month column
         self.fill_google_cell(BAL_MTHLY_COLS[LIAB][MTH], self.BASE_MTHLY_ROW + 12, liab_sum)
         # year column
@@ -191,14 +194,13 @@ class UpdateBalance:
         self.logger.print_info("UpdateBalance.fill_year(): year_end = {}".format(year_end))
 
         # fill LIABS
-        acct_name, liab_sum = get_total_balance(self.root_account, BALANCE_ACCTS[LIAB], year_end, self.currency)
+        acct_name, liab_sum = self.get_total_balance(BALANCE_ACCTS[LIAB], year_end)
         yr_span = year_span(year, self.BASE_YEAR, self.BASE_YEAR_SPAN, self.HDR_SPAN)
         self.fill_google_cell(BAL_MTHLY_COLS[LIAB][YR], BASE_ROW + yr_span, liab_sum)
 
     def fill_google_cell(self, p_col:str, p_row:int, p_time:str):
         self.gglu.fill_cell(self.dest, p_col, p_row, p_time)
 
-    # noinspection PyAttributeOutsideInit,PyUnboundLocalVariable
     def fill_google_data(self, p_save:bool):
         """
         Get Balance data for TODAY:
@@ -212,8 +214,8 @@ class UpdateBalance:
         self.logger.print_info("UpdateBalance.fill_google_data()")
 
         try:
-            gnucash_session, self.root_account, commod_tab = begin_session(self.gnucash_file)
-            self.currency = commod_tab.lookup("ISO4217", "CAD")
+            self.gnc_session = GnucashSession(self.mode, self.gnucash_file, self.debug, BOTH)
+            self.gnc_session.begin_session()
 
             if self.domain == 'today':
                 self.fill_today()
@@ -228,12 +230,12 @@ class UpdateBalance:
                 else:
                     self.fill_year(year)
 
-            # fill update date & time
+            # record the date & time of this update
             self.fill_google_cell(BAL_MTHLY_COLS[DATE], self.BASE_MTHLY_ROW, today.strftime(FILE_DATE_STR))
             self.fill_google_cell(BAL_MTHLY_COLS[TODAY], self.BASE_MTHLY_ROW, today.strftime(CELL_TIME_STR))
 
             # no save needed, we're just reading...
-            end_session(gnucash_session, False)
+            self.gnc_session.end_session(False)
 
             if p_save and len(self.get_data()) > 0:
                 fname = "out/updateBalance_{}".format(self.domain)
@@ -241,7 +243,7 @@ class UpdateBalance:
 
         except Exception as fgce:
             self.logger.print_error("Exception: {}!".format(repr(fgce)))
-            check_end_session(gnucash_session, locals())
+            self.gnc_session.check_end_session(locals())
             raise fgce
 
 # END class UpdateBalance

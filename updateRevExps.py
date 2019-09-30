@@ -10,15 +10,14 @@ __author__ = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __python_version__ = 3.6
 __created__ = '2019-03-30'
-__updated__ = '2019-09-10'
+__updated__ = '2019-09-29'
 
 from sys import path
 path.append("/home/marksa/dev/git/Python/Gnucash/createGncTxs")
 path.append("/home/marksa/dev/git/Python/Google")
 from argparse import ArgumentParser
-from gnucash_utilities import Account, fill_splits, begin_session, end_session, check_end_session
+from gnucash_utilities import *
 from google_utilities import GoogleUpdate, BASE_ROW
-from investment import *
 
 # path to the account in the Gnucash file
 REV_ACCTS = {
@@ -60,12 +59,14 @@ BOOL_ALL_INC = True
 
 class UpdateRevExps:
     def __init__(self, p_filename:str, p_mode:str, p_debug:bool):
+        self.debug = p_debug
         self.logger = SattoLog(my_color=BROWN, do_logging=p_debug)
         self.logger.print_info('UpdateRevExps', GREEN)
 
         self.gnucash_file = p_filename
         self.gnucash_data = []
 
+        self.gnc_session = None
         self.gglu = GoogleUpdate(self.logger)
 
         self.mode = p_mode
@@ -93,10 +94,12 @@ class UpdateRevExps:
     def get_log(self) -> list :
         return self.logger.get_log()
 
-    def get_revenue(self, root_account:Account, period_starts:list, periods:list, p_year:int, p_qtr:int) -> dict :
+    def fill_splits(self, account, period_starts, periods):
+        return self.gnc_session.fill_splits(self.gnc_session.get_root_acct(), account, period_starts, periods)
+
+    def get_revenue(self, period_starts:list, periods:list, p_year:int, p_qtr:int) -> dict :
         """
         Get REVENUE data for the specified Quarter
-        :param  root_account: Gnucash Account from the Gnucash book
         :param period_starts: start date for each period
         :param       periods: structs with the dates and amounts for each quarter
         :param        p_year: year to read
@@ -112,7 +115,7 @@ class UpdateRevExps:
             periods[0][3] = ZERO
 
             acct_base = REV_ACCTS[item]
-            acct_name = fill_splits(root_account, acct_base, period_starts, periods)
+            acct_name = self.fill_splits(acct_base, period_starts, periods)
 
             sum_revenue = (periods[0][2] + periods[0][3]) * (-1)
             str_rev += sum_revenue.to_eng_string() + (' + ' if item != EMP else '')
@@ -121,10 +124,9 @@ class UpdateRevExps:
         data_quarter[REV] = str_rev
         return data_quarter
 
-    def get_deductions(self, root_account:Account, period_starts:list, periods:list, p_year:int, data_qtr:dict) -> str :
+    def get_deductions(self, period_starts:list, periods:list, p_year:int, data_qtr:dict) -> str :
         """
         Get SALARY DEDUCTIONS data for the specified Quarter
-        :param  root_account: Gnucash Account from the Gnucash book
         :param period_starts: start date for each period
         :param       periods: structs with the dates and amounts for each quarter
         :param        p_year: year to read
@@ -139,7 +141,7 @@ class UpdateRevExps:
             periods[0][3] = ZERO
 
             acct_path = DEDN_ACCTS[item]
-            acct_name = fill_splits(root_account, acct_path, period_starts, periods)
+            acct_name = self.fill_splits(acct_path, period_starts, periods)
 
             sum_deductions = periods[0][2] + periods[0][3]
             str_dedns += sum_deductions.to_eng_string() + (' + ' if item != "ML" else '')
@@ -149,10 +151,9 @@ class UpdateRevExps:
         data_qtr[DEDNS] = str_dedns
         return str_dedns
 
-    def get_expenses(self, root_account:Account, period_starts:list, periods:list, p_year:int, data_qtr:dict) -> str :
+    def get_expenses(self, period_starts:list, periods:list, p_year:int, data_qtr:dict) -> str :
         """
         Get EXPENSE data for the specified Quarter
-        :param  root_account: Gnucash Account from the Gnucash book
         :param period_starts: start date for each period
         :param       periods: structs with the dates and amounts for each quarter
         :param        p_year: year to read
@@ -167,7 +168,7 @@ class UpdateRevExps:
             periods[0][3] = ZERO
 
             acct_base = EXP_ACCTS[item]
-            acct_name = fill_splits(root_account, acct_base, period_starts, periods)
+            acct_name = self.fill_splits(acct_base, period_starts, periods)
 
             sum_expenses = periods[0][2] + periods[0][3]
             str_expenses = sum_expenses.to_eng_string()
@@ -176,17 +177,16 @@ class UpdateRevExps:
                                    .format(acct_name.split('_')[-1], p_year, data_qtr[QTR], str_expenses))
             str_total += str_expenses + ' + '
 
-        self.get_deductions(root_account, period_starts, periods, p_year, data_qtr)
+        self.get_deductions(period_starts, periods, p_year, data_qtr)
 
         return str_total
 
-    # noinspection PyUnboundLocalVariable
     def fill_gnucash_data(self, save_gnc:bool, p_year:int, p_qtr:int):
         """
         Get REVENUE and EXPENSE data for ONE specified Quarter or ALL four Quarters for the specified Year
         >> NOT really necessary to have a separate variable for the Gnucash data, but useful to have all
            the Gnucash data in a separate dict instead of just preparing a Google data dict
-        :param save_gnc: save the Gnucash data to a JSON file
+        :param save_gnc: true if want to save the Gnucash data to a JSON file
         :param   p_year: year to update
         :param    p_qtr: 1..4 for quarter to update or 0 if updating ALL FOUR quarters
         """
@@ -194,7 +194,8 @@ class UpdateRevExps:
         self.logger.print_info("URE.fill_gnucash_data(): find Revenue & Expenses in {} for {}{}"
                                .format(self.gnucash_file, p_year, ('-Q' + str(p_qtr)) if p_qtr else ''))
         try:
-            gnucash_session, root_account, _ = begin_session(self.gnucash_file)
+            self.gnc_session = GnucashSession(self.mode, self.gnucash_file, self.debug, BOTH)
+            self.gnc_session.begin_session()
 
             for i in range(num_quarters):
                 qtr = p_qtr if p_qtr else i + 1
@@ -213,13 +214,13 @@ class UpdateRevExps:
                 # a copy of the above list with just the period start dates
                 period_starts = [e[0] for e in period_list]
 
-                data_quarter = self.get_revenue(root_account, period_starts, period_list, p_year, qtr)
+                data_quarter = self.get_revenue(period_starts, period_list, p_year, qtr)
                 data_quarter[QTR] = str(qtr)
                 self.logger.print_info("\n{} Revenue for {}-Q{} = ${}"
                                        .format("TOTAL", p_year, qtr, period_list[0][4] * (-1)))
 
                 period_list[0][4] = ZERO
-                self.get_expenses(root_account, period_starts, period_list, p_year, data_quarter)
+                self.get_expenses(period_starts, period_list, p_year, data_quarter)
                 self.logger.print_info("\n{} Expenses for {}-Q{} = ${}\n"
                                        .format("TOTAL", p_year, qtr, period_list[0][4]))
 
@@ -227,7 +228,7 @@ class UpdateRevExps:
                 self.logger.print_info(json.dumps(data_quarter, indent=4))
 
             # no save needed, we're just reading...
-            end_session(gnucash_session, False)
+            self.gnc_session.end_session(False)
 
             if save_gnc:
                 fname = "out/updateRevExps_gnc-data-{}{}".format(p_year, ('-Q' + str(p_qtr)) if p_qtr else '')
@@ -235,7 +236,8 @@ class UpdateRevExps:
 
         except Exception as fgde:
             self.logger.print_error("Exception: {}!".format(repr(fgde)))
-            check_end_session(gnucash_session, locals())
+            if self.gnc_session:
+                self.gnc_session.check_end_session(locals())
             raise fgde
 
     def fill_google_cell(self, p_all:bool, p_col:str, p_row:int, p_time:str):
