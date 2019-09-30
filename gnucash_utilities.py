@@ -81,74 +81,77 @@ class GnucashSession:
                 trade txs
                 price txs
         """
-        self.logger = SattoLog(my_color=GREEN, do_logging=p_debug)
-        self.__log("\nclass GnucashSession: Runtime = {}\n".format(dt.now().strftime(DATE_STR_FORMAT)), MAGENTA)
+        self._logger = SattoLog(my_color=GREEN, do_logging=p_debug)
+        self._log("\nclass GnucashSession: Runtime = {}\n".format(dt.now().strftime(DATE_STR_FORMAT)), MAGENTA)
 
-        self.gnc_file = p_gncfile
-        self.mode = p_mode
-        self.domain = p_domain
+        self._gnc_file = p_gncfile
+        self._mode     = p_mode
+        self._domain   = p_domain
 
-        self.currency = None
+        self._currency = None
         self.set_currency(p_currency)
 
-        self.session = None
-        self.price_db = None
-        self.book = None
-        self.root_acct = None
-        self.commod_table = None
+        self._session      = None
+        self._price_db     = None
+        self._book         = None
+        self._root_acct    = None
+        self._commod_table = None
 
-    def __log(self, p_msg:str, p_color:str=''):
-        if self.logger:
+    def _log(self, p_msg:str, p_color:str= ''):
+        if self._logger:
             calling_frame = inspect.currentframe().f_back
-            self.logger.print_info(p_msg, p_color, p_frame=calling_frame)
+            self._logger.print_info(p_msg, p_color, p_frame=calling_frame)
 
-    def __err(self, p_msg:str):
-        self.__log(p_msg, BR_RED)
+    def _err(self, p_msg:str):
+        self._log(p_msg, BR_RED)
 
     def get_domain(self) -> str:
-        return self.domain
+        return self._domain
+
+    def get_root_acct(self) -> Account:
+        return self._root_acct
 
     def set_currency(self, p_curr:GncCommodity):
         if not p_curr:
-            self.__log("NO currency!")
+            self._log("NO currency!")
             return
         if isinstance(p_curr, GncCommodity):
-            self.currency = p_curr
+            self._currency = p_curr
         else:
-            self.__log("BAD currency '{}' of type: {}".format(str(p_curr), type(p_curr)))
+            self._log("BAD currency '{}' of type: {}".format(str(p_curr), type(p_curr)))
 
     def begin_session(self, p_new:bool=False):
-        self.__log('GnucashSession.begin_session()')
-        self.session = Session(self.gnc_file, is_new=p_new)
-        self.book = self.session.book
-        self.root_acct = self.book.get_root_account()
-        self.root_acct.get_instance()
-        self.commod_table = self.book.get_table()
-        if self.currency is None:
-            self.set_currency(self.commod_table.lookup("ISO4217", "CAD"))
+        self._log('GnucashSession.begin_session()')
+        self._session = Session(self._gnc_file, is_new=p_new)
+        self._book = self._session.book
+        self._root_acct = self._book.get_root_account()
+        self._root_acct.get_instance()
+        self._commod_table = self._book.get_table()
+        if self._currency is None:
+            self.set_currency(self._commod_table.lookup("ISO4217", "CAD"))
 
-        if self.domain != TRADE:
-            self.price_db = self.book.get_price_db()
-            self.price_db.begin_edit()
-            self.logger.print_info("self.price_db.begin_edit()", CYAN)
+        if self._domain in (PRICE, BOTH):
+            self._price_db = self._book.get_price_db()
+            self._price_db.begin_edit()
+            self._log("self.price_db.begin_edit()", CYAN)
 
     def end_session(self, p_save:bool):
-        self.__log('GnucashSession.end_session()')
+        self._log('GnucashSession.end_session()')
 
         if p_save:
-            self.__log("Mode = {}: SAVE session.".format(self.mode))
-            if self.domain != TRADE:
-                self.__log("Domain = {}: COMMIT Price DB edits.".format(self.domain))
-                self.price_db.commit_edit()
-            self.session.save()
+            self._log("Mode = {}: SAVE session.".format(self._mode))
+            if self._domain in (PRICE, BOTH):
+                self._log("Domain = {}: COMMIT Price DB edits.".format(self._domain))
+                self._price_db.commit_edit()
+            self._session.save()
 
-        self.session.end()
+        self._session.end()
         # not needed?
         # p_session.destroy()
 
     def check_end_session(self, p_locals:dict):
-        if "gnucash_session" in p_locals and self.session is not None:
-            self.session.end()
+        if "gnucash_session" in p_locals and self._session is not None:
+            self._session.end()
 
     def get_accounts(self, ast_parent:Account, asset_acct_name:str, rev_acct:Account) -> (Account, Account):
         """
@@ -158,23 +161,23 @@ class GnucashSession:
         :param        rev_acct: Revenue account
         :return: Gnucash account, Gnucash account
         """
-        self.__log('GnucashSession.get_accounts()')
+        self._log('GnucashSession.get_accounts()')
         asset_parent = ast_parent
         # special locations for Trust Revenue and Asset accounts
         if asset_acct_name == TRUST_AST_ACCT :
-            asset_parent = self.root_acct.lookup_by_name(TRUST)
-            self.__log("asset_parent = {}".format(asset_parent.GetName()))
-            rev_acct = self.root_acct.lookup_by_name(TRUST_REV_ACCT)
-            self.__log("MODIFIED rev_acct = {}".format(rev_acct.GetName()))
+            asset_parent = self._root_acct.lookup_by_name(TRUST)
+            self._log("asset_parent = {}".format(asset_parent.GetName()))
+            rev_acct = self._root_acct.lookup_by_name(TRUST_REV_ACCT)
+            self._log("MODIFIED rev_acct = {}".format(rev_acct.GetName()))
         # get the asset account
         asset_acct = asset_parent.lookup_by_name(asset_acct_name)
         if asset_acct is None :
             raise Exception("Could NOT find acct '{}' under parent '{}'".format(asset_acct_name, asset_parent.GetName()))
 
-        self.__log("asset_acct = {}".format(asset_acct.GetName()))
+        self._log("asset_acct = {}".format(asset_acct.GetName()))
         return asset_acct, rev_acct
 
-    def get_account_balance(self, acct:Account, p_date:date, p_currency:GncCommodity) -> Decimal:
+    def get_account_balance(self, acct:Account, p_date:date, p_currency:GncCommodity=None) -> Decimal:
         """
         get the BALANCE in this account on this date in this currency
         :param       acct: Gnucash Account
@@ -182,20 +185,21 @@ class GnucashSession:
         :param p_currency: Gnucash commodity
         :return: Decimal with balance
         """
-        self.__log("GnucashSession.get_account_balance()")
+        self._log("GnucashSession.get_account_balance()")
 
         # CALLS ARE RETRIEVING ACCOUNT BALANCES FROM DAY BEFORE!!??
         p_date += ONE_DAY
 
+        currency = self._currency if p_currency is None else p_currency
         acct_bal = acct.GetBalanceAsOfDate(p_date)
         acct_comm = acct.GetCommodity()
         # check if account is already in the desired currency and convert if necessary
-        acct_cur = acct_bal if acct_comm == p_currency \
-                            else acct.ConvertBalanceToCurrencyAsOfDate(acct_bal, acct_comm, p_currency, p_date)
+        acct_cur = acct_bal if acct_comm == currency \
+                            else acct.ConvertBalanceToCurrencyAsOfDate(acct_bal, acct_comm, currency, p_date)
 
         return gnc_numeric_to_python_decimal(acct_cur)
 
-    def get_total_balance(self, p_path:list, p_date:date, p_currency:GncCommodity) -> (str, Decimal):
+    def get_total_balance(self, p_path:list, p_date:date, p_currency:GncCommodity=None) -> (str, Decimal):
         """
         get the total BALANCE in the account and all sub-accounts on this path on this date in this currency
         :param     p_path: path to the account
@@ -203,21 +207,22 @@ class GnucashSession:
         :param p_currency: Gnucash Commodity: currency to use for the totals
         :return: string, int: account name and account sum
         """
-        acct = self.account_from_path(self.root_acct, p_path)
+        currency = self._currency if p_currency is None else p_currency
+        acct = self.account_from_path(self._root_acct, p_path)
         acct_name = acct.GetName()
         # get the split amounts for the parent account
-        acct_sum = self.get_account_balance(acct, p_date, p_currency)
+        acct_sum = self.get_account_balance(acct, p_date, currency)
         descendants = acct.get_descendants()
         if len(descendants) > 0:
             # for EACH sub-account add to the overall total
             for sub_acct in descendants:
                 # ?? GETTING SLIGHT ROUNDING ERRORS WHEN ADDING MUTUAL FUND VALUES...
-                acct_sum += self.get_account_balance(sub_acct, p_date, p_currency)
+                acct_sum += self.get_account_balance(sub_acct, p_date, currency)
 
-        self.__log("GnucashSession.get_total_balance(): {} on {} = ${}".format(acct_name, p_date, acct_sum))
+        self._log("GnucashSession.get_total_balance(): {} on {} = ${}".format(acct_name, p_date, acct_sum))
         return acct_name, acct_sum
 
-    def get_account_assets(self, asset_accts:dict, end_date:date, p_currency:GncCommodity) -> dict:
+    def get_account_assets(self, asset_accts:dict, end_date:date, p_currency:GncCommodity=None) -> dict:
         """
         Get ASSET data for the specified account for the specified quarter
         :param  asset_accts:
@@ -226,24 +231,25 @@ class GnucashSession:
         :return: string with sum of totals
         """
         data = {}
+        currency = self._currency if p_currency is None else p_currency
         for item in asset_accts:
             acct_path = asset_accts[item]
-            acct = self.account_from_path(self.root_acct, acct_path)
+            acct = self.account_from_path(self._root_acct, acct_path)
             acct_name = acct.GetName()
 
             # get the split amounts for the parent account
-            acct_sum = self.get_account_balance(acct, end_date, p_currency)
+            acct_sum = self.get_account_balance(acct, end_date, currency)
             descendants = acct.get_descendants()
             if len(descendants) > 0:
                 # for EACH sub-account add to the overall total
                 # print_info("Descendants of {}:".format(acct_name))
                 for sub_acct in descendants:
                     # ?? GETTING SLIGHT ROUNDING ERRORS WHEN ADDING MUTUAL FUND VALUES...
-                    acct_sum += self.get_account_balance(sub_acct, end_date, p_currency)
+                    acct_sum += self.get_account_balance(sub_acct, end_date, currency)
 
             str_sum = acct_sum.to_eng_string()
-            self.__log("GnucashSession.get_account_assets():\nAssets for {} on {} = ${}\n"
-                       .format(acct_name, end_date, str_sum))
+            self._log("GnucashSession.get_account_assets():\nAssets for {} on {} = ${}\n"
+                      .format(acct_name, end_date, str_sum))
             data[item] = str_sum
 
         return data
@@ -255,7 +261,7 @@ class GnucashSession:
         :param  pl_owner: needed to find proper revenue account for RRSP & TFSA
         :return: Gnucash account, Gnucash account: revenue account and asset parent account
         """
-        self.__log("GnucashSession.get_asset_revenue_info()")
+        self._log("GnucashSession.get_asset_revenue_info()")
         rev_path = copy(ACCT_PATHS[REVENUE])
         rev_path.append(plan_type)
         ast_parent_path = copy(ACCT_PATHS[ASSET])
@@ -267,13 +273,13 @@ class GnucashSession:
                                 .format(plan_type))
             rev_path.append(ACCT_PATHS[pl_owner])
             ast_parent_path.append(ACCT_PATHS[pl_owner])
-        self.__log("rev_path = {}".format(str(rev_path)))
+        self._log("rev_path = {}".format(str(rev_path)))
 
-        rev_acct = self.account_from_path(self.root_acct, rev_path)
-        self.__log("rev_acct = {}".format(rev_acct.GetName()))
-        self.__log("asset_parent_path = {}".format(str(ast_parent_path)))
-        asset_parent = self.account_from_path(self.root_acct, ast_parent_path)
-        self.__log("asset_parent = {}".format(asset_parent.GetName()))
+        rev_acct = self.account_from_path(self._root_acct, rev_path)
+        self._log("rev_acct = {}".format(rev_acct.GetName()))
+        self._log("asset_parent_path = {}".format(str(ast_parent_path)))
+        asset_parent = self.account_from_path(self._root_acct, ast_parent_path)
+        self._log("asset_parent = {}".format(asset_parent.GetName()))
 
         return asset_parent, rev_acct
 
@@ -283,7 +289,7 @@ class GnucashSession:
         :param   top_account: base Account
         :param  account_path: path to follow
         """
-        self.__log("GnucashSession.account_from_path({}:{})".format(top_account.GetName(), account_path))
+        self._log("GnucashSession.account_from_path({}:{})".format(top_account.GetName(), account_path))
 
         acct_str, acct_path = account_path[0], account_path[1:]
 
@@ -301,14 +307,14 @@ class GnucashSession:
         :param  p_path: to the account
         :return: nil
         """
-        acct = self.account_from_path(self.root_acct, p_path)
+        acct = self.account_from_path(self._root_acct, p_path)
         acct_name = acct.GetName()
-        self.__log("account = {}".format(acct_name))
+        self._log("account = {}".format(acct_name))
         descendants = acct.get_descendants()
         if len(descendants) == 0:
-            self.__log("{} has NO Descendants!".format(acct_name))
+            self._log("{} has NO Descendants!".format(acct_name))
         else:
-            self.__log("Descendants of {}:".format(acct_name))
+            self._log("Descendants of {}:".format(acct_name))
 
     def get_splits(self, acct:Account, period_starts:list, periods:list):
         """
@@ -317,7 +323,7 @@ class GnucashSession:
         :param period_starts: start date for each period
         :param       periods: fill with splits for each quarter
         """
-        self.__log("GnucashSession.get_splits()")
+        self._log("GnucashSession.get_splits()")
 
         # insert and add all splits in the periods of interest
         for split in acct.GetSplitList():
@@ -353,11 +359,11 @@ class GnucashSession:
         :param       periods: fill with the splits dates and amounts for requested time span
         :return: name of target_acct
         """
-        self.__log("GnucashSession.fill_splits()")
+        self._log("GnucashSession.fill_splits()")
 
-        account_of_interest = self.account_from_path(self.root_acct, target_path)
+        account_of_interest = self.account_from_path(self._root_acct, target_path)
         acct_name = account_of_interest.GetName()
-        self.__log("\naccount_of_interest = {}".format(acct_name))
+        self._log("\naccount_of_interest = {}".format(acct_name))
 
         # get the split amounts for the parent account
         self.get_splits(account_of_interest, period_starts, periods)
@@ -378,7 +384,7 @@ class GnucashSession:
         :param   rev_acct: Revenue account
         :return: nil
         """
-        self.__log('GnucashSession.create_price_tx()')
+        self._log('GnucashSession.create_price_tx()')
         conv_date = dt.strptime(mtx[DATE], "%d-%b-%Y")
         pr_date = dt(conv_date.year, conv_date.month, conv_date.day)
         datestring = pr_date.strftime("%Y-%m-%d")
@@ -389,28 +395,28 @@ class GnucashSession:
 
         int_price = int(mtx[PRICE].replace('.','').replace('$',''))
         val = GncNumeric(int_price, 10000)
-        self.__log("Adding: {}[{}] @ ${}".format(fund_name, datestring, val))
+        self._log("Adding: {}[{}] @ ${}".format(fund_name, datestring, val))
 
-        pr1 = GncPrice(self.book)
+        pr1 = GncPrice(self._book)
         pr1.begin_edit()
         pr1.set_time64(pr_date)
 
         asset_acct, rev_acct = self.get_accounts(ast_parent, fund_name, rev_acct)
         comm = asset_acct.GetCommodity()
-        self.__log("Commodity = {}:{}".format(comm.get_namespace(), comm.get_printname()))
+        self._log("Commodity = {}:{}".format(comm.get_namespace(), comm.get_printname()))
         pr1.set_commodity(comm)
 
-        pr1.set_currency(self.currency)
+        pr1.set_currency(self._currency)
         pr1.set_value(val)
         pr1.set_source_string("user:price")
         pr1.set_typestr('nav')
         pr1.commit_edit()
 
-        if self.mode == SEND:
-            self.__log("Mode = {}: Add Price to DB.".format(self.mode), GREEN)
-            self.price_db.add_price(pr1)
+        if self._mode == SEND:
+            self._log("Mode = {}: Add Price to DB.".format(self._mode), GREEN)
+            self._price_db.add_price(pr1)
         else:
-            self.__log("Mode = {}: ABANDON Prices!\n".format(self.mode), RED)
+            self._log("Mode = {}: ABANDON Prices!\n".format(self._mode), RED)
 
     def create_trade_tx(self, tx1:dict, tx2:dict) :
         """
@@ -419,21 +425,21 @@ class GnucashSession:
         :param    tx2: matching transaction if a switch
         :return: nil
         """
-        self.__log('GnucashSession.create_trade_tx()')
+        self._log('GnucashSession.create_trade_tx()')
         # create a gnucash Tx
-        gtx = Transaction(self.book)
+        gtx = Transaction(self._book)
         # gets a guid on construction
 
         gtx.BeginEdit()
 
-        gtx.SetCurrency(self.currency)
+        gtx.SetCurrency(self._currency)
         gtx.SetDate(tx1[TRADE_DAY], tx1[TRADE_MTH], tx1[TRADE_YR])
         # self.dbg.print_info("gtx date = {}".format(gtx.GetDate()), BLUE)
-        self.__log("tx1[DESC] = {}".format(tx1[DESC]))
+        self._log("tx1[DESC] = {}".format(tx1[DESC]))
         gtx.SetDescription(tx1[DESC])
 
         # create the ASSET split for the Tx
-        spl_ast = Split(self.book)
+        spl_ast = Split(self._book)
         spl_ast.SetParent(gtx)
         # set the account, value, and units of the Asset split
         spl_ast.SetAccount(tx1[ACCT])
@@ -442,7 +448,7 @@ class GnucashSession:
 
         if tx1[SWITCH]:
             # create the second ASSET split for the Tx
-            spl_ast2 = Split(self.book)
+            spl_ast2 = Split(self._book)
             spl_ast2.SetParent(gtx)
             # set the Account, Value, and Units of the second ASSET split
             spl_ast2.SetAccount(tx2[ACCT])
@@ -457,7 +463,7 @@ class GnucashSession:
             spl_ast2.SetMemo(tx2[NOTES])
         else:
             # the second split is for a REVENUE account
-            spl_rev = Split(self.book)
+            spl_rev = Split(self._book)
             spl_rev.SetParent(gtx)
             # set the Account, Value and Reconciled of the REVENUE split
             spl_rev.SetAccount(tx1[REVENUE])
@@ -469,21 +475,21 @@ class GnucashSession:
             gtx.SetNotes(tx1[NOTES])
             # set Action for the ASSET split
             action = FEE if FEE in tx1[DESC] else ("Sell" if tx1[UNITS] < 0 else DIST)
-            self.__log("action = {}".format(action))
+            self._log("action = {}".format(action))
             spl_ast.SetAction(action)
 
         # ROLL BACK if something went wrong and the two splits DO NOT balance
         if not gtx.GetImbalanceValue().zero_p():
-            self.logger.print_error("Gnc tx IMBALANCE = {}!! Roll back transaction changes!"
-                                    .format(gtx.GetImbalanceValue().to_string()))
+            self._err("Gnc tx IMBALANCE = {}!! Roll back transaction changes!"
+                      .format(gtx.GetImbalanceValue().to_string()))
             gtx.RollbackEdit()
             return
 
-        if self.mode == SEND:
-            self.__log("Mode = {}: Commit transaction changes.\n".format(self.mode), GREEN)
+        if self._mode == SEND:
+            self._log("Mode = {}: Commit transaction changes.\n".format(self._mode), GREEN)
             gtx.CommitEdit()
         else:
-            self.__log("Mode = {}: Roll back transaction changes!\n".format(self.mode), RED)
+            self._log("Mode = {}: Roll back transaction changes!\n".format(self._mode), RED)
             gtx.RollbackEdit()
 
 # END class GnucashSession
