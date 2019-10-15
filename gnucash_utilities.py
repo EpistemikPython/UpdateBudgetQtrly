@@ -11,7 +11,7 @@ __author__ = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __python_version__ = 3.6
 __created__ = '2019-04-07'
-__updated__ = '2019-09-29'
+__updated__ = '2019-10-14'
 
 from sys import stdout, path
 path.append("/home/marksa/dev/git/Python/Utilities/")
@@ -97,13 +97,13 @@ class GnucashSession:
         self._root_acct    = None
         self._commod_table = None
 
-    def _log(self, p_msg:str, p_color:str= ''):
+    def _log(self, p_msg:str, p_color:str=''):
         if self._logger:
-            calling_frame = inspect.currentframe().f_back
-            self._logger.print_info(p_msg, p_color, p_frame=calling_frame)
+            self._logger.print_info(p_msg, p_color, p_frame=inspect.currentframe().f_back)
 
-    def _err(self, p_msg:str):
-        self._log(p_msg, BR_RED)
+    def _err(self, p_msg:str, err_frame:FrameType):
+        if self._logger:
+            self._logger.print_info(p_msg, BR_RED, p_frame=err_frame)
 
     def get_domain(self) -> str:
         return self._domain
@@ -153,6 +153,23 @@ class GnucashSession:
         if "gnucash_session" in p_locals and self._session is not None:
             self._session.end()
 
+    def get_account(self, acct_parent:Account, acct_name:str) -> Account:
+        """Find the proper account"""
+        self._log('GnucashSession.get_account()')
+
+        # special locations for Trust accounts
+        if acct_name == TRUST_AST_ACCT :
+            return self._root_acct.lookup_by_name(TRUST).lookup_by_name(TRUST_AST_ACCT)
+        if acct_name == TRUST_EQY_ACCT:
+            return self._root_acct.lookup_by_name(EQUITY).lookup_by_name(TRUST_EQY_ACCT)
+
+        found_acct = acct_parent.lookup_by_name(acct_name)
+        if not found_acct:
+            raise Exception("Could NOT find acct '{}' under parent '{}'".format(acct_name, acct_parent.GetName()))
+
+        self._log("GnucashSession.get_account() found account: {}".format(found_acct.GetName()))
+        return found_acct
+
     def get_accounts(self, ast_parent:Account, asset_acct_name:str, rev_acct:Account) -> (Account, Account):
         """
         Find the proper Asset and Revenue accounts
@@ -167,7 +184,7 @@ class GnucashSession:
         if asset_acct_name == TRUST_AST_ACCT :
             asset_parent = self._root_acct.lookup_by_name(TRUST)
             self._log("asset_parent = {}".format(asset_parent.GetName()))
-            rev_acct = self._root_acct.lookup_by_name(TRUST_REV_ACCT)
+            rev_acct = self._root_acct.lookup_by_name(TRUST_EQY_ACCT)
             self._log("MODIFIED rev_acct = {}".format(rev_acct.GetName()))
         # get the asset account
         asset_acct = asset_parent.lookup_by_name(asset_acct_name)
@@ -254,7 +271,7 @@ class GnucashSession:
 
         return data
 
-    def get_asset_revenue_info(self, plan_type:str, pl_owner:str) -> (Account, Account) :
+    def get_asset_revenue_info(self, plan_type:str, pl_owner:str) -> (Account, Account):
         """
         Get the required asset and/or revenue information from each plan
         :param plan_type: plan names from Configuration.InvestmentRecord
@@ -351,7 +368,7 @@ class GnucashSession:
                 # add the debit or credit to the overall total
                 period[4] += split_amount
 
-    def fill_splits(self, target_path:list, period_starts:list, periods:list) -> str :
+    def fill_splits(self, target_path:list, period_starts:list, periods:list) -> str:
         """
         fill the period list for each account
         :param   target_path: account hierarchy from root account to target account
@@ -376,7 +393,7 @@ class GnucashSession:
         csv_write_period_list(periods)
         return acct_name
 
-    def create_price_tx(self, mtx:dict, ast_parent:Account, rev_acct:Account) :
+    def create_price_tx(self, mtx:dict, ast_parent:Account, rev_acct:Account):
         """
         Create a PRICE transaction for the current Gnucash session
         :param        mtx: InvestmentRecord transaction
@@ -418,7 +435,7 @@ class GnucashSession:
         else:
             self._log("Mode = {}: ABANDON Prices!\n".format(self._mode), RED)
 
-    def create_trade_tx(self, tx1:dict, tx2:dict) :
+    def create_trade_tx(self, tx1:dict, tx2:dict):
         """
         Create a TRADE transaction for the current Gnucash session
         :param    tx1: first transaction
@@ -455,12 +472,26 @@ class GnucashSession:
             spl_ast2.SetValue(GncNumeric(tx2[GROSS], 100))
             spl_ast2.SetAmount(GncNumeric(tx2[UNITS], 10000))
             # set Actions for the splits
-            spl_ast2.SetAction("Buy" if tx1[UNITS] < 0 else "Sell")
-            spl_ast.SetAction("Buy" if tx1[UNITS] > 0 else "Sell")
+            spl_ast2.SetAction(BUY if tx1[UNITS] < 0 else SELL)
+            spl_ast.SetAction(BUY if tx1[UNITS] > 0 else SELL)
             # combine Notes for the Tx and set Memos for the splits
             gtx.SetNotes(tx1[NOTES] + " | " + tx2[NOTES])
             spl_ast.SetMemo(tx1[NOTES])
             spl_ast2.SetMemo(tx2[NOTES])
+        elif tx1[TYPE] in (RDMPN, PURCH):
+            # the second split is for the HOLD account
+            # may need a third split for the difference b/n Gross and Net
+            spl_hold = Split(self._book)
+            spl_hold.SetParent(gtx)
+            spl_hold.SetAccount(self._root_acct.lookup_by_name(HOLD))
+            rev_gross = tx1[GROSS] * -1
+            self._log("{} gross = {}".format(HOLD, rev_gross))
+            spl_hold.SetValue(GncNumeric(rev_gross, 100))
+            gtx.SetNotes(tx1[NOTES])
+            # set Action for the ASSET split
+            action = SELL if tx1[TYPE] == RDMPN else BUY
+            self._log("action = {}".format(action))
+            spl_ast.SetAction(action)
         else:
             # the second split is for a REVENUE account
             spl_rev = Split(self._book)
@@ -474,14 +505,14 @@ class GnucashSession:
             # set Notes for the Tx
             gtx.SetNotes(tx1[NOTES])
             # set Action for the ASSET split
-            action = FEE if FEE in tx1[DESC] else ("Sell" if tx1[UNITS] < 0 else DIST)
+            action = FEE if FEE in tx1[DESC] else (SELL if tx1[UNITS] < 0 else DIST)
             self._log("action = {}".format(action))
             spl_ast.SetAction(action)
 
         # ROLL BACK if something went wrong and the two splits DO NOT balance
         if not gtx.GetImbalanceValue().zero_p():
             self._err("Gnc tx IMBALANCE = {}!! Roll back transaction changes!"
-                      .format(gtx.GetImbalanceValue().to_string()))
+                      .format(gtx.GetImbalanceValue().to_string()), inspect.currentframe().f_back)
             gtx.RollbackEdit()
             return
 
