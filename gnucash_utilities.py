@@ -438,9 +438,8 @@ class GnucashSession:
     def create_trade_tx(self, tx1:dict, tx2:dict):
         """
         Create a TRADE transaction for the current Gnucash session
-        :param    tx1: first transaction
-        :param    tx2: matching transaction if a switch
-        :return: nil
+        :param tx1: first transaction
+        :param tx2: matching transaction if a switch
         """
         self._log('GnucashSession.create_trade_tx()')
         # create a gnucash Tx
@@ -480,14 +479,22 @@ class GnucashSession:
             spl_ast2.SetMemo(tx2[NOTES])
         elif tx1[TYPE] in (RDMPN, PURCH):
             # the second split is for the HOLD account
-            # may need a third split for the difference b/n Gross and Net
-            spl_hold = Split(self._book)
-            spl_hold.SetParent(gtx)
-            spl_hold.SetAccount(self._root_acct.lookup_by_name(HOLD))
-            rev_gross = tx1[GROSS] * -1
-            self._log("{} gross = {}".format(HOLD, rev_gross))
-            spl_hold.SetValue(GncNumeric(rev_gross, 100))
-            gtx.SetNotes(tx1[NOTES])
+            # need a third split if there is a difference b/n Gross and Net
+            split_hold = Split(self._book)
+            split_hold.SetParent(gtx)
+            split_hold.SetAccount(self._root_acct.lookup_by_name(HOLD))
+            # compare tx1[GROSS] and tx1[NET] to see if different
+            # and need a third split for Financial Services expense
+            net_amount = tx1[NET]
+            self._log("{} gross = {}".format(HOLD, net_amount))
+            if net_amount != tx1[GROSS]:
+                split_diff = net_amount - tx1[GROSS]
+                split_fin_serv = Split(self._book)
+                split_fin_serv.SetParent(gtx)
+                split_fin_serv.SetAccount(self._root_acct.lookup_by_name(FIN_SERV))
+                split_fin_serv.SetValue(GncNumeric(split_diff, 100))
+            split_hold.SetValue(GncNumeric(net_amount * -1, 100))
+            gtx.SetNotes(tx1[FUND] + " " + tx1[TYPE])
             # set Action for the ASSET split
             action = SELL if tx1[TYPE] == RDMPN else BUY
             self._log("action = {}".format(action))
@@ -498,9 +505,9 @@ class GnucashSession:
             spl_rev.SetParent(gtx)
             # set the Account, Value and Reconciled of the REVENUE split
             spl_rev.SetAccount(tx1[REVENUE])
-            rev_gross = tx1[GROSS] * -1
-            # self.dbg.print_info("revenue gross = {}".format(rev_gross))
-            spl_rev.SetValue(GncNumeric(rev_gross, 100))
+            gross_revenue = tx1[GROSS] * -1
+            # self.dbg.print_info("gross revenue = {}".format(rev_gross))
+            spl_rev.SetValue(GncNumeric(gross_revenue, 100))
             spl_rev.SetReconcile(CREC)
             # set Notes for the Tx
             gtx.SetNotes(tx1[NOTES])
@@ -509,7 +516,7 @@ class GnucashSession:
             self._log("action = {}".format(action))
             spl_ast.SetAction(action)
 
-        # ROLL BACK if something went wrong and the two splits DO NOT balance
+        # ROLL BACK if something went wrong and the splits DO NOT balance
         if not gtx.GetImbalanceValue().zero_p():
             self._err("Gnc tx IMBALANCE = {}!! Roll back transaction changes!"
                       .format(gtx.GetImbalanceValue().to_string()), inspect.currentframe().f_back)
