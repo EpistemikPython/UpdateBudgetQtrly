@@ -48,6 +48,87 @@ def gnc_numeric_to_python_decimal(numeric:GncNumeric, logger:SattoLog=None) -> D
     return Decimal((sign, digit_tuple, -exponent))
 
 
+def get_splits(p_acct:Account, period_starts:list, periods:list):
+    """
+    get the splits for the account and each sub-account and add to periods
+    :param        p_acct: to get splits
+    :param period_starts: start date for each period
+    :param       periods: fill with splits for each quarter
+    """
+    # insert and add all splits in the periods of interest
+    for split in p_acct.GetSplitList():
+        trans = split.parent
+        # GetDate() returns a datetime but need a date
+        trans_date = trans.GetDate().date()
+
+        # use binary search to find the period that starts before or on the transaction date
+        period_index = bisect_right(period_starts, trans_date) - 1
+
+        # ignore transactions with a date before the matching period start and after the last period_end
+        if period_index >= 0 and trans_date <= periods[len(periods) - 1][1]:
+            # get the period bucket appropriate for the split in question
+            period = periods[period_index]
+            assert (period[1] >= trans_date >= period[0])
+
+            split_amount = gnc_numeric_to_python_decimal(split.GetAmount())
+
+            # if the amount is negative this is a credit, else a debit
+            debit_credit_offset = 1 if split_amount < ZERO else 0
+
+            # add the debit or credit to the sum, using the offset to get in the right bucket
+            period[2 + debit_credit_offset] += split_amount
+
+            # add the debit or credit to the overall total
+            period[4] += split_amount
+
+
+def fill_splits(base_acct:Account, target_path:list, period_starts:list, periods:list, logger:SattoLog=None) -> str:
+    """
+    fill the period list for each account
+    :param     base_acct: base account
+    :param   target_path: account hierarchy from base account to target account
+    :param period_starts: start date for each period
+    :param       periods: fill with the splits dates and amounts for requested time span
+    :param        logger
+    :return: name of target_acct
+    """
+    account_of_interest = account_from_path(base_acct, target_path)
+    acct_name = account_of_interest.GetName()
+    if logger: logger.print_info("gnucash_utilities.fill_splits().account_of_interest = {}".format(acct_name))
+
+    # get the split amounts for the parent account
+    get_splits(account_of_interest, period_starts, periods)
+    descendants = account_of_interest.get_descendants()
+    if len(descendants) > 0:
+        # for EACH sub-account add to the overall total
+        for subAcct in descendants:
+            get_splits(subAcct, period_starts, periods)
+
+    csv_write_period_list(periods)
+    return acct_name
+
+
+def account_from_path(top_account:Account, account_path:list, logger:SattoLog=None) -> Account:
+    """
+    RECURSIVE function to get a Gnucash Account: starting from the top account and following the path
+    :param   top_account: base Account
+    :param  account_path: path to follow
+    :param        logger
+    """
+    if logger: logger.print_info("gnucash_utilities.account_from_path({},{})".format(top_account.GetName(), account_path))
+
+    acct_name = account_path[0]
+    acct_path = account_path[1:]
+
+    acct = top_account.lookup_by_name(acct_name)
+    if acct is None:
+        raise Exception("Path '" + str(account_path) + "' could NOT be found!")
+    if len(acct_path) > 0:
+        return account_from_path(acct, acct_path)
+    else:
+        return acct
+
+
 def csv_write_period_list(periods:list, logger:SattoLog=None):
     """
     Write out the details of the submitted period list in csv format
@@ -55,7 +136,7 @@ def csv_write_period_list(periods:list, logger:SattoLog=None):
     :param logger: debug printing
     :return: to stdout
     """
-    logger.print_info("gnucash_utilities.csv_write_period_list()")
+    if logger: logger.print_info("gnucash_utilities.csv_write_period_list()")
 
     # write out the column headers
     csv_writer = csv.writer(stdout)
@@ -104,6 +185,9 @@ class GnucashSession:
     def _err(self, p_msg:str, err_frame:FrameType):
         if self._logger:
             self._logger.print_info(p_msg, BR_RED, p_frame=err_frame)
+
+    def get_logger(self) -> SattoLog:
+        return self._logger
 
     def get_domain(self) -> str:
         return self._domain
@@ -158,7 +242,7 @@ class GnucashSession:
         self._log('GnucashSession.get_account()')
 
         # special locations for Trust accounts
-        if acct_name == TRUST_AST_ACCT :
+        if acct_name == TRUST_AST_ACCT:
             return self._root_acct.lookup_by_name(TRUST).lookup_by_name(TRUST_AST_ACCT)
         if acct_name == TRUST_EQY_ACCT:
             return self._root_acct.lookup_by_name(EQUITY).lookup_by_name(TRUST_EQY_ACCT)
@@ -169,30 +253,6 @@ class GnucashSession:
 
         self._log("GnucashSession.get_account() found account: {}".format(found_acct.GetName()))
         return found_acct
-
-    def get_accounts(self, ast_parent:Account, asset_acct_name:str, rev_acct:Account) -> (Account, Account):
-        """
-        Find the proper Asset and Revenue accounts
-        :param      ast_parent: Asset account parent
-        :param asset_acct_name: Asset account name
-        :param        rev_acct: Revenue account
-        :return: Gnucash account, Gnucash account
-        """
-        self._log('GnucashSession.get_accounts()')
-        asset_parent = ast_parent
-        # special locations for Trust Revenue and Asset accounts
-        if asset_acct_name == TRUST_AST_ACCT :
-            asset_parent = self._root_acct.lookup_by_name(TRUST)
-            self._log("asset_parent = {}".format(asset_parent.GetName()))
-            rev_acct = self._root_acct.lookup_by_name(TRUST_EQY_ACCT)
-            self._log("MODIFIED rev_acct = {}".format(rev_acct.GetName()))
-        # get the asset account
-        asset_acct = asset_parent.lookup_by_name(asset_acct_name)
-        if asset_acct is None :
-            raise Exception("Could NOT find acct '{}' under parent '{}'".format(asset_acct_name, asset_parent.GetName()))
-
-        self._log("asset_acct = {}".format(asset_acct.GetName()))
-        return asset_acct, rev_acct
 
     def get_account_balance(self, acct:Account, p_date:date, p_currency:GncCommodity=None) -> Decimal:
         """
@@ -225,7 +285,7 @@ class GnucashSession:
         :return: string, int: account name and account sum
         """
         currency = self._currency if p_currency is None else p_currency
-        acct = self.account_from_path(self._root_acct, p_path)
+        acct = account_from_path(self._root_acct, p_path)
         acct_name = acct.GetName()
         # get the split amounts for the parent account
         acct_sum = self.get_account_balance(acct, p_date, currency)
@@ -251,7 +311,7 @@ class GnucashSession:
         currency = self._currency if p_currency is None else p_currency
         for item in asset_accts:
             acct_path = asset_accts[item]
-            acct = self.account_from_path(self._root_acct, acct_path)
+            acct = account_from_path(self._root_acct, acct_path)
             acct_name = acct.GetName()
 
             # get the split amounts for the parent account
@@ -292,31 +352,13 @@ class GnucashSession:
             ast_parent_path.append(ACCT_PATHS[pl_owner])
         self._log("rev_path = {}".format(str(rev_path)))
 
-        rev_acct = self.account_from_path(self._root_acct, rev_path)
+        rev_acct = account_from_path(self._root_acct, rev_path)
         self._log("rev_acct = {}".format(rev_acct.GetName()))
         self._log("asset_parent_path = {}".format(str(ast_parent_path)))
-        asset_parent = self.account_from_path(self._root_acct, ast_parent_path)
+        asset_parent = account_from_path(self._root_acct, ast_parent_path)
         self._log("asset_parent = {}".format(asset_parent.GetName()))
 
         return asset_parent, rev_acct
-
-    def account_from_path(self, top_account:Account, account_path:list) -> Account:
-        """
-        RECURSIVE function to get a Gnucash Account: starting from the top account and following the path
-        :param   top_account: base Account
-        :param  account_path: path to follow
-        """
-        self._log("GnucashSession.account_from_path({}:{})".format(top_account.GetName(), account_path))
-
-        acct_str, acct_path = account_path[0], account_path[1:]
-
-        acct = top_account.lookup_by_name(acct_str)
-        if acct is None:
-            raise Exception("Path '" + str(account_path) + "' could NOT be found!")
-        if len(acct_path) > 0:
-            return self.account_from_path(acct, acct_path)
-        else:
-            return acct
 
     def show_account(self, p_path:list):
         """
@@ -324,7 +366,7 @@ class GnucashSession:
         :param  p_path: to the account
         :return: nil
         """
-        acct = self.account_from_path(self._root_acct, p_path)
+        acct = account_from_path(self._root_acct, p_path)
         acct_name = acct.GetName()
         self._log("account = {}".format(acct_name))
         descendants = acct.get_descendants()
@@ -333,73 +375,11 @@ class GnucashSession:
         else:
             self._log("Descendants of {}:".format(acct_name))
 
-    def get_splits(self, acct:Account, period_starts:list, periods:list):
-        """
-        get the splits for the account and each sub-account and add to periods
-        :param          acct: to get splits
-        :param period_starts: start date for each period
-        :param       periods: fill with splits for each quarter
-        """
-        self._log("GnucashSession.get_splits()")
-
-        # insert and add all splits in the periods of interest
-        for split in acct.GetSplitList():
-            trans = split.parent
-            # GetDate() returns a datetime but need a date
-            trans_date = trans.GetDate().date()
-
-            # use binary search to find the period that starts before or on the transaction date
-            period_index = bisect_right(period_starts, trans_date) - 1
-
-            # ignore transactions with a date before the matching period start and after the last period_end
-            if period_index >= 0 and trans_date <= periods[len(periods) - 1][1]:
-                # get the period bucket appropriate for the split in question
-                period = periods[period_index]
-                assert( period[1] >= trans_date >= period[0] )
-
-                split_amount = gnc_numeric_to_python_decimal(split.GetAmount())
-
-                # if the amount is negative this is a credit, else a debit
-                debit_credit_offset = 1 if split_amount < ZERO else 0
-
-                # add the debit or credit to the sum, using the offset to get in the right bucket
-                period[2 + debit_credit_offset] += split_amount
-
-                # add the debit or credit to the overall total
-                period[4] += split_amount
-
-    def fill_splits(self, target_path:list, period_starts:list, periods:list) -> str:
-        """
-        fill the period list for each account
-        :param   target_path: account hierarchy from root account to target account
-        :param period_starts: start date for each period
-        :param       periods: fill with the splits dates and amounts for requested time span
-        :return: name of target_acct
-        """
-        self._log("GnucashSession.fill_splits()")
-
-        account_of_interest = self.account_from_path(self._root_acct, target_path)
-        acct_name = account_of_interest.GetName()
-        self._log("\naccount_of_interest = {}".format(acct_name))
-
-        # get the split amounts for the parent account
-        self.get_splits(account_of_interest, period_starts, periods)
-        descendants = account_of_interest.get_descendants()
-        if len(descendants) > 0:
-            # for EACH sub-account add to the overall total
-            for subAcct in descendants:
-                self.get_splits(subAcct, period_starts, periods)
-
-        csv_write_period_list(periods)
-        return acct_name
-
-    def create_price_tx(self, mtx:dict, ast_parent:Account, rev_acct:Account):
+    def create_price_tx(self, mtx:dict, ast_parent:Account):
         """
         Create a PRICE transaction for the current Gnucash session
         :param        mtx: InvestmentRecord transaction
         :param ast_parent: Asset parent account
-        :param   rev_acct: Revenue account
-        :return: nil
         """
         self._log('GnucashSession.create_price_tx()')
         conv_date = dt.strptime(mtx[DATE], "%d-%b-%Y")
@@ -418,7 +398,7 @@ class GnucashSession:
         pr1.begin_edit()
         pr1.set_time64(pr_date)
 
-        asset_acct, rev_acct = self.get_accounts(ast_parent, fund_name, rev_acct)
+        asset_acct = self.get_account(ast_parent, fund_name)
         comm = asset_acct.GetCommodity()
         self._log("Commodity = {}:{}".format(comm.get_namespace(), comm.get_printname()))
         pr1.set_commodity(comm)
@@ -462,8 +442,8 @@ class GnucashSession:
         spl_ast.SetValue(GncNumeric(tx1[GROSS], 100))
         spl_ast.SetAmount(GncNumeric(tx1[UNITS], 10000))
 
-        if tx1[SWITCH]:
-            # create the second ASSET split for the Tx
+        if tx1[TYPE] in (SW_IN, SW_OUT):
+            # create a second ASSET split for the Tx
             spl_ast2 = Split(self._book)
             spl_ast2.SetParent(gtx)
             # set the Account, Value, and Units of the second ASSET split
@@ -494,7 +474,7 @@ class GnucashSession:
                 split_fin_serv.SetAccount(self._root_acct.lookup_by_name(FIN_SERV))
                 split_fin_serv.SetValue(GncNumeric(split_diff, 100))
             split_hold.SetValue(GncNumeric(net_amount * -1, 100))
-            gtx.SetNotes(tx1[FUND] + " " + tx1[TYPE])
+            gtx.SetNotes(tx1[TYPE] + ": " + tx1[NOTES] if tx1[NOTES] else tx1[FUND])
             # set Action for the ASSET split
             action = SELL if tx1[TYPE] == RDMPN else BUY
             self._log("action = {}".format(action))
