@@ -302,10 +302,10 @@ class GnucashSession:
     def get_account_assets(self, asset_accts:dict, end_date:date, p_currency:GncCommodity=None) -> dict:
         """
         Get ASSET data for the specified account for the specified quarter
-        :param  asset_accts:
+        :param  asset_accts: from Gnucash file
         :param     end_date: read the account total at the end of the quarter
-        :param   p_currency: Gnucash Commodity: currency to use for the totals
-        :return: string with sum of totals
+        :param   p_currency: Gnucash Commodity: currency to use for the sums
+        :return: dict with sums
         """
         data = {}
         currency = self._currency if p_currency is None else p_currency
@@ -331,40 +331,45 @@ class GnucashSession:
 
         return data
 
-    def get_asset_revenue_info(self, plan_type:str, pl_owner:str) -> (Account, Account):
+    def get_asset_or_revenue_account(self, acct_type:str, plan_type:str, pl_owner:str) -> Account:
         """
-        Get the required asset and/or revenue information from each plan
-        :param plan_type: plan names from Configuration.InvestmentRecord
-        :param  pl_owner: needed to find proper revenue account for RRSP & TFSA
-        :return: Gnucash account, Gnucash account: revenue account and asset parent account
+        Get the required asset and/or revenue account
+        :param acct_type: from Gnucash file
+        :param plan_type: plan names from investment.InvestmentRecord
+        :param  pl_owner: needed to find proper account for RRSP & TFSA plan types
         """
-        self._log("GnucashSession.get_asset_revenue_info()")
-        rev_path = copy(ACCT_PATHS[REVENUE])
-        rev_path.append(plan_type)
-        ast_parent_path = copy(ACCT_PATHS[ASSET])
-        ast_parent_path.append(plan_type)
+        self._log("GnucashSession.get_asset_or_revenue_account()")
 
-        if plan_type != OPEN :
-            if pl_owner == '' :
-                raise Exception("Trying to process plan type '{}' but NO Owner value found in Tx Collection!!"
-                                .format(plan_type))
-            rev_path.append(ACCT_PATHS[pl_owner])
-            ast_parent_path.append(ACCT_PATHS[pl_owner])
-        self._log("rev_path = {}".format(str(rev_path)))
+        if acct_type not in (ASSET,REVENUE):
+            raise Exception(f"GnucashSession.get_asset_or_revenue_account(): BAD Account type: ${acct_type}!")
+        account_path = copy(ACCT_PATHS[acct_type])
 
-        rev_acct = account_from_path(self._root_acct, rev_path)
-        self._log("rev_acct = {}".format(rev_acct.GetName()))
-        self._log("asset_parent_path = {}".format(str(ast_parent_path)))
-        asset_parent = account_from_path(self._root_acct, ast_parent_path)
-        self._log("asset_parent = {}".format(asset_parent.GetName()))
+        if plan_type not in (OPEN,RRSP,TFSA):
+            raise Exception(f"GnucashSession.get_asset_or_revenue_account(): BAD Plan type: ${plan_type}!")
+        account_path.append(plan_type)
 
-        return asset_parent, rev_acct
+        if plan_type in (RRSP,TFSA):
+            if pl_owner not in (MON_MARK,MON_LULU):
+                raise Exception(f"GnucashSession.get_asset_or_revenue_account(): BAD Owner value: ${pl_owner}!")
+            account_path.append(ACCT_PATHS[pl_owner])
+
+        target_account = account_from_path(self._root_acct, account_path)
+        self._log(f"target_account = ${target_account.GetName()}")
+
+        return target_account
+
+    def get_asset_account(self, plan_type:str, pl_owner:str) -> Account:
+        self._log("GnucashSession.get_asset_account()")
+        return self.get_asset_or_revenue_account(ASSET, plan_type, pl_owner)
+
+    def get_revenue_account(self, plan_type:str, pl_owner:str) -> Account:
+        self._log("GnucashSession.get_revenue_account()")
+        return self.get_asset_or_revenue_account(REVENUE, plan_type, pl_owner)
 
     def show_account(self, p_path:list):
         """
         display an account and its descendants
         :param  p_path: to the account
-        :return: nil
         """
         acct = account_from_path(self._root_acct, p_path)
         acct_name = acct.GetName()
@@ -430,7 +435,6 @@ class GnucashSession:
 
         gtx.SetCurrency(self._currency)
         gtx.SetDate(tx1[TRADE_DAY], tx1[TRADE_MTH], tx1[TRADE_YR])
-        # self.dbg.print_info("gtx date = {}".format(gtx.GetDate()), BLUE)
         self._log("tx1[DESC] = {}".format(tx1[DESC]))
         gtx.SetDescription(tx1[DESC])
 
@@ -442,7 +446,7 @@ class GnucashSession:
         spl_ast.SetValue(GncNumeric(tx1[GROSS], 100))
         spl_ast.SetAmount(GncNumeric(tx1[UNITS], 10000))
 
-        if tx1[TYPE] in (SW_IN, SW_OUT):
+        if tx1[TYPE] in (SW_IN,SW_OUT):
             # create a second ASSET split for the Tx
             spl_ast2 = Split(self._book)
             spl_ast2.SetParent(gtx)
@@ -457,7 +461,7 @@ class GnucashSession:
             gtx.SetNotes(tx1[NOTES] + " | " + tx2[NOTES])
             spl_ast.SetMemo(tx1[NOTES])
             spl_ast2.SetMemo(tx2[NOTES])
-        elif tx1[TYPE] in (RDMPN, PURCH):
+        elif tx1[TYPE] in (RDMPN,PURCH):
             # the second split is for the HOLD account
             # need a third split if there is a difference b/n Gross and Net
             split_hold = Split(self._book)
