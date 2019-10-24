@@ -60,14 +60,14 @@ BOOL_ALL_INC = True
 class UpdateRevExps:
     def __init__(self, p_filename:str, p_mode:str, p_debug:bool):
         self.debug = p_debug
-        self.logger = SattoLog(my_color=BROWN, do_logging=p_debug)
-        self.logger.print_info('UpdateRevExps', GREEN)
+        self._logger = SattoLog(my_color=BROWN, do_logging=p_debug)
+        self._logger.print_info('UpdateRevExps', GREEN)
 
         self.gnucash_file = p_filename
         self.gnucash_data = []
 
         self.gnc_session = None
-        self.gglu = GoogleUpdate(self.logger)
+        self.gglu = GoogleUpdate(self._logger)
 
         self.mode = p_mode
         # Google sheet to update
@@ -76,8 +76,8 @@ class UpdateRevExps:
         if '1' in self.mode:
             self.all_inc_dest = ALL_INC_SHEET
             self.nec_inc_dest = NEC_INC_SHEET
-        self.logger.print_info("all_inc_dest = {}".format(self.all_inc_dest))
-        self.logger.print_info("nec_inc_dest = {}\n".format(self.nec_inc_dest))
+        self._logger.print_info("all_inc_dest = {}".format(self.all_inc_dest))
+        self._logger.print_info("nec_inc_dest = {}\n".format(self.nec_inc_dest))
 
     BASE_YEAR:int = 2012
     # number of rows between same quarter in adjacent years
@@ -92,10 +92,10 @@ class UpdateRevExps:
         return self.gglu.get_data()
 
     def get_log(self) -> list :
-        return self.logger.get_log()
+        return self._logger.get_log()
 
-    def fill_splits(self, account, period_starts, periods):
-        return self.gnc_session.fill_splits(self.gnc_session.get_root_acct(), account, period_starts, periods)
+    def fill_splits(self, account_path:list, period_starts:list, periods:list):
+        return fill_splits(self.gnc_session.get_root_acct(), account_path, period_starts, periods)
 
     def get_revenue(self, period_starts:list, periods:list, p_year:int, p_qtr:int) -> dict :
         """
@@ -106,7 +106,7 @@ class UpdateRevExps:
         :param         p_qtr: quarter to read: 1..4
         :return: revenue for period
         """
-        self.logger.print_info('UpdateRevExps.get_revenue()')
+        self._logger.print_info('UpdateRevExps.get_revenue()')
         data_quarter = {}
         str_rev = '= '
         for item in REV_ACCTS:
@@ -119,7 +119,7 @@ class UpdateRevExps:
 
             sum_revenue = (periods[0][2] + periods[0][3]) * (-1)
             str_rev += sum_revenue.to_eng_string() + (' + ' if item != EMP else '')
-            self.logger.print_info("{} Revenue for {}-Q{} = ${}".format(acct_name, p_year, p_qtr, sum_revenue))
+            self._logger.print_info("{} Revenue for {}-Q{} = ${}".format(acct_name, p_year, p_qtr, sum_revenue))
 
         data_quarter[REV] = str_rev
         return data_quarter
@@ -133,7 +133,7 @@ class UpdateRevExps:
         :param      data_qtr: collected data for the quarter
         :return: deductions for period
         """
-        self.logger.print_info('UpdateRevExps.get_deductions()')
+        self._logger.print_info('UpdateRevExps.get_deductions()')
         str_dedns = '= '
         for item in DEDN_ACCTS:
             # reset the debit and credit totals for each individual account
@@ -145,8 +145,8 @@ class UpdateRevExps:
 
             sum_deductions = periods[0][2] + periods[0][3]
             str_dedns += sum_deductions.to_eng_string() + (' + ' if item != "ML" else '')
-            self.logger.print_info("{} {} Deductions for {}-Q{} = ${}"
-                                   .format(acct_name, EMP, p_year, data_qtr[QTR], sum_deductions))
+            self._logger.print_info("{} {} Deductions for {}-Q{} = ${}"
+                                    .format(acct_name, EMP, p_year, data_qtr[QTR], sum_deductions))
 
         data_qtr[DEDNS] = str_dedns
         return str_dedns
@@ -160,7 +160,7 @@ class UpdateRevExps:
         :param      data_qtr: collected data for the quarter
         :return: total expenses for period
         """
-        self.logger.print_info('UpdateRevExps.get_expenses()')
+        self._logger.print_info('UpdateRevExps.get_expenses()')
         str_total = ''
         for item in EXP_ACCTS:
             # reset the debit and credit totals for each individual account
@@ -173,8 +173,8 @@ class UpdateRevExps:
             sum_expenses = periods[0][2] + periods[0][3]
             str_expenses = sum_expenses.to_eng_string()
             data_qtr[item] = str_expenses
-            self.logger.print_info("{} Expenses for {}-Q{} = ${}"
-                                   .format(acct_name.split('_')[-1], p_year, data_qtr[QTR], str_expenses))
+            self._logger.print_info("{} Expenses for {}-Q{} = ${}"
+                                    .format(acct_name.split('_')[-1], p_year, data_qtr[QTR], str_expenses))
             str_total += str_expenses + ' + '
 
         self.get_deductions(period_starts, periods, p_year, data_qtr)
@@ -191,8 +191,8 @@ class UpdateRevExps:
         :param    p_qtr: 1..4 for quarter to update or 0 if updating ALL FOUR quarters
         """
         num_quarters = 1 if p_qtr else 4
-        self.logger.print_info("URE.fill_gnucash_data(): find Revenue & Expenses in {} for {}{}"
-                               .format(self.gnucash_file, p_year, ('-Q' + str(p_qtr)) if p_qtr else ''))
+        self._logger.print_info("URE.fill_gnucash_data(): find Revenue & Expenses in {} for {}{}"
+                                .format(self.gnucash_file, p_year, ('-Q' + str(p_qtr)) if p_qtr else ''))
         try:
             self.gnc_session = GnucashSession(self.mode, self.gnucash_file, self.debug, BOTH)
             self.gnc_session.begin_session()
@@ -216,16 +216,16 @@ class UpdateRevExps:
 
                 data_quarter = self.get_revenue(period_starts, period_list, p_year, qtr)
                 data_quarter[QTR] = str(qtr)
-                self.logger.print_info("\n{} Revenue for {}-Q{} = ${}"
-                                       .format("TOTAL", p_year, qtr, period_list[0][4] * (-1)))
+                self._logger.print_info("\n{} Revenue for {}-Q{} = ${}"
+                                        .format("TOTAL", p_year, qtr, period_list[0][4] * (-1)))
 
                 period_list[0][4] = ZERO
                 self.get_expenses(period_starts, period_list, p_year, data_quarter)
-                self.logger.print_info("\n{} Expenses for {}-Q{} = ${}\n"
-                                       .format("TOTAL", p_year, qtr, period_list[0][4]))
+                self._logger.print_info("\n{} Expenses for {}-Q{} = ${}\n"
+                                        .format("TOTAL", p_year, qtr, period_list[0][4]))
 
                 self.gnucash_data.append(data_quarter)
-                self.logger.print_info(json.dumps(data_quarter, indent=4))
+                self._logger.print_info(json.dumps(data_quarter, indent=4))
 
             # no save needed, we're just reading...
             self.gnc_session.end_session(False)
@@ -235,7 +235,7 @@ class UpdateRevExps:
                 save_to_json(fname, now, self.gnucash_data)
 
         except Exception as fgde:
-            self.logger.print_error("Exception: {}!".format(repr(fgde)))
+            self._logger.print_error("Exception: {}!".format(repr(fgde)))
             if self.gnc_session:
                 self.gnc_session.check_end_session(locals())
             raise fgde
@@ -260,13 +260,13 @@ class UpdateRevExps:
         :param      p_year: year to update
         :param save_google: save the Google data to a JSON file
         """
-        self.logger.print_info('UpdateRevExps.fill_google_data()')
+        self._logger.print_info('UpdateRevExps.fill_google_data()')
         year_row = BASE_ROW + year_span(p_year, self.BASE_YEAR, self.BASE_YEAR_SPAN, 0)
         # get exact row from Quarter value in each item
         for item in self.gnucash_data:
-            self.logger.print_info("{} = {}".format(QTR, item[QTR]))
+            self._logger.print_info("{} = {}".format(QTR, item[QTR]))
             dest_row = year_row + ((get_int_quarter(item[QTR]) - 1) * self.QTR_SPAN)
-            self.logger.print_info("dest_row = {}\n".format(dest_row))
+            self._logger.print_info("dest_row = {}\n".format(dest_row))
             for key in item:
                 if key != QTR:
                     dest = BOOL_NEC_INC
