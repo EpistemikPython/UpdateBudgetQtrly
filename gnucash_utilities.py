@@ -11,7 +11,7 @@ __author__ = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __python_version__ = 3.6
 __created__ = '2019-04-07'
-__updated__ = '2019-10-14'
+__updated__ = '2019-10-24'
 
 from sys import stdout, path
 path.append("/home/marksa/dev/git/Python/Utilities/")
@@ -214,7 +214,7 @@ class GnucashSession:
         if self._currency is None:
             self.set_currency(self._commod_table.lookup("ISO4217", "CAD"))
 
-        if self._domain in (PRICE, BOTH):
+        if self._domain in (PRICE,BOTH):
             self._price_db = self._book.get_price_db()
             self._price_db.begin_edit()
             self._log("self.price_db.begin_edit()", CYAN)
@@ -224,7 +224,7 @@ class GnucashSession:
 
         if p_save:
             self._log("Mode = {}: SAVE session.".format(self._mode))
-            if self._domain in (PRICE, BOTH):
+            if self._domain in (PRICE,BOTH):
                 self._log("Domain = {}: COMMIT Price DB edits.".format(self._domain))
                 self._price_db.commit_edit()
             self._session.save()
@@ -262,7 +262,7 @@ class GnucashSession:
         :param p_currency: Gnucash commodity
         :return: Decimal with balance
         """
-        self._log("GnucashSession.get_account_balance()")
+        self._log(f"GnucashSession.get_account_balance(${acct.GetName()})")
 
         # CALLS ARE RETRIEVING ACCOUNT BALANCES FROM DAY BEFORE!!??
         p_date += ONE_DAY
@@ -276,17 +276,15 @@ class GnucashSession:
 
         return gnc_numeric_to_python_decimal(acct_cur)
 
-    def get_total_balance(self, p_path:list, p_date:date, p_currency:GncCommodity=None) -> (str, Decimal):
+    def get_total_balance(self, p_path:list, p_date:date, p_currency:GncCommodity=None) -> Decimal:
         """
         get the total BALANCE in the account and all sub-accounts on this path on this date in this currency
         :param     p_path: path to the account
         :param     p_date: to get the balance
         :param p_currency: Gnucash Commodity: currency to use for the totals
-        :return: string, int: account name and account sum
         """
         currency = self._currency if p_currency is None else p_currency
         acct = account_from_path(self._root_acct, p_path)
-        acct_name = acct.GetName()
         # get the split amounts for the parent account
         acct_sum = self.get_account_balance(acct, p_date, currency)
         descendants = acct.get_descendants()
@@ -296,61 +294,46 @@ class GnucashSession:
                 # ?? GETTING SLIGHT ROUNDING ERRORS WHEN ADDING MUTUAL FUND VALUES...
                 acct_sum += self.get_account_balance(sub_acct, p_date, currency)
 
-        self._log("GnucashSession.get_total_balance(): {} on {} = ${}".format(acct_name, p_date, acct_sum))
-        return acct_name, acct_sum
+        self._log(f"GnucashSession.get_total_balance(): ${acct.GetName()} on ${p_date} = ${acct_sum}")
+        return acct_sum
 
     def get_account_assets(self, asset_accts:dict, end_date:date, p_currency:GncCommodity=None) -> dict:
         """
-        Get ASSET data for the specified account for the specified quarter
+        Get ASSET data for the specified accounts for the specified date
         :param  asset_accts: from Gnucash file
-        :param     end_date: read the account total at the end of the quarter
+        :param     end_date: on which to read the account total
         :param   p_currency: Gnucash Commodity: currency to use for the sums
-        :return: dict with sums
+        :return: dict with amounts
         """
+        self._log("GnucashSession.get_account_assets()")
         data = {}
         currency = self._currency if p_currency is None else p_currency
         for item in asset_accts:
-            acct_path = asset_accts[item]
-            acct = account_from_path(self._root_acct, acct_path)
-            acct_name = acct.GetName()
-
-            # get the split amounts for the parent account
-            acct_sum = self.get_account_balance(acct, end_date, currency)
-            descendants = acct.get_descendants()
-            if len(descendants) > 0:
-                # for EACH sub-account add to the overall total
-                # print_info("Descendants of {}:".format(acct_name))
-                for sub_acct in descendants:
-                    # ?? GETTING SLIGHT ROUNDING ERRORS WHEN ADDING MUTUAL FUND VALUES...
-                    acct_sum += self.get_account_balance(sub_acct, end_date, currency)
-
-            str_sum = acct_sum.to_eng_string()
-            self._log("GnucashSession.get_account_assets():\nAssets for {} on {} = ${}\n"
-                      .format(acct_name, end_date, str_sum))
-            data[item] = str_sum
+            acct_sum = self.get_total_balance(asset_accts[item], end_date, currency)
+            data[item] = acct_sum.to_eng_string()
 
         return data
 
-    def get_asset_or_revenue_account(self, acct_type:str, plan_type:str, pl_owner:str) -> Account:
+    def _get_asset_or_revenue_account(self, acct_type:str, plan_type:str, pl_owner:str) -> Account:
         """
         Get the required asset and/or revenue account
         :param acct_type: from Gnucash file
         :param plan_type: plan names from investment.InvestmentRecord
         :param  pl_owner: needed to find proper account for RRSP & TFSA plan types
         """
-        self._log("GnucashSession.get_asset_or_revenue_account()")
+        self._log("GnucashSession._get_asset_or_revenue_account()")
 
         if acct_type not in (ASSET,REVENUE):
-            raise Exception(f"GnucashSession.get_asset_or_revenue_account(): BAD Account type: ${acct_type}!")
+            raise Exception(f"GnucashSession._get_asset_or_revenue_account(): BAD Account type: ${acct_type}!")
         account_path = copy(ACCT_PATHS[acct_type])
 
         if plan_type not in (OPEN,RRSP,TFSA):
-            raise Exception(f"GnucashSession.get_asset_or_revenue_account(): BAD Plan type: ${plan_type}!")
+            raise Exception(f"GnucashSession._get_asset_or_revenue_account(): BAD Plan type: ${plan_type}!")
         account_path.append(plan_type)
 
         if plan_type in (RRSP,TFSA):
             if pl_owner not in (MON_MARK,MON_LULU):
-                raise Exception(f"GnucashSession.get_asset_or_revenue_account(): BAD Owner value: ${pl_owner}!")
+                raise Exception(f"GnucashSession._get_asset_or_revenue_account(): BAD Owner value: ${pl_owner}!")
             account_path.append(ACCT_PATHS[pl_owner])
 
         target_account = account_from_path(self._root_acct, account_path)
@@ -360,11 +343,11 @@ class GnucashSession:
 
     def get_asset_account(self, plan_type:str, pl_owner:str) -> Account:
         self._log("GnucashSession.get_asset_account()")
-        return self.get_asset_or_revenue_account(ASSET, plan_type, pl_owner)
+        return self._get_asset_or_revenue_account(ASSET, plan_type, pl_owner)
 
     def get_revenue_account(self, plan_type:str, pl_owner:str) -> Account:
         self._log("GnucashSession.get_revenue_account()")
-        return self.get_asset_or_revenue_account(REVENUE, plan_type, pl_owner)
+        return self._get_asset_or_revenue_account(REVENUE, plan_type, pl_owner)
 
     def show_account(self, p_path:list):
         """
@@ -379,6 +362,8 @@ class GnucashSession:
             self._log("{} has NO Descendants!".format(acct_name))
         else:
             self._log("Descendants of {}:".format(acct_name))
+            for item in descendants:
+                self._log("account = {}".format(item.GetName()))
 
     def create_price_tx(self, mtx:dict, ast_parent:Account):
         """
