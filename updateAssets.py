@@ -63,7 +63,6 @@ class UpdateAssets:
         self.gnucash_file = p_filename
         self.gnucash_data = []
 
-        self.gnc_session = None
         self.ggl_update = GoogleUpdate(self._logger)
 
         self.mode = p_mode
@@ -100,22 +99,23 @@ class UpdateAssets:
         self._logger.print_info("UA.fill_gnucash_data(): find Assets in {} for {}{}"
                                 .format(self.gnucash_file, p_year, ('-Q' + str(p_qtr)) if p_qtr else ''))
         num_quarters = 1 if p_qtr else 4
+        gnc_session = None
         try:
-            self.gnc_session = GnucashSession(self.mode, self.gnucash_file, self.debug, BOTH)
-            self.gnc_session.begin_session()
+            gnc_session = GnucashSession(self.mode, self.gnucash_file, self.debug, BOTH)
+            gnc_session.begin_session()
 
             for i in range(num_quarters):
                 qtr = p_qtr if p_qtr else i + 1
                 start_month = (qtr * 3) - 2
                 end_date = current_quarter_end(p_year, start_month)
 
-                data_quarter = self.gnc_session.get_account_assets(ASSET_ACCTS, end_date)
+                data_quarter = gnc_session.get_account_assets(ASSET_ACCTS, end_date)
                 data_quarter[QTR] = str(qtr)
 
                 self.gnucash_data.append(data_quarter)
 
             # no save needed, we're just reading...
-            self.gnc_session.end_session(False)
+            gnc_session.end_session(False)
 
             if save_gnc:
                 fname = "out/updateAssets_gnc-data-{}{}".format(p_year, ('-Q' + str(p_qtr)) if p_qtr else '')
@@ -123,7 +123,8 @@ class UpdateAssets:
 
         except Exception as gnce:
             self._logger.print_error("Exception: {}!".format(repr(gnce)))
-            self.gnc_session.check_end_session(locals())
+            if gnc_session:
+                gnc_session.check_end_session(locals())
             raise gnce
 
     def fill_google_cell(self, p_col:str, p_row:int, p_time:str):
