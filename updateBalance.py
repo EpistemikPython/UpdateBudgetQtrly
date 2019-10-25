@@ -54,7 +54,7 @@ BAL_2_SHEET:str = 'Balance 2'
 class UpdateBalance:
     def __init__(self, p_filename:str, p_mode:str, p_domain:str, p_debug:bool):
         self.debug = p_debug
-        self._logger = SattoLog(my_color=GREY, do_logging=p_debug)
+        self._logger = SattoLog(my_color=GREY, do_printing=p_debug)
         self._log('UpdateBalance', GREEN)
 
         self.mode = p_mode
@@ -78,12 +78,10 @@ class UpdateBalance:
     BASE_MTHLY_ROW:int = 19
 
     def _log(self, p_msg:str, p_color:str=''):
-        if self._logger:
-            self._logger.print_info(p_msg, p_color, p_frame=inspect.currentframe().f_back)
+        self._logger.print_info(p_msg, p_color, p_frame=inspect.currentframe().f_back)
 
     def _err(self, p_msg:str, err_frame:FrameType):
-        if self._logger:
-            self._logger.print_info(p_msg, BR_RED, p_frame=err_frame)
+        self._logger.print_info(p_msg, BR_RED, p_frame=err_frame)
 
     def get_data(self) -> list:
         return self.gglu.get_data()
@@ -147,7 +145,7 @@ class UpdateBalance:
             if month_end.month % 3 != 0:
                 acct_sum = self.get_balance(BALANCE_ACCTS[ASTS], month_end)
                 adjusted_assets = acct_sum - liab_sum
-                self._log(f"Adjusted assets on ${month_end} = ${adjusted_assets.to_eng_string()}")
+                self._log(F"Adjusted assets on {month_end} = {adjusted_assets.to_eng_string()}")
                 self.fill_google_cell(BAL_MTHLY_COLS[ASTS], row, adjusted_assets)
             else:
                 self._log('Update reference to Assets sheet for Mar, June, Sep or Dec')
@@ -248,7 +246,7 @@ class UpdateBalance:
                 save_to_json(fname, now, self.get_data())
 
         except Exception as fgce:
-            self._err(f"Exception: ${repr(fgce)}!", inspect.currentframe().f_back)
+            self._err(F"Exception: {repr(fgce)}!", inspect.currentframe().f_back)
             if self.gnc_session:
                 self.gnc_session.check_end_session(locals())
             raise fgce

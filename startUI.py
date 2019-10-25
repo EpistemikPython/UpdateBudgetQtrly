@@ -9,7 +9,7 @@ __author__ = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __python_version__ = 3.6
 __created__ = '2019-03-30'
-__updated__ = '2019-09-07'
+__updated__ = '2019-10-20'
 
 from sys import argv, path
 path.append("/home/marksa/dev/git/Python/Gnucash/createGncTxs")
@@ -58,7 +58,7 @@ class UpdateBudgetQtrly(QDialog):
         self.gnc_file = ''
         self.script = ''
         self.mode = ''
-        self.log = SattoLog(do_logging=True)
+        self.log = SattoLog(do_printing=True)
         self.log.print_info("{}".format(self.title), GREEN)
         self.init_ui()
 

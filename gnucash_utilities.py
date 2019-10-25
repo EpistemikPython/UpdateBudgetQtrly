@@ -11,7 +11,7 @@ __author__ = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __python_version__ = 3.6
 __created__ = '2019-04-07'
-__updated__ = '2019-10-24'
+__updated__ = '2019-10-25'
 
 from sys import stdout, path
 path.append("/home/marksa/dev/git/Python/Utilities/")
@@ -162,7 +162,7 @@ class GnucashSession:
                 trade txs
                 price txs
         """
-        self._logger = SattoLog(my_color=GREEN, do_logging=p_debug)
+        self._logger = SattoLog(my_color=GREEN, do_printing=p_debug)
         self._log("\nclass GnucashSession: Runtime = {}\n".format(dt.now().strftime(DATE_STR_FORMAT)), MAGENTA)
 
         self._gnc_file = p_gncfile
@@ -179,12 +179,10 @@ class GnucashSession:
         self._commod_table = None
 
     def _log(self, p_msg:str, p_color:str=''):
-        if self._logger:
-            self._logger.print_info(p_msg, p_color, p_frame=inspect.currentframe().f_back)
+        self._logger.print_info(p_msg, p_color, p_frame=inspect.currentframe().f_back)
 
     def _err(self, p_msg:str, err_frame:FrameType):
-        if self._logger:
-            self._logger.print_info(p_msg, BR_RED, p_frame=err_frame)
+        self._logger.print_info(p_msg, BR_RED, p_frame=err_frame)
 
     def get_logger(self) -> SattoLog:
         return self._logger
@@ -202,7 +200,7 @@ class GnucashSession:
         if isinstance(p_curr, GncCommodity):
             self._currency = p_curr
         else:
-            self._log("BAD currency '{}' of type: {}".format(str(p_curr), type(p_curr)))
+            self._err(F"BAD currency '{str(p_curr)}' of type: {type(p_curr)}", inspect.currentframe().f_back)
 
     def begin_session(self, p_new:bool=False):
         self._log('GnucashSession.begin_session()')
@@ -262,7 +260,7 @@ class GnucashSession:
         :param p_currency: Gnucash commodity
         :return: Decimal with balance
         """
-        self._log(f"GnucashSession.get_account_balance(${acct.GetName()})")
+        self._log(F"GnucashSession.get_account_balance({acct.GetName()})")
 
         # CALLS ARE RETRIEVING ACCOUNT BALANCES FROM DAY BEFORE!!??
         p_date += ONE_DAY
@@ -294,7 +292,7 @@ class GnucashSession:
                 # ?? GETTING SLIGHT ROUNDING ERRORS WHEN ADDING MUTUAL FUND VALUES...
                 acct_sum += self.get_account_balance(sub_acct, p_date, currency)
 
-        self._log(f"GnucashSession.get_total_balance(): ${acct.GetName()} on ${p_date} = ${acct_sum}")
+        self._log(F"GnucashSession.get_total_balance(): {acct.GetName()} on {p_date} = {acct_sum}")
         return acct_sum
 
     def get_account_assets(self, asset_accts:dict, end_date:date, p_currency:GncCommodity=None) -> dict:
@@ -324,20 +322,20 @@ class GnucashSession:
         self._log("GnucashSession._get_asset_or_revenue_account()")
 
         if acct_type not in (ASSET,REVENUE):
-            raise Exception(f"GnucashSession._get_asset_or_revenue_account(): BAD Account type: ${acct_type}!")
+            raise Exception(F"GnucashSession._get_asset_or_revenue_account(): BAD Account type: {acct_type}!")
         account_path = copy(ACCT_PATHS[acct_type])
 
         if plan_type not in (OPEN,RRSP,TFSA):
-            raise Exception(f"GnucashSession._get_asset_or_revenue_account(): BAD Plan type: ${plan_type}!")
+            raise Exception(F"GnucashSession._get_asset_or_revenue_account(): BAD Plan type: {plan_type}!")
         account_path.append(plan_type)
 
         if plan_type in (RRSP,TFSA):
             if pl_owner not in (MON_MARK,MON_LULU):
-                raise Exception(f"GnucashSession._get_asset_or_revenue_account(): BAD Owner value: ${pl_owner}!")
+                raise Exception(F"GnucashSession._get_asset_or_revenue_account(): BAD Owner value: {pl_owner}!")
             account_path.append(ACCT_PATHS[pl_owner])
 
         target_account = account_from_path(self._root_acct, account_path)
-        self._log(f"target_account = ${target_account.GetName()}")
+        self._log(F"target_account = {target_account.GetName()}")
 
         return target_account
 
