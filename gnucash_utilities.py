@@ -11,16 +11,16 @@ __author__ = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __python_version__ = 3.6
 __created__ = '2019-04-07'
-__updated__ = '2019-10-25'
+__updated__ = '2019-10-26'
 
 from sys import stdout, path
-path.append("/home/marksa/dev/git/Python/Utilities/")
 from bisect import bisect_right
 from math import log10
 from copy import copy
 import csv
 from gnucash.gnucash_core_c import CREC
 from gnucash import *
+path.append("/home/marksa/dev/git/Python/Gnucash/createGncTxs/")
 from investment import *
 
 
@@ -30,7 +30,7 @@ def gnc_numeric_to_python_decimal(numeric:GncNumeric, logger:SattoLog=None) -> D
     :param numeric: value to convert
     :param  logger: debug printing
     """
-    if logger: logger.print_info("gnucash_utilities.gnc_numeric_to_python_decimal()")
+    if logger: logger.print_info('gnucash_utilities.gnc_numeric_to_python_decimal()')
 
     negative = numeric.negative_p()
     sign = 1 if negative else 0
@@ -38,7 +38,7 @@ def gnc_numeric_to_python_decimal(numeric:GncNumeric, logger:SattoLog=None) -> D
     val = GncNumeric(numeric.num(), numeric.denom())
     result = val.to_decimal(None)
     if not result:
-        raise Exception("GncNumeric value '{}' CANNOT be converted to decimal!".format(val.to_string()))
+        raise Exception(F"GncNumeric value '{val.to_string()}' CANNOT be converted to decimal!")
 
     digit_tuple = tuple(int(char) for char in str(val.num()) if char != '-')
     denominator = val.denom()
@@ -94,7 +94,7 @@ def fill_splits(base_acct:Account, target_path:list, period_starts:list, periods
     """
     account_of_interest = account_from_path(base_acct, target_path)
     acct_name = account_of_interest.GetName()
-    if logger: logger.print_info("gnucash_utilities.fill_splits().account_of_interest = {}".format(acct_name))
+    if logger: logger.print_info(F"gnucash_utilities.fill_splits().account_of_interest = {acct_name}")
 
     # get the split amounts for the parent account
     get_splits(account_of_interest, period_starts, periods)
@@ -115,14 +115,14 @@ def account_from_path(top_account:Account, account_path:list, logger:SattoLog=No
     :param  account_path: path to follow
     :param        logger
     """
-    if logger: logger.print_info("gnucash_utilities.account_from_path({},{})".format(top_account.GetName(), account_path))
+    if logger: logger.print_info(F"gnucash_utilities.account_from_path({top_account.GetName()},{account_path})")
 
     acct_name = account_path[0]
     acct_path = account_path[1:]
 
     acct = top_account.lookup_by_name(acct_name)
     if acct is None:
-        raise Exception("Path '" + str(account_path) + "' could NOT be found!")
+        raise Exception(F"Path '{str(account_path)}' could NOT be found!")
     if len(acct_path) > 0:
         return account_from_path(acct, acct_path)
     else:
@@ -136,7 +136,7 @@ def csv_write_period_list(periods:list, logger:SattoLog=None):
     :param logger: debug printing
     :return: to stdout
     """
-    if logger: logger.print_info("gnucash_utilities.csv_write_period_list()")
+    if logger: logger.print_info('gnucash_utilities.csv_write_period_list()')
 
     # write out the column headers
     csv_writer = csv.writer(stdout)
@@ -163,7 +163,7 @@ class GnucashSession:
                 price txs
         """
         self._logger = SattoLog(my_color=GREEN, do_printing=p_debug)
-        self._log("\nclass GnucashSession: Runtime = {}\n".format(dt.now().strftime(DATE_STR_FORMAT)), MAGENTA)
+        self._log(F"\n\tclass GnucashSession: Runtime = {dt.now().strftime(DATE_STR_FORMAT)}\n", MAGENTA)
 
         self._gnc_file = p_gncfile
         self._mode     = p_mode
@@ -195,7 +195,7 @@ class GnucashSession:
 
     def set_currency(self, p_curr:GncCommodity):
         if not p_curr:
-            self._log("NO currency!")
+            self._log('NO currency!')
             return
         if isinstance(p_curr, GncCommodity):
             self._currency = p_curr
@@ -215,15 +215,15 @@ class GnucashSession:
         if self._domain in (PRICE,BOTH):
             self._price_db = self._book.get_price_db()
             self._price_db.begin_edit()
-            self._log("self.price_db.begin_edit()", CYAN)
+            self._log('self.price_db.begin_edit()', CYAN)
 
     def end_session(self, p_save:bool):
         self._log('GnucashSession.end_session()')
 
         if p_save:
-            self._log("Mode = {}: SAVE session.".format(self._mode))
+            self._log(F"Mode = {self._mode}: SAVE session.")
             if self._domain in (PRICE,BOTH):
-                self._log("Domain = {}: COMMIT Price DB edits.".format(self._domain))
+                self._log(F"Domain = {self._domain}: COMMIT Price DB edits.")
                 self._price_db.commit_edit()
             self._session.save()
 
@@ -247,9 +247,9 @@ class GnucashSession:
 
         found_acct = acct_parent.lookup_by_name(acct_name)
         if not found_acct:
-            raise Exception("Could NOT find acct '{}' under parent '{}'".format(acct_name, acct_parent.GetName()))
+            raise Exception(F"Could NOT find acct '{acct_name}' under parent '{acct_parent.GetName()}'")
 
-        self._log("GnucashSession.get_account() found account: {}".format(found_acct.GetName()))
+        self._log(F"GnucashSession.get_account() found account: {found_acct.GetName()}")
         return found_acct
 
     def get_account_balance(self, acct:Account, p_date:date, p_currency:GncCommodity=None) -> Decimal:
@@ -303,7 +303,7 @@ class GnucashSession:
         :param   p_currency: Gnucash Commodity: currency to use for the sums
         :return: dict with amounts
         """
-        self._log("GnucashSession.get_account_assets()")
+        self._log('GnucashSession.get_account_assets()')
         data = {}
         currency = self._currency if p_currency is None else p_currency
         for item in asset_accts:
@@ -319,7 +319,7 @@ class GnucashSession:
         :param plan_type: plan names from investment.InvestmentRecord
         :param  pl_owner: needed to find proper account for RRSP & TFSA plan types
         """
-        self._log("GnucashSession._get_asset_or_revenue_account()")
+        self._log('GnucashSession._get_asset_or_revenue_account()')
 
         if acct_type not in (ASSET,REVENUE):
             raise Exception(F"GnucashSession._get_asset_or_revenue_account(): BAD Account type: {acct_type}!")
@@ -340,11 +340,11 @@ class GnucashSession:
         return target_account
 
     def get_asset_account(self, plan_type:str, pl_owner:str) -> Account:
-        self._log("GnucashSession.get_asset_account()")
+        self._log('GnucashSession.get_asset_account()')
         return self._get_asset_or_revenue_account(ASSET, plan_type, pl_owner)
 
     def get_revenue_account(self, plan_type:str, pl_owner:str) -> Account:
-        self._log("GnucashSession.get_revenue_account()")
+        self._log('GnucashSession.get_revenue_account()')
         return self._get_asset_or_revenue_account(REVENUE, plan_type, pl_owner)
 
     def show_account(self, p_path:list):
@@ -354,14 +354,14 @@ class GnucashSession:
         """
         acct = account_from_path(self._root_acct, p_path)
         acct_name = acct.GetName()
-        self._log("account = {}".format(acct_name))
+        self._log(F"account = {acct_name}")
         descendants = acct.get_descendants()
         if len(descendants) == 0:
-            self._log("{} has NO Descendants!".format(acct_name))
+            self._log(F"{acct_name} has NO Descendants!")
         else:
-            self._log("Descendants of {}:".format(acct_name))
+            self._log(F"Descendants of {acct_name}:")
             for item in descendants:
-                self._log("account = {}".format(item.GetName()))
+                self._log(F"account = {item.GetName()}")
 
     def create_price_tx(self, mtx:dict, ast_parent:Account):
         """
@@ -380,7 +380,7 @@ class GnucashSession:
 
         int_price = int(mtx[PRICE].replace('.','').replace('$',''))
         val = GncNumeric(int_price, 10000)
-        self._log("Adding: {}[{}] @ ${}".format(fund_name, datestring, val))
+        self._log(F"Adding: {fund_name}[{datestring}] @ ${val}")
 
         pr1 = GncPrice(self._book)
         pr1.begin_edit()
@@ -388,20 +388,20 @@ class GnucashSession:
 
         asset_acct = self.get_account(ast_parent, fund_name)
         comm = asset_acct.GetCommodity()
-        self._log("Commodity = {}:{}".format(comm.get_namespace(), comm.get_printname()))
+        self._log(F"Commodity = {comm.get_namespace()}:{comm.get_printname()}")
         pr1.set_commodity(comm)
 
         pr1.set_currency(self._currency)
         pr1.set_value(val)
-        pr1.set_source_string("user:price")
+        pr1.set_source_string('user:price')
         pr1.set_typestr('nav')
         pr1.commit_edit()
 
         if self._mode == SEND:
-            self._log("Mode = {}: Add Price to DB.".format(self._mode), GREEN)
+            self._log(F"Mode = {self._mode}: Add Price to DB.", GREEN)
             self._price_db.add_price(pr1)
         else:
-            self._log("Mode = {}: ABANDON Prices!\n".format(self._mode), RED)
+            self._log(F"Mode = {self._mode}: ABANDON Prices!\n", RED)
 
     def create_trade_tx(self, tx1:dict, tx2:dict):
         """
@@ -452,19 +452,17 @@ class GnucashSession:
             split_hold.SetAccount(self._root_acct.lookup_by_name(HOLD))
             # compare tx1[GROSS] and tx1[NET] to see if different
             # and need a third split for Financial Services expense
-            net_amount = tx1[NET]
-            self._log("{} gross = {}".format(HOLD, net_amount))
-            if net_amount != tx1[GROSS]:
-                split_diff = net_amount - tx1[GROSS]
+            if tx1[NET] != tx1[GROSS]:
+                self._log(F"Tx net '{tx1[NET]}' != gross '{tx1[GROSS]}'")
+                split_diff = tx1[NET] - tx1[GROSS]
                 split_fin_serv = Split(self._book)
                 split_fin_serv.SetParent(gtx)
                 split_fin_serv.SetAccount(self._root_acct.lookup_by_name(FIN_SERV))
                 split_fin_serv.SetValue(GncNumeric(split_diff, 100))
-            split_hold.SetValue(GncNumeric(net_amount * -1, 100))
+            split_hold.SetValue(GncNumeric(tx1[NET] * -1, 100))
             gtx.SetNotes(tx1[TYPE] + ": " + tx1[NOTES] if tx1[NOTES] else tx1[FUND])
             # set Action for the ASSET split
             action = SELL if tx1[TYPE] == RDMPN else BUY
-            self._log("action = {}".format(action))
             spl_ast.SetAction(action)
         else:
             # the second split is for a REVENUE account
@@ -480,7 +478,6 @@ class GnucashSession:
             gtx.SetNotes(tx1[NOTES])
             # set Action for the ASSET split
             action = FEE if FEE in tx1[DESC] else (SELL if tx1[UNITS] < 0 else DIST)
-            self._log("action = {}".format(action))
             spl_ast.SetAction(action)
 
         # ROLL BACK if something went wrong and the splits DO NOT balance
@@ -491,10 +488,10 @@ class GnucashSession:
             return
 
         if self._mode == SEND:
-            self._log("Mode = {}: Commit transaction changes.\n".format(self._mode), GREEN)
+            self._log(F"Mode = {self._mode}: Commit transaction.\n", GREEN)
             gtx.CommitEdit()
         else:
-            self._log("Mode = {}: Roll back transaction changes!\n".format(self._mode), RED)
+            self._log(F"Mode = {self._mode}: ROLL BACK transaction!\n", RED)
             gtx.RollbackEdit()
 
 # END class GnucashSession
