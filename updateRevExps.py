@@ -10,20 +10,20 @@ __author__ = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __python_version__ = 3.6
 __created__ = '2019-03-30'
-__updated__ = '2019-10-25'
+__updated__ = '2019-10-26'
 
-from sys import path
-path.append("/home/marksa/dev/git/Python/Gnucash/createGncTxs")
-path.append("/home/marksa/dev/git/Python/Google")
+from sys import path, exc_info
 from argparse import ArgumentParser
+path.append("/home/marksa/dev/git/Python/Gnucash/createGncTxs")
 from gnucash_utilities import *
+path.append("/home/marksa/dev/git/Python/Google")
 from google_utilities import GoogleUpdate, BASE_ROW
 
 # path to the account in the Gnucash file
 REV_ACCTS = {
     INV : ["REV_Invest"],
     OTH : ["REV_Other"],
-    EMP : ["REV_Employment"]
+    EMPL: ["REV_Employment"]
 }
 EXP_ACCTS = {
     BAL  : ["EXP_Balance"],
@@ -86,10 +86,10 @@ class UpdateRevExps:
     QTR_SPAN:int = 2
 
     def _log(self, p_msg:str, p_color:str=''):
-        self._logger.print_info(p_msg, p_color, p_frame=inspect.currentframe().f_back)
+        self._logger.print_info(p_msg, p_color, p_info=inspect.currentframe().f_back)
 
-    def _err(self, p_msg:str, err_frame:FrameType):
-        self._logger.print_info(p_msg, BR_RED, p_frame=err_frame)
+    def _err(self, p_msg:str, err_info:object):
+        self._logger.print_info(p_msg, BR_RED, p_info=err_info)
 
     def get_gnucash_data(self) -> list:
         return self.gnucash_data
@@ -124,8 +124,8 @@ class UpdateRevExps:
             acct_name = self.fill_splits(acct_base, period_starts, periods)
 
             sum_revenue = (periods[0][2] + periods[0][3]) * (-1)
-            str_rev += sum_revenue.to_eng_string() + (' + ' if item != EMP else '')
-            self._log("{} Revenue for {}-Q{} = ${}".format(acct_name, p_year, p_qtr, sum_revenue))
+            str_rev += sum_revenue.to_eng_string() + (' + ' if item != EMPL else '')
+            self._log(F"{acct_name} Revenue for {p_year}-Q{p_qtr} = ${sum_revenue}")
 
         data_quarter[REV] = str_rev
         return data_quarter
@@ -151,8 +151,7 @@ class UpdateRevExps:
 
             sum_deductions = periods[0][2] + periods[0][3]
             str_dedns += sum_deductions.to_eng_string() + (' + ' if item != "ML" else '')
-            self._log("{} {} Deductions for {}-Q{} = ${}"
-                                    .format(acct_name, EMP, p_year, data_qtr[QTR], sum_deductions))
+            self._log(F"{acct_name} {EMPL} Deductions for {p_year}-Q{data_qtr[QTR]} = ${sum_deductions}")
 
         data_qtr[DEDNS] = str_dedns
         return str_dedns
@@ -179,8 +178,7 @@ class UpdateRevExps:
             sum_expenses = periods[0][2] + periods[0][3]
             str_expenses = sum_expenses.to_eng_string()
             data_qtr[item] = str_expenses
-            self._log("{} Expenses for {}-Q{} = ${}"
-                                    .format(acct_name.split('_')[-1], p_year, data_qtr[QTR], str_expenses))
+            self._log(F"{acct_name.split('_')[-1]} Expenses for {p_year}-Q{data_qtr[QTR]} = ${str_expenses}")
             str_total += str_expenses + ' + '
 
         return str_total
@@ -238,10 +236,12 @@ class UpdateRevExps:
                 save_to_json(fname, now, self.gnucash_data)
 
         except Exception as fgde:
-            self._err(F"Exception: {repr(fgde)}!", inspect.currentframe().f_back)
+            fgde_msg = F"fill_gnucash_data() EXCEPTION: {repr(fgde)}!"
+            tb = exc_info()[2]
+            self._err(fgde_msg, tb)
             if self.gnc_session:
                 self.gnc_session.check_end_session(locals())
-            raise fgde
+            raise fgde.with_traceback(tb)
 
     def fill_google_cell(self, p_all:bool, p_col:str, p_row:int, p_time:str):
         dest = self.nec_inc_dest
@@ -267,9 +267,9 @@ class UpdateRevExps:
         year_row = BASE_ROW + year_span(p_year, self.BASE_YEAR, self.BASE_YEAR_SPAN, 0)
         # get exact row from Quarter value in each item
         for item in self.gnucash_data:
-            self._log("{} = {}".format(QTR, item[QTR]))
+            self._log(F"{QTR} = {item[QTR]}")
             dest_row = year_row + ((get_int_quarter(item[QTR]) - 1) * self.QTR_SPAN)
-            self._log("dest_row = {}\n".format(dest_row))
+            self._log(F"dest_row = {dest_row}\n")
             for key in item:
                 if key != QTR:
                     dest = BOOL_NEC_INC
@@ -314,15 +314,16 @@ def process_args() -> ArgumentParser:
 
 def process_input_parameters(argl:list) -> (str, bool, bool, bool, str, int, int) :
     args = process_args().parse_args(argl)
-    SattoLog.print_text("\nargs = {}".format(args), BROWN)
+    SattoLog.print_text(F"\nargs = {args}", BROWN)
 
     if args.debug:
         SattoLog.print_warning('Printing ALL Debug output!!')
 
     if not osp.isfile(args.gnucash_file):
-        SattoLog.print_warning("File path '{}' does not exist! Exiting...".format(args.gnucash_file))
-        exit(318)
-    SattoLog.print_text("\nGnucash file = {}".format(args.gnucash_file), GREEN)
+        msg = F"File path '{args.gnucash_file}' DOES NOT exist! Exiting..."
+        SattoLog.print_warning(msg)
+        raise Exception(msg)
+    SattoLog.print_text(F"\nGnucash file = {args.gnucash_file}", GREEN)
 
     year = get_int_year(args.year, UpdateRevExps.BASE_YEAR)
     qtr = 0 if args.quarter is None else get_int_quarter(args.quarter)
@@ -331,11 +332,11 @@ def process_input_parameters(argl:list) -> (str, bool, bool, bool, str, int, int
 
 
 def update_rev_exps_main(args:list) -> dict :
-    SattoLog.print_text("Parameters = \n{}".format(json.dumps(args, indent=4)), BROWN)
+    SattoLog.print_text(F"Parameters = \n{json.dumps(args, indent=4)}", BROWN)
     gnucash_file, save_gnc, save_ggl, debug, mode, target_year, target_qtr = process_input_parameters(args)
 
     revexp_now = dt.now().strftime(DATE_STR_FORMAT)
-    SattoLog.print_text("update_rev_exps_main(): Runtime = {}".format(revexp_now), BLUE)
+    SattoLog.print_text(F"update_rev_exps_main(): Runtime = {revexp_now}", BLUE)
 
     try:
         updater = UpdateRevExps(gnucash_file, mode, debug)
@@ -354,12 +355,13 @@ def update_rev_exps_main(args:list) -> dict :
         else:
             response = updater.get_log()
 
-    except Exception as ree:
-        msg = repr(ree)
-        SattoLog.print_warning(msg)
-        response = {"update_rev_exps_main() EXCEPTION:": "{}".format(msg)}
+    except Exception as reme:
+        reme_msg = repr(reme)
+        tb = exc_info()[2]
+        SattoLog.print_warning(reme_msg, tb)
+        response = {"update_rev_exps_main() EXCEPTION": F"{reme_msg}"}
 
-    SattoLog.print_text(" >>> PROGRAM ENDED.\n", GREEN)
+    SattoLog.print_text(' >>> PROGRAM ENDED.\n', GREEN)
     return response
 
 
