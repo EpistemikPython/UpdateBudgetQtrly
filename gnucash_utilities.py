@@ -179,10 +179,10 @@ class GnucashSession:
         self._commod_table = None
 
     def _log(self, p_msg:str, p_color:str=''):
-        self._logger.print_info(p_msg, p_color, p_frame=inspect.currentframe().f_back)
+        self._logger.print_info(p_msg, p_color, p_info=inspect.currentframe().f_back)
 
-    def _err(self, p_msg:str, err_frame:FrameType):
-        self._logger.print_info(p_msg, BR_RED, p_frame=err_frame)
+    def _err(self, p_msg:str, err_info:object):
+        self._logger.print_info(p_msg, BR_RED, p_info=err_info)
 
     def get_logger(self) -> SattoLog:
         return self._logger
@@ -217,10 +217,10 @@ class GnucashSession:
             self._price_db.begin_edit()
             self._log('self.price_db.begin_edit()', CYAN)
 
-    def end_session(self, p_save:bool):
+    def end_session(self, p_save:bool=None):
         self._log('GnucashSession.end_session()')
-
-        if p_save:
+        save_session = p_save if p_save else (self._mode == SEND)
+        if save_session:
             self._log(F"Mode = {self._mode}: SAVE session.")
             if self._domain in (PRICE,BOTH):
                 self._log(F"Domain = {self._domain}: COMMIT Price DB edits.")
