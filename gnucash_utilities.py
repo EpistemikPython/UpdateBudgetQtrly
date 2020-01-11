@@ -5,13 +5,14 @@
 #
 # some code from account_analysis.py by Mark Jenkins, ParIT Worker Co-operative <mark@parit.ca>
 #
-# Copyright (c) 2019 Mark Sattolo <epistemik@gmail.com>
+# Copyright (c) 2020 Mark Sattolo <epistemik@gmail.com>
 #
 __author__ = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
-__python_version__ = 3.6
+__python_version__  = 3.9
+__gnucash_version__ = 3.8
 __created__ = '2019-04-07'
-__updated__ = '2019-10-26'
+__updated__ = '2020-01-11'
 
 from sys import stdout, path
 from bisect import bisect_right
@@ -149,7 +150,7 @@ def csv_write_period_list(periods:list, logger:SattoLog=None):
 
 
 class GnucashSession:
-    def __init__(self, p_mode:str, p_gncfile:str, p_debug:bool, p_domain:str, p_currency:GncCommodity=None) :
+    def __init__(self, p_mode:str, p_gncfile:str, p_debug:bool, p_domain:str, p_currency:GncCommodity=None):
         """
         Create and manage a Gnucash session
         init = prepare session, RO or RW, from Gnucash file, debug,
@@ -193,6 +194,9 @@ class GnucashSession:
     def get_root_acct(self) -> Account:
         return self._root_acct
 
+    def add_price(self, prc:GncPrice):
+        self._price_db.add_price(prc)
+
     def set_currency(self, p_curr:GncCommodity):
         if not p_curr:
             self._log('NO currency!')
@@ -235,19 +239,23 @@ class GnucashSession:
         if "gnucash_session" in p_locals and self._session is not None:
             self._session.end()
 
-    def get_account(self, acct_parent:Account, acct_name:str) -> Account:
-        """Find the proper account"""
-        self._log('GnucashSession.get_account()')
+    def get_account(self, acct_name:str, acct_parent:Account=None) -> Account:
+        """Under the specified parent account find the Account with the specified name"""
+        if acct_parent is None:
+            acct_parent = self.get_root_acct()
+        acct_parent_name = acct_parent.GetName()
+        self._log(F"GnucashSession.get_account(parent={acct_parent_name}, acct_name={acct_name})")
 
-        # special locations for Trust accounts
+        # special location for Trust account
         if acct_name == TRUST_AST_ACCT:
-            return self._root_acct.lookup_by_name(TRUST).lookup_by_name(TRUST_AST_ACCT)
-        if acct_name == TRUST_EQY_ACCT:
-            return self._root_acct.lookup_by_name(EQUITY).lookup_by_name(TRUST_EQY_ACCT)
+            found_acct = self._root_acct.lookup_by_name(TRUST).lookup_by_name(TRUST_AST_ACCT)
+        # elif acct_name == TRUST_EQY_ACCT:
+        #     found_acct = self._root_acct.lookup_by_name(EQUITY).lookup_by_name(TRUST_EQY_ACCT)
+        else:
+            found_acct = acct_parent.lookup_by_name(acct_name)
 
-        found_acct = acct_parent.lookup_by_name(acct_name)
         if not found_acct:
-            raise Exception(F"Could NOT find acct '{acct_name}' under parent '{acct_parent.GetName()}'")
+            raise Exception(F"Could NOT find acct '{acct_name}' under parent '{acct_parent_name}'")
 
         self._log(F"GnucashSession.get_account() found account: {found_acct.GetName()}")
         return found_acct
@@ -339,8 +347,8 @@ class GnucashSession:
 
         return target_account
 
-    def get_asset_account(self, plan_type:str, pl_owner:str) -> Account:
-        self._log('GnucashSession.get_asset_account()')
+    def get_asset_parent(self, plan_type:str, pl_owner:str) -> Account:
+        self._log('GnucashSession.get_asset_parent()')
         return self._get_asset_or_revenue_account(ASSET, plan_type, pl_owner)
 
     def get_revenue_account(self, plan_type:str, pl_owner:str) -> Account:
@@ -386,7 +394,7 @@ class GnucashSession:
         pr1.begin_edit()
         pr1.set_time64(pr_date)
 
-        asset_acct = self.get_account(ast_parent, fund_name)
+        asset_acct = self.get_account(fund_name, ast_parent)
         comm = asset_acct.GetCommodity()
         self._log(F"Commodity = {comm.get_namespace()}:{comm.get_printname()}")
         pr1.set_commodity(comm)
@@ -399,7 +407,7 @@ class GnucashSession:
 
         if self._mode == SEND:
             self._log(F"Mode = {self._mode}: Add Price to DB.", GREEN)
-            self._price_db.add_price(pr1)
+            self.add_price(pr1)
         else:
             self._log(F"Mode = {self._mode}: ABANDON Prices!\n", RED)
 
@@ -418,7 +426,7 @@ class GnucashSession:
 
         gtx.SetCurrency(self._currency)
         gtx.SetDate(tx1[TRADE_DAY], tx1[TRADE_MTH], tx1[TRADE_YR])
-        self._log("tx1[DESC] = {}".format(tx1[DESC]))
+        self._log(F"tx1[DESC] = {tx1[DESC]}")
         gtx.SetDescription(tx1[DESC])
 
         # create the ASSET split for the Tx
@@ -429,52 +437,47 @@ class GnucashSession:
         spl_ast.SetValue(GncNumeric(tx1[GROSS], 100))
         spl_ast.SetAmount(GncNumeric(tx1[UNITS], 10000))
 
-        if tx1[TYPE] in (SW_IN,SW_OUT):
-            # create a second ASSET split for the Tx
-            spl_ast2 = Split(self._book)
-            spl_ast2.SetParent(gtx)
-            # set the Account, Value, and Units of the second ASSET split
-            spl_ast2.SetAccount(tx2[ACCT])
-            spl_ast2.SetValue(GncNumeric(tx2[GROSS], 100))
-            spl_ast2.SetAmount(GncNumeric(tx2[UNITS], 10000))
+        # create a second split for the Tx
+        split_2 = Split(self._book)
+        split_2.SetParent(gtx)
+
+        if tx1[TYPE] in PAIRED_TYPES:
+            self._log(F"tx2[DESC] = {tx2[DESC]}")
+            # set the Account, Value, and Units for a second ASSET split
+            split_2.SetAccount(tx2[ACCT])
+            split_2.SetValue(GncNumeric(tx2[GROSS], 100))
+            split_2.SetAmount(GncNumeric(tx2[UNITS], 10000))
             # set Actions for the splits
-            spl_ast2.SetAction(BUY if tx1[UNITS] < 0 else SELL)
+            split_2.SetAction(BUY if tx1[UNITS] < 0 else SELL)
             spl_ast.SetAction(BUY if tx1[UNITS] > 0 else SELL)
-            # combine Notes for the Tx and set Memos for the splits
+            # modify the Gnc Tx description to note the paired account
+            gtx.SetDescription(tx1[DESC] + ' <> ' + tx2[FUND])
             gtx.SetNotes(tx1[NOTES] + " | " + tx2[NOTES])
             spl_ast.SetMemo(tx1[NOTES])
-            spl_ast2.SetMemo(tx2[NOTES])
+            split_2.SetMemo(tx2[NOTES])
         elif tx1[TYPE] in (RDMPN,PURCH):
             # the second split is for the HOLD account
-            # need a third split if there is a difference b/n Gross and Net
-            split_hold = Split(self._book)
-            split_hold.SetParent(gtx)
-            split_hold.SetAccount(self._root_acct.lookup_by_name(HOLD))
+            split_2.SetAccount(self._root_acct.lookup_by_name(HOLD))
+            # MAY need a third split for Financial Services expense
             # compare tx1[GROSS] and tx1[NET] to see if different
-            # and need a third split for Financial Services expense
             if tx1[NET] != tx1[GROSS]:
                 self._log(F"Tx net '{tx1[NET]}' != gross '{tx1[GROSS]}'")
-                split_diff = tx1[NET] - tx1[GROSS]
+                amount_diff = tx1[NET] - tx1[GROSS]
                 split_fin_serv = Split(self._book)
                 split_fin_serv.SetParent(gtx)
                 split_fin_serv.SetAccount(self._root_acct.lookup_by_name(FIN_SERV))
-                split_fin_serv.SetValue(GncNumeric(split_diff, 100))
-            split_hold.SetValue(GncNumeric(tx1[NET] * -1, 100))
+                split_fin_serv.SetValue(GncNumeric(amount_diff, 100))
+            split_2.SetValue(GncNumeric(tx1[NET] * -1, 100))
             gtx.SetNotes(tx1[TYPE] + ": " + tx1[NOTES] if tx1[NOTES] else tx1[FUND])
             # set Action for the ASSET split
             action = SELL if tx1[TYPE] == RDMPN else BUY
             spl_ast.SetAction(action)
         else:
             # the second split is for a REVENUE account
-            spl_rev = Split(self._book)
-            spl_rev.SetParent(gtx)
-            # set the Account, Value and Reconciled of the REVENUE split
-            spl_rev.SetAccount(tx1[REVENUE])
+            split_2.SetAccount(tx1[REVENUE])
             gross_revenue = tx1[GROSS] * -1
-            # self.dbg.print_info("gross revenue = {}".format(rev_gross))
-            spl_rev.SetValue(GncNumeric(gross_revenue, 100))
-            spl_rev.SetReconcile(CREC)
-            # set Notes for the Tx
+            split_2.SetValue(GncNumeric(gross_revenue, 100))
+            split_2.SetReconcile(CREC)
             gtx.SetNotes(tx1[NOTES])
             # set Action for the ASSET split
             action = FEE if FEE in tx1[DESC] else (SELL if tx1[UNITS] < 0 else DIST)
