@@ -4,21 +4,22 @@
 # updateBalance.py -- use the Gnucash and Google APIs to update the 'Balance' sheet
 #                     in my BudgetQtrly document for today or for a specified year or years
 #
-# Copyright (c) 2019 Mark Sattolo <epistemik@gmail.com>
+# Copyright (c) 2020 Mark Sattolo <epistemik@gmail.com>
 #
 __author__ = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
-__python_version__ = 3.6
+__python_version__  = 3.9
+__gnucash_version__ = 3.8
 __created__ = '2019-04-13'
-__updated__ = '2019-10-24'
+__updated__ = '2020-01-11'
 
 from sys import path
-path.append("/home/marksa/dev/git/Python/Gnucash/createGncTxs")
-path.append("/home/marksa/dev/git/Python/Google")
 from argparse import ArgumentParser
-from gnucash_utilities import *
-from google_utilities import GoogleUpdate, BASE_ROW
 from updateAssets import ASSET_COLS, UpdateAssets as UA
+path.append("/home/marksa/dev/git/Python/Gnucash/createGncTxs")
+from gnucash_utilities import *
+path.append("/home/marksa/dev/git/Python/Google")
+from google_utilities import GoogleUpdate, BASE_ROW
 
 # path to the accounts in the Gnucash file
 BALANCE_ACCTS = {
@@ -78,10 +79,10 @@ class UpdateBalance:
     BASE_MTHLY_ROW:int = 19
 
     def _log(self, p_msg:str, p_color:str=''):
-        self._logger.print_info(p_msg, p_color, p_frame=inspect.currentframe().f_back)
+        self._logger.print_info(p_msg, p_color, p_info=inspect.currentframe().f_back)
 
     def _err(self, p_msg:str, err_frame:FrameType):
-        self._logger.print_info(p_msg, BR_RED, p_frame=err_frame)
+        self._logger.print_info(p_msg, BR_RED, p_info=err_frame)
 
     def get_data(self) -> list:
         return self.gglu.get_data()

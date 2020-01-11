@@ -4,19 +4,20 @@
 # updateAssets.py -- use the Gnucash and Google APIs to update the Assets
 #                    in my BudgetQtrly document for a specified year or quarter
 #
-# Copyright (c) 2019 Mark Sattolo <epistemik@gmail.com>
+# Copyright (c) 2020 Mark Sattolo <epistemik@gmail.com>
 #
 __author__ = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
-__python_version__ = 3.6
+__python_version__  = 3.9
+__gnucash_version__ = 3.8
 __created__ = '2019-04-06'
-__updated__ = '2019-10-25'
+__updated__ = '2020-01-11'
 
 from sys import path
-path.append("/home/marksa/dev/git/Python/Gnucash/createGncTxs")
-path.append("/home/marksa/dev/git/Python/Google")
 from argparse import ArgumentParser
+path.append("/home/marksa/dev/git/Python/Gnucash/createGncTxs")
 from gnucash_utilities import *
+path.append("/home/marksa/dev/git/Python/Google")
 from google_utilities import GoogleUpdate, BASE_ROW
 
 # path to the account in the Gnucash file
@@ -81,10 +82,10 @@ class UpdateAssets:
     HDR_SPAN:int = 3
 
     def _log(self, p_msg:str, p_color:str=''):
-        self._logger.print_info(p_msg, p_color, p_frame=inspect.currentframe().f_back)
+        self._logger.print_info(p_msg, p_color, p_info=inspect.currentframe().f_back)
 
     def _err(self, p_msg:str, err_frame:FrameType):
-        self._logger.print_info(p_msg, BR_RED, p_frame=err_frame)
+        self._logger.print_info(p_msg, BR_RED, p_info=err_frame)
 
     def get_gnucash_data(self) -> list:
         return self.gnucash_data
