@@ -3,13 +3,14 @@
 #
 # startUI.py -- run the UI for the update functions
 #
-# Copyright (c) 2019 Mark Sattolo <epistemik@gmail.com>
+# Copyright (c) 2020 Mark Sattolo <epistemik@gmail.com>
 #
 __author__ = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
-__python_version__ = 3.6
+__python_version__  = 3.9
+__gnucash_version__ = 3.8
 __created__ = '2019-03-30'
-__updated__ = '2019-10-20'
+__updated__ = '2020-01-11'
 
 from sys import argv, path
 path.append("/home/marksa/dev/git/Python/Gnucash/createGncTxs")
@@ -46,6 +47,7 @@ MAIN_FXNS:dict = {
 }
 
 
+# noinspection PyCallByClass,PyTypeChecker,PyArgumentList
 class UpdateBudgetQtrly(QDialog):
     """update my 'Budget Quarterly' Google spreadsheet with information from a Gnucash file"""
     def __init__(self):
@@ -62,7 +64,7 @@ class UpdateBudgetQtrly(QDialog):
         self.log.print_info("{}".format(self.title), GREEN)
         self.init_ui()
 
-    # noinspection PyAttributeOutsideInit
+    # noinspection PyAttributeOutsideInit,PyArgumentList
     def init_ui(self):
         self.setWindowTitle(self.title)
         self.setGeometry(self.left, self.top, self.width, self.height)
