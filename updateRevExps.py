@@ -4,13 +4,14 @@
 # updateRevExps.py -- use the Gnucash and Google APIs to update the Revenue and Expenses
 #                     in my BudgetQtrly document for a specified year or quarter
 #
-# Copyright (c) 2019 Mark Sattolo <epistemik@gmail.com>
+# Copyright (c) 2020 Mark Sattolo <epistemik@gmail.com>
 #
 __author__ = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
-__python_version__ = 3.6
+__python_version__  = 3.9
+__gnucash_version__ = 3.8
 __created__ = '2019-03-30'
-__updated__ = '2019-10-26'
+__updated__ = '2020-01-11'
 
 from sys import path, exc_info
 from argparse import ArgumentParser
@@ -103,13 +104,11 @@ class UpdateRevExps:
     def fill_splits(self, account_path:list, period_starts:list, periods:list):
         return fill_splits(self.gnc_session.get_root_acct(), account_path, period_starts, periods)
 
-    def get_revenue(self, period_starts:list, periods:list, p_year:int, p_qtr:int) -> dict:
+    def get_revenue(self, period_starts:list, periods:list) -> dict:
         """
-        Get REVENUE data for the specified Quarter
+        Get REVENUE data for the specified periods
         :param period_starts: start date for each period
         :param       periods: structs with the dates and amounts for each quarter
-        :param        p_year: year to read
-        :param         p_qtr: quarter to read: 1..4
         :return: revenue for period
         """
         self._log('UpdateRevExps.get_revenue()')
@@ -125,7 +124,7 @@ class UpdateRevExps:
 
             sum_revenue = (periods[0][2] + periods[0][3]) * (-1)
             str_rev += sum_revenue.to_eng_string() + (' + ' if item != EMPL else '')
-            self._log(F"{acct_name} Revenue for {p_year}-Q{p_qtr} = ${sum_revenue}")
+            self._log(F"{acct_name} Revenue for period = ${sum_revenue}")
 
         data_quarter[REV] = str_rev
         return data_quarter
@@ -191,6 +190,7 @@ class UpdateRevExps:
         :param save_gnc: true if want to save the Gnucash data to a JSON file
         :param   p_year: year to update
         :param    p_qtr: 1..4 for quarter to update or 0 if updating ALL FOUR quarters
+        :return: nil
         """
         num_quarters = 1 if p_qtr else 4
         self._log("UpdateRevExps.fill_gnucash_data(): find Revenue & Expenses in {} for {}{}"
@@ -216,7 +216,7 @@ class UpdateRevExps:
                 # a copy of the above list with just the period start dates
                 period_starts = [e[0] for e in period_list]
 
-                data_quarter = self.get_revenue(period_starts, period_list, p_year, qtr)
+                data_quarter = self.get_revenue(period_starts, period_list)
                 data_quarter[QTR] = str(qtr)
                 self._log(F"\nTOTAL Revenue for {p_year}-Q{qtr} = ${period_list[0][4] * -1}")
 
@@ -262,6 +262,7 @@ class UpdateRevExps:
         others are just the string from the item
         :param      p_year: year to update
         :param save_google: save the Google data to a JSON file
+        :return: nil
         """
         self._log('UpdateRevExps.fill_google_data()')
         year_row = BASE_ROW + year_span(p_year, self.BASE_YEAR, self.BASE_YEAR_SPAN, 0)
@@ -312,7 +313,7 @@ def process_args() -> ArgumentParser:
     return arg_parser
 
 
-def process_input_parameters(argl:list) -> (str, bool, bool, bool, str, int, int) :
+def process_input_parameters(argl:list) -> (str, bool, bool, bool, str, int, int):
     args = process_args().parse_args(argl)
     SattoLog.print_text(F"\nargs = {args}", BROWN)
 
