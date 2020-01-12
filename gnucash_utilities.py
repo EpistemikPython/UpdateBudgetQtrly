@@ -268,7 +268,7 @@ class GnucashSession:
         :param p_currency: Gnucash commodity
         :return: Decimal with balance
         """
-        self._log(F"GnucashSession.get_account_balance({acct.GetName()})")
+        # self._log(F"GnucashSession.get_account_balance({acct.GetName()})")
 
         # CALLS ARE RETRIEVING ACCOUNT BALANCES FROM DAY BEFORE!!??
         p_date += ONE_DAY

@@ -20,6 +20,12 @@ from gnucash_utilities import *
 path.append("/home/marksa/dev/git/Python/Google")
 from google_utilities import GoogleUpdate, BASE_ROW
 
+BASE_YEAR:int = 2012
+# number of rows between same quarter in adjacent years
+BASE_YEAR_SPAN:int = 11
+# number of rows between quarters in the same year
+QTR_SPAN:int = 2
+
 # path to the account in the Gnucash file
 REV_ACCTS = {
     INV : ["REV_Invest"],
@@ -79,12 +85,6 @@ class UpdateRevExps:
             self.nec_inc_dest = NEC_INC_SHEET
         self._log(F"all_inc_dest = {self.all_inc_dest}")
         self._log(F"nec_inc_dest = {self.nec_inc_dest}\n")
-
-    BASE_YEAR:int = 2012
-    # number of rows between same quarter in adjacent years
-    BASE_YEAR_SPAN:int = 11
-    # number of rows between quarters in the same year
-    QTR_SPAN:int = 2
 
     def _log(self, p_msg:str, p_color:str=''):
         self._logger.print_info(p_msg, p_color, p_info=inspect.currentframe().f_back)
@@ -182,7 +182,7 @@ class UpdateRevExps:
 
         return str_total
 
-    def fill_gnucash_data(self, save_gnc:bool, p_year:int, p_qtr:int):
+    def prepare_gnucash_data(self, save_gnc:bool, p_year:int, p_qtr:int):
         """
         Get REVENUE and EXPENSE data for ONE specified Quarter or ALL four Quarters for the specified Year
         >> NOT really necessary to have a separate variable for the Gnucash data, but useful to have all
@@ -193,7 +193,7 @@ class UpdateRevExps:
         :return: nil
         """
         num_quarters = 1 if p_qtr else 4
-        self._log("UpdateRevExps.fill_gnucash_data(): find Revenue & Expenses in {} for {}{}"
+        self._log("UpdateRevExps.prepare_gnucash_data(): find Revenue & Expenses in {} for {}{}"
                   .format(self.gnucash_file, p_year, ('-Q' + str(p_qtr)) if p_qtr else ''))
         try:
             self.gnc_session = GnucashSession(self.mode, self.gnucash_file, self.debug, BOTH)
@@ -236,7 +236,7 @@ class UpdateRevExps:
                 save_to_json(fname, now, self.gnucash_data)
 
         except Exception as fgde:
-            fgde_msg = F"fill_gnucash_data() EXCEPTION: {repr(fgde)}!"
+            fgde_msg = F"prepare_gnucash_data() EXCEPTION: {repr(fgde)}!"
             tb = exc_info()[2]
             self._err(fgde_msg, tb)
             if self.gnc_session:
@@ -265,11 +265,11 @@ class UpdateRevExps:
         :return: nil
         """
         self._log('UpdateRevExps.fill_google_data()')
-        year_row = BASE_ROW + year_span(p_year, self.BASE_YEAR, self.BASE_YEAR_SPAN, 0)
+        year_row = BASE_ROW + year_span(p_year, BASE_YEAR, BASE_YEAR_SPAN, 0)
         # get exact row from Quarter value in each item
         for item in self.gnucash_data:
             self._log(F"{QTR} = {item[QTR]}")
-            dest_row = year_row + ((get_int_quarter(item[QTR]) - 1) * self.QTR_SPAN)
+            dest_row = year_row + ((get_int_quarter(item[QTR]) - 1) * QTR_SPAN)
             self._log(F"dest_row = {dest_row}\n")
             for key in item:
                 if key != QTR:
@@ -279,7 +279,7 @@ class UpdateRevExps:
                     self.fill_google_cell(dest, REV_EXP_COLS[key], dest_row, item[key])
 
         # fill update date & time to ALL and NEC
-        today_row = BASE_ROW - 1 + year_span(today.year+2, self.BASE_YEAR, self.BASE_YEAR_SPAN, 0)
+        today_row = BASE_ROW - 1 + year_span(today.year+2, BASE_YEAR, BASE_YEAR_SPAN, 0)
         self.fill_google_cell(BOOL_NEC_INC, REV_EXP_COLS[DATE], today_row, today.strftime(FILE_DATE_STR))
         self.fill_google_cell(BOOL_NEC_INC, REV_EXP_COLS[DATE], today_row+1, today.strftime(CELL_TIME_STR))
         self.fill_google_cell(BOOL_ALL_INC, REV_EXP_COLS[DATE], today_row, today.strftime(FILE_DATE_STR))
@@ -303,7 +303,7 @@ def process_args() -> ArgumentParser:
     required.add_argument('-g', '--gnucash_file', required=True, help='path & filename of the Gnucash file to use')
     required.add_argument('-m', '--mode', required=True, choices=[TEST,SEND+'1',SEND+'2'],
                           help='SEND to Google sheet (1 or 2) OR just TEST')
-    required.add_argument('-y', '--year', required=True, help="year to update: {}..2019".format(UpdateRevExps.BASE_YEAR))
+    required.add_argument('-y', '--year', required=True, help="year to update: {}..2019".format(BASE_YEAR))
     # optional arguments
     arg_parser.add_argument('-q', '--quarter', choices=['1','2','3','4'], help="quarter to update: 1..4")
     arg_parser.add_argument('--gnc_save',  action='store_true', help='Write the Gnucash formatted data to a JSON file')
@@ -326,7 +326,7 @@ def process_input_parameters(argl:list) -> (str, bool, bool, bool, str, int, int
         raise Exception(msg)
     SattoLog.print_text(F"\nGnucash file = {args.gnucash_file}", GREEN)
 
-    year = get_int_year(args.year, UpdateRevExps.BASE_YEAR)
+    year = get_int_year(args.year, BASE_YEAR)
     qtr = 0 if args.quarter is None else get_int_quarter(args.quarter)
 
     return args.gnucash_file, args.gnc_save, args.ggl_save, args.debug, args.mode, year, qtr
@@ -343,7 +343,7 @@ def update_rev_exps_main(args:list) -> dict :
         updater = UpdateRevExps(gnucash_file, mode, debug)
 
         # either for One Quarter or for Four Quarters if updating an entire Year
-        updater.fill_gnucash_data(save_gnc, target_year, target_qtr)
+        updater.prepare_gnucash_data(save_gnc, target_year, target_qtr)
 
         # get the requested data from Gnucash and package in the update format required by Google sheets
         updater.fill_google_data(target_year, save_ggl)

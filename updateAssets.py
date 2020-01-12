@@ -20,6 +20,14 @@ from gnucash_utilities import *
 path.append("/home/marksa/dev/git/Python/Google")
 from google_utilities import GoogleUpdate, BASE_ROW
 
+BASE_YEAR:int = 2007
+# number of rows between same quarter in adjacent years
+BASE_YEAR_SPAN:int = 4
+# number of rows between quarters in the same year
+QTR_SPAN:int = 1
+# number of year groups between header rows
+HDR_SPAN:int = 3
+
 # path to the account in the Gnucash file
 ASSET_ACCTS = {
     AU    : ["FAMILY", "Prec Metals", "Au"],
@@ -73,14 +81,6 @@ class UpdateAssets:
             self.dest = QTR_ASTS_SHEET
         self._log("dest = {}".format(self.dest))
 
-    BASE_YEAR:int = 2007
-    # number of rows between same quarter in adjacent years
-    BASE_YEAR_SPAN:int = 4
-    # number of rows between quarters in the same year
-    QTR_SPAN:int = 1
-    # number of year groups between header rows
-    HDR_SPAN:int = 3
-
     def _log(self, p_msg:str, p_color:str=''):
         self._logger.print_info(p_msg, p_color, p_info=inspect.currentframe().f_back)
 
@@ -96,14 +96,14 @@ class UpdateAssets:
     def get_log(self) -> list :
         return self._logger.get_log()
 
-    def fill_gnucash_data(self, save_gnc:bool, p_year:int, p_qtr:int):
+    def prepare_gnucash_data(self, save_gnc:bool, p_year:int, p_qtr:int):
         """
         Get ASSET data for ONE specified Quarter or ALL four Quarters for the specified Year
         :param save_gnc: save gnucash data to json file
         :param   p_year: year to update
         :param    p_qtr: 1..4 for quarter to update or 0 if updating ALL FOUR quarters
         """
-        self._log("UpdateAssets.fill_gnucash_data(): find Assets in {} for {}{}"
+        self._log("UpdateAssets.prepare_gnucash_data(): find Assets in {} for {}{}"
                   .format(self.gnucash_file, p_year, ('-Q' + str(p_qtr)) if p_qtr else ''))
         num_quarters = 1 if p_qtr else 4
         gnc_session = None
@@ -156,12 +156,12 @@ class UpdateAssets:
         self._log("UpdateAssets.fill_google_data({},{})\n".format(p_year, save_ggl))
 
         try:
-            year_row = BASE_ROW + year_span(p_year, self.BASE_YEAR, self.BASE_YEAR_SPAN, self.HDR_SPAN)
+            year_row = BASE_ROW + year_span(p_year, BASE_YEAR, BASE_YEAR_SPAN, HDR_SPAN)
             # get exact row from Quarter value in each item
             for item in self.gnucash_data:
                 self._log("{} = {}".format(QTR, item[QTR]))
                 int_qtr = int(item[QTR])
-                dest_row = year_row + ((int_qtr - 1) * self.QTR_SPAN)
+                dest_row = year_row + ((int_qtr - 1) * QTR_SPAN)
                 self._log("dest_row = {}\n".format(dest_row))
                 for key in item:
                     if key != QTR:
@@ -173,7 +173,7 @@ class UpdateAssets:
                         self.fill_google_cell(ASSET_COLS[key], dest_row, item[key])
 
             # fill date & time of this update
-            today_row = BASE_ROW + 1 + year_span(today.year+2, self.BASE_YEAR, self.BASE_YEAR_SPAN, self.HDR_SPAN)
+            today_row = BASE_ROW + 1 + year_span(today.year+2, BASE_YEAR, BASE_YEAR_SPAN, HDR_SPAN)
             self.fill_google_cell(ASSET_COLS[DATE], today_row, today.strftime(FILE_DATE_STR))
             self.fill_google_cell(ASSET_COLS[DATE], today_row+1, today.strftime(CELL_TIME_STR))
 
@@ -199,7 +199,7 @@ def process_args() -> ArgumentParser:
     required.add_argument('-g', '--gnucash_file', required=True, help='path & filename of the Gnucash file to use')
     required.add_argument('-m', '--mode', required=True, choices=[TEST,SEND+'1',SEND+'2'],
                           help='SEND to Google sheet (1 or 2) OR just TEST')
-    required.add_argument('-y', '--year', required=True, help="year to update: {}..2019".format(UpdateAssets.BASE_YEAR))
+    required.add_argument('-y', '--year', required=True, help="year to update: {}..2019".format(BASE_YEAR))
     # optional arguments
     arg_parser.add_argument('-q', '--quarter', choices=['1','2','3','4'], help="quarter to update: 1..4")
     arg_parser.add_argument('--gnc_save',  action='store_true', help='Write the Gnucash formatted data to a JSON file')
@@ -221,7 +221,7 @@ def process_input_parameters(argl:list) -> (str, bool, bool, bool, str, int, int
         exit(209)
     SattoLog.print_text("\nGnucash file = {}".format(args.gnucash_file), GREEN)
 
-    year = get_int_year(args.year, UpdateAssets.BASE_YEAR)
+    year = get_int_year(args.year, BASE_YEAR)
     qtr = 0 if args.quarter is None else get_int_quarter(args.quarter)
 
     return args.gnucash_file, args.gnc_save, args.ggl_save, args.debug, args.mode, year, qtr
@@ -239,7 +239,7 @@ def update_assets_main(args:list) -> dict :
         updater = UpdateAssets(gnucash_file, mode, debug)
 
         # either for One Quarter or for Four Quarters if updating an entire Year
-        updater.fill_gnucash_data(save_gnc, target_year, target_qtr)
+        updater.prepare_gnucash_data(save_gnc, target_year, target_qtr)
 
         # get the requested data from Gnucash and package in the update format required by Google sheets
         updater.fill_google_data(target_year, save_ggl)

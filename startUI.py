@@ -34,7 +34,7 @@ SHEET_1:str  = 'Sheet 1'
 SHEET_2:str  = 'Sheet 2'
 
 PARAMS:dict = {
-    REV_EXPS  : ['2019', '2018', '2017', '2016', '2015', '2014', '2013', '2012'] ,
+    REV_EXPS  : ['2020', '2019', '2018', '2017', '2016', '2015', '2014', '2013', '2012'] ,
     ASSETS    : ['2011', '2010', '2009', '2008'] ,
     BALANCE   : ['today', 'allyears'] ,
     QTRS      : ['ALL', '#1', '#2', '#3', '#4']
@@ -53,7 +53,7 @@ class UpdateBudgetQtrly(QDialog):
     def __init__(self):
         super().__init__()
         self.title = 'Update Budget Quarterly'
-        self.left = 680
+        self.left = 120
         self.top = 160
         self.width = 600
         self.height = 800
@@ -207,7 +207,7 @@ class UpdateBudgetQtrly(QDialog):
         exe = self.cb_script.currentText()
         self.log.print_info("Script is '{}'.".format(exe))
 
-        if self.gnc_file == '':
+        if not self.gnc_file:
             self.response_box.setText('>>> MUST select a Gnucash File!')
             return
 
@@ -227,13 +227,13 @@ class UpdateBudgetQtrly(QDialog):
         if exe != BALANCE:
             domain_key = '-y'
             if quarter != 'ALL' : cl_params.append('-q' + quarter)
-            if self.ch_gnc.isChecked() : cl_params.append('--gnc_save')
+            if self.ch_gnc.isChecked(): cl_params.append('--gnc_save')
 
         domain = self.cb_domain.currentText()
         cl_params.append(domain_key + domain)
 
-        if self.ch_ggl.isChecked() : cl_params.append('--ggl_save')
-        if self.ch_debug.isChecked() : cl_params.append('--debug')
+        if self.ch_ggl.isChecked(): cl_params.append('--ggl_save')
+        if self.ch_debug.isChecked(): cl_params.append('--debug')
 
         self.log.print_info(cl_params, GREEN)
 
