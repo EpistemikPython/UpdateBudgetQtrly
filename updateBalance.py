@@ -11,16 +11,19 @@ __author_email__ = 'epistemik@gmail.com'
 __python_version__  = 3.9
 __gnucash_version__ = 3.8
 __created__ = '2019-04-13'
-__updated__ = '2020-01-11'
+__updated__ = '2020-01-26'
 
-from sys import path
+from sys import path, argv
 from argparse import ArgumentParser
+import logging.config as lgconf
 from updateAssets import (ASSET_COLS, BASE_YEAR as UA_BASE_YEAR, BASE_YEAR_SPAN as UA_BASE_YEAR_SPAN,
                           HDR_SPAN as UA_HDR_SPAN, QTR_SPAN as UA_QTR_SPAN)
+import yaml
 path.append("/home/marksa/dev/git/Python/Gnucash/createGncTxs")
 from gnucash_utilities import *
-path.append("/home/marksa/dev/git/Python/Google")
-from google_utilities import GoogleUpdate, BASE_ROW
+path.append(BASE_PYTHON_FOLDER + 'Google/')
+from google_utilities import GoogleUpdate, BASE_ROW, GOOGLE_BASENAME
+path.append(BASE_GNUCASH_FOLDER + 'createGncTxs/makeGncTx/')
 
 BASE_YEAR:int = 2008
 # number of rows between same quarter in adjacent years
@@ -62,37 +65,37 @@ BAL_TODAY_RANGES = {
 BAL_1_SHEET:str = 'Balance 1'
 BAL_2_SHEET:str = 'Balance 2'
 
+MULTI_LOGGING = True
+print('MULTI_LOGGING = True')
+
+
+# load the logging config
+with open(YAML_CONFIG_FILE, 'r') as fp:
+    log_cfg = yaml.safe_load(fp.read())
+lgconf.dictConfig(log_cfg)
+lgr = lg.getLogger('gnucash')
+
 
 class UpdateBalance:
     def __init__(self, p_filename:str, p_mode:str, p_domain:str, p_debug:bool):
         self.debug = p_debug
-        self._logger = SattoLog(my_color=GREY, do_printing=p_debug)
-        self._log(F"UpdateBalance({p_mode}, {p_domain})", GREEN)
+        lgr.info(F"UpdateBalance({p_mode}, {p_domain})")
 
         self.mode = p_mode
         # Google sheet to update
         self.dest = BAL_2_SHEET
         if '1' in self.mode:
             self.dest = BAL_1_SHEET
-        self._log("dest = {}".format(self.dest))
+        lgr.info("dest = {}".format(self.dest))
 
         self.gnucash_file = p_filename
         self.gnc_session = None
         self.domain = p_domain
 
-        self.gglu = GoogleUpdate(self._logger)
-
-    def _log(self, p_msg:str, p_color:str=''):
-        self._logger.print_info(p_msg, p_color, p_info=inspect.currentframe().f_back)
-
-    def _err(self, p_msg:str, err_frame:FrameType):
-        self._logger.print_info(p_msg, BR_RED, p_info=err_frame)
+        self.gglu = GoogleUpdate(lgr)
 
     def get_data(self) -> list:
         return self.gglu.get_data()
-
-    def get_log(self) -> list:
-        return self._logger.get_log()
 
     def get_balance(self, bal_path, p_date):
         return self.gnc_session.get_total_balance(bal_path, p_date)
@@ -101,7 +104,7 @@ class UpdateBalance:
         """
         Get Balance data for TODAY: LIABS, House, FAMILY, XCHALET, TRUST
         """
-        self._log('UpdateBalance.fill_today()')
+        lgr.info('UpdateBalance.fill_today()')
         # calls using 'today' ARE NOT off by one day??
         tdate = today - ONE_DAY
         house_sum = liab_sum = ZERO
@@ -115,9 +118,9 @@ class UpdateBalance:
             elif item == ASTS:
                 if house_sum is not None and liab_sum is not None:
                     acct_sum = acct_sum - house_sum - liab_sum
-                    self._log(F"Adjusted assets on {today} = ${acct_sum.to_eng_string()}")
+                    lgr.info(F"Adjusted assets on {today} = ${acct_sum.to_eng_string()}")
                 else:
-                    self._log('Do NOT have house sum and liab sum!')
+                    lgr.info('Do NOT have house sum and liab sum!')
 
             self.fill_google_cell(BAL_MTHLY_COLS[TODAY], BAL_TODAY_RANGES[item], acct_sum)
 
@@ -135,11 +138,11 @@ class UpdateBalance:
         CURRENT YEAR: fill_today() AND: LIABS for ALL completed month_ends; FAMILY for ALL non-3 completed month_ends in year
         """
         self.fill_today()
-        self._log('UpdateBalance.fill_current_year()')
+        lgr.info('UpdateBalance.fill_current_year()')
 
         for i in range(today.month - 1):
             month_end = date(today.year, i+2, 1)-ONE_DAY
-            self._log("month_end = {}".format(month_end))
+            lgr.info("month_end = {}".format(month_end))
 
             row = BASE_MTHLY_ROW + month_end.month
             # fill LIABS
@@ -150,10 +153,10 @@ class UpdateBalance:
             if month_end.month % 3 != 0:
                 acct_sum = self.get_balance(BALANCE_ACCTS[ASTS], month_end)
                 adjusted_assets = acct_sum - liab_sum
-                self._log(F"Adjusted assets on {month_end} = {adjusted_assets.to_eng_string()}")
+                lgr.info(F"Adjusted assets on {month_end} = {adjusted_assets.to_eng_string()}")
                 self.fill_google_cell(BAL_MTHLY_COLS[ASTS], row, adjusted_assets)
             else:
-                self._log('Update reference to Assets sheet for Mar, June, Sep or Dec')
+                lgr.info('Update reference to Assets sheet for Mar, June, Sep or Dec')
                 # have to update the CELL REFERENCE to current year/qtr ASSETS
                 year_row = BASE_ROW + year_span(today.year, UA_BASE_YEAR, UA_BASE_YEAR_SPAN, UA_HDR_SPAN)
                 int_qtr = (month_end.month // 3) - 1
@@ -169,12 +172,12 @@ class UpdateBalance:
         """
         PREVIOUS YEAR: LIABS for ALL NON-completed months; FAMILY for ALL non-3 NON-completed months in year
         """
-        self._log('UpdateBalance.fill_previous_year()')
+        lgr.info('UpdateBalance.fill_previous_year()')
 
         year = today.year - 1
         for mth in range(12-today.month):
             dte = date(year, mth+today.month+1, 1)-ONE_DAY
-            self._log("date = {}".format(dte))
+            lgr.info("date = {}".format(dte))
 
             row = BASE_MTHLY_ROW + dte.month
             # fill LIABS
@@ -185,7 +188,7 @@ class UpdateBalance:
             if dte.month % 3 != 0:
                 acct_sum = self.get_balance(BALANCE_ACCTS[ASTS], dte)
                 adjusted_assets = acct_sum - liab_sum
-                self._log("Adjusted assets on {} = ${}".format(dte, adjusted_assets.to_eng_string()))
+                lgr.info("Adjusted assets on {} = ${}".format(dte, adjusted_assets.to_eng_string()))
                 self.fill_google_cell(BAL_MTHLY_COLS[ASTS], row, adjusted_assets)
 
             # fill the date in Month column
@@ -208,7 +211,7 @@ class UpdateBalance:
         :param year: to get data for
         """
         year_end = date(year, 12, 31)
-        self._log("UpdateBalance.fill_year_end_liabs(): year_end = {}".format(year_end))
+        lgr.info("UpdateBalance.fill_year_end_liabs(): year_end = {}".format(year_end))
 
         # fill LIABS
         liab_sum = self.get_balance(BALANCE_ACCTS[LIAB], year_end)
@@ -228,9 +231,9 @@ class UpdateBalance:
           ELSE: LIABS for year
         :param: p_save: save data to json file
         """
-        self._log("UpdateBalance.fill_google_data()")
+        lgr.info("UpdateBalance.fill_google_data()")
         try:
-            self.gnc_session = GnucashSession(self.mode, self.gnucash_file, self.debug, BOTH)
+            self.gnc_session = GnucashSession(self.mode, self.gnucash_file, BOTH, lgr)
             self.gnc_session.begin_session()
 
             if self.domain == 'today':
@@ -258,7 +261,7 @@ class UpdateBalance:
                 save_to_json(fname, now, self.get_data())
 
         except Exception as fgce:
-            self._err(F"Exception: {repr(fgce)}!", inspect.currentframe().f_back)
+            lgr.error(F"Exception: {repr(fgce)}!")
             if self.gnc_session:
                 self.gnc_session.check_end_session(locals())
             raise fgce
@@ -285,26 +288,26 @@ def process_args() -> ArgumentParser:
 
 def process_input_parameters(argl:list) -> (str, bool, bool, str, str) :
     args = process_args().parse_args(argl)
-    SattoLog.print_text("\nargs = {}".format(args), BROWN)
+    lgr.info("\nargs = {}".format(args))
 
     if args.debug:
-        SattoLog.print_text('Printing ALL Debug output!!', RED)
+        lgr.info('Printing ALL Debug output!!')
 
     if not osp.isfile(args.gnucash_file):
-        SattoLog.print_text("File path '{}' does not exist! Exiting...".format(args.gnucash_file), RED)
+        lgr.info("File path '{}' does not exist! Exiting...".format(args.gnucash_file))
         exit(291)
-    SattoLog.print_text("\nGnucash file = {}".format(args.gnucash_file), CYAN)
+    lgr.info("\nGnucash file = {}".format(args.gnucash_file))
 
     return args.gnucash_file, args.ggl_save, args.debug, args.mode, args.period
 
 
 # TODO: fill in date column for previous month when updating 'today', check to update 'today' or 'tomorrow'
 def update_balance_main(args:list) -> dict :
-    SattoLog.print_text("Parameters = \n{}".format(json.dumps(args, indent=4)), GREEN)
+    lgr.info(F"Parameters = \n{json.dumps(args, indent=4)}")
     gnucash_file, save_json, debug, mode, domain = process_input_parameters(args)
 
     ub_now = dt.now().strftime(DATE_STR_FORMAT)
-    SattoLog.print_text("update_balance_main(): Runtime = {}".format(ub_now), BLUE)
+    lgr.info(F"update_balance_main(): Runtime = {ub_now}")
 
     try:
         updater = UpdateBalance(gnucash_file, mode, domain, debug)
@@ -318,17 +321,20 @@ def update_balance_main(args:list) -> dict :
             fname = "out/updateBalance_{}-response".format(domain)
             save_to_json(fname, ub_now, response)
         else:
-            response = updater.get_log()
+            response = saved_log_info
 
     except Exception as be:
         msg = repr(be)
-        SattoLog.print_warning(msg)
+        lgr.error(msg)
         response = {"update_balance_main() EXCEPTION:": "{}".format(msg)}
 
-    SattoLog.print_text(" >>> PROGRAM ENDED.\n", GREEN)
+    lgr.info(" >>> PROGRAM ENDED.\n")
+    if not MULTI_LOGGING:
+        finish_logging(GOOGLE_BASENAME, ub_now)
     return response
 
 
 if __name__ == "__main__":
-    from sys import argv
+    MULTI_LOGGING = False
+    print('MULTI_LOGGING = False')
     update_balance_main(argv[1:])

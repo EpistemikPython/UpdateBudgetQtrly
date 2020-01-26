@@ -12,17 +12,18 @@ __author_email__ = 'epistemik@gmail.com'
 __python_version__  = 3.9
 __gnucash_version__ = 3.8
 __created__ = '2019-04-07'
-__updated__ = '2020-01-11'
+__updated__ = '2020-01-25'
 
-from sys import stdout, path
+from investment import *
+BASE_GNUCASH_FOLDER = BASE_PYTHON_FOLDER + 'Gnucash/'
+
+from sys import stdout
 from bisect import bisect_right
 from math import log10
 from copy import copy
 import csv
 from gnucash.gnucash_core_c import CREC
 from gnucash import *
-path.append("/home/marksa/dev/git/Python/Gnucash/createGncTxs/")
-from investment import *
 
 
 def gnc_numeric_to_python_decimal(numeric:GncNumeric, logger:lg.Logger=None) -> Decimal:
@@ -150,6 +151,7 @@ def csv_write_period_list(periods:list, logger:lg.Logger=None):
         csv_writer.writerow((start_date, end_date, debit_sum, credit_sum, total))
 
 
+# TODO: level of logging determined by debug parameter passed in
 class GnucashSession:
     def __init__(self, p_mode:str, p_gncfile:str, p_domain:str, p_logger:lg.Logger,
                  p_currency:GncCommodity=None):

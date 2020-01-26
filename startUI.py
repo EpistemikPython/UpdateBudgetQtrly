@@ -10,13 +10,16 @@ __author_email__ = 'epistemik@gmail.com'
 __python_version__  = 3.9
 __gnucash_version__ = 3.8
 __created__ = '2019-03-30'
-__updated__ = '2020-01-13'
+__updated__ = '2020-01-26'
 
 from sys import argv, path
 path.append("/home/marksa/dev/git/Python/Gnucash/createGncTxs")
+# noinspection PyUnresolvedReferences
 from PyQt5.QtWidgets import ( QApplication, QComboBox, QVBoxLayout, QGroupBox, QDialog, QFileDialog,
                               QPushButton, QFormLayout, QDialogButtonBox, QLabel, QTextEdit, QCheckBox )
 from functools import partial
+import yaml
+import logging.config as lgconf
 from updateRevExps import update_rev_exps_main
 from updateAssets import update_assets_main
 from updateBalance import update_balance_main
@@ -47,7 +50,7 @@ MAIN_FXNS:dict = {
 }
 
 
-# noinspection PyCallByClass,PyTypeChecker,PyArgumentList
+# noinspection PyCallByClass,PyTypeChecker,PyArgumentList,PyMethodMayBeStatic
 class UpdateBudgetQtrly(QDialog):
     """update my 'Budget Quarterly' Google spreadsheet with information from a Gnucash file"""
     def __init__(self):
@@ -60,8 +63,8 @@ class UpdateBudgetQtrly(QDialog):
         self.gnc_file = ''
         self.script = ''
         self.mode = ''
-        self.log = SattoLog(do_printing=True)
-        self.log.print_info("{}".format(self.title), GREEN)
+        ui_lgr.info("{}".format(self.title))
+        # self.button_box = None
         self.init_ui()
 
     # noinspection PyAttributeOutsideInit,PyArgumentList
@@ -76,14 +79,15 @@ class UpdateBudgetQtrly(QDialog):
         self.response_box.acceptRichText()
         self.response_box.setText('Hello there!')
 
-        button_box = QDialogButtonBox(QDialogButtonBox.Close)
-        button_box.accepted.connect(self.accept)
-        button_box.rejected.connect(self.reject)
+        self.button_box = QDialogButtonBox(QDialogButtonBox.Close)
+        # self.button_box.accepted.connect(self.accept)
+        # self.button_box.rejected.connect(self.reject)
+        self.button_box.rejected.connect(partial(self.close))
 
         layout = QVBoxLayout()
         layout.addWidget(self.gb_main)
         layout.addWidget(self.response_box)
-        layout.addWidget(button_box)
+        layout.addWidget(self.button_box)
 
         self.setLayout(layout)
         self.show()
@@ -153,10 +157,10 @@ class UpdateBudgetQtrly(QDialog):
     def script_change(self):
         """must adjust domain and possibly quarter"""
         new_script = self.cb_script.currentText()
-        self.log.print_info(F"Script changed to: {new_script}", MAGENTA)
+        ui_lgr.info(F"Script changed to: {new_script}")
         if new_script != self.script:
             initial_domain = self.cb_domain.currentText()
-            self.log.print_info(F"Start with domain = {initial_domain}", BROWN)
+            ui_lgr.info(F"Start with domain = {initial_domain}")
             if new_script == REV_EXPS:
                 self.cb_domain.clear()
                 self.cb_domain.addItems(PARAMS[REV_EXPS])
@@ -184,13 +188,13 @@ class UpdateBudgetQtrly(QDialog):
                     and initial_domain in [self.cb_domain.itemText(i) for i in range(self.cb_domain.count())]:
                 self.cb_domain.setCurrentText(initial_domain)
 
-            self.log.print_info("Finish with domain = {}".format(self.cb_domain.currentText()), BROWN)
+            ui_lgr.info("Finish with domain = {}".format(self.cb_domain.currentText()))
             self.script = new_script
 
     def mode_change(self):
         """need the destination sheet if mode is Send"""
         new_mode = self.cb_mode.currentText()
-        self.log.print_info(F"Mode changed to '{new_mode}'.", CYAN)
+        ui_lgr.info(F"Mode changed to '{new_mode}'.")
         if new_mode != self.mode:
             if new_mode == TEST:
                 self.cb_dest.clear()
@@ -203,12 +207,12 @@ class UpdateBudgetQtrly(QDialog):
 
     def button_click(self):
         """assemble the necessary parameters"""
-        self.log.print_info(F"Clicked '{self.exe_btn.text()}'.")
+        ui_lgr.info(F"Clicked '{self.exe_btn.text()}'.")
         exe = self.cb_script.currentText()
-        self.log.print_info(F"Script is '{exe}'.")
+        ui_lgr.info(F"Script is '{exe}'.")
 
         if not self.gnc_file:
-            self.response_box.setText('>>> MUST select a Gnucash File!')
+            self.response_box.append('>>> MUST select a Gnucash File!')
             return
 
         # if sending, adjust the mode string to match the Sheet selected
@@ -235,7 +239,7 @@ class UpdateBudgetQtrly(QDialog):
         if self.ch_ggl.isChecked(): cl_params.append('--ggl_save')
         if self.ch_debug.isChecked(): cl_params.append('--debug')
 
-        self.log.print_info(cl_params, GREEN)
+        ui_lgr.info(str(cl_params))
 
         main_fxn = MAIN_FXNS[exe]
         if callable(main_fxn):
@@ -249,7 +253,14 @@ class UpdateBudgetQtrly(QDialog):
 
     def selection_change(self, cb:QComboBox, label:str):
         """info printing only"""
-        self.log.print_info(F"ComboBox '{label}' selection changed to '{cb.currentText()}'.", BLUE)
+        ui_lgr.info(F"ComboBox '{label}' selection changed to '{cb.currentText()}'.")
+
+    def close(self):
+        finish_logging(GOOGLE_BASENAME)
+        # TODO: should be some better way to exit here??
+        exit()
+
+# END class UpdateBudgetQtrly
 
 
 def ui_main():
@@ -260,6 +271,10 @@ def ui_main():
 
 
 if __name__ == '__main__':
+    with open(YAML_CONFIG_FILE, 'r') as fp:
+        ui_log_cfg = yaml.safe_load(fp.read())
+    lgconf.dictConfig(ui_log_cfg)
+    ui_lgr = lg.getLogger('gnucash')
     ui_main()
 
 # if __name__ == '__main__':

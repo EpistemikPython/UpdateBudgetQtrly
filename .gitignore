@@ -1,6 +1,6 @@
 .*
 !.gitignore
-*.gnc
+*.gnc*
 *.gnucash
 *.log
 *.out
