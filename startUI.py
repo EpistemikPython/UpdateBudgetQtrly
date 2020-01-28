@@ -10,7 +10,7 @@ __author_email__ = 'epistemik@gmail.com'
 __python_version__  = 3.9
 __gnucash_version__ = 3.8
 __created__ = '2019-03-30'
-__updated__ = '2020-01-26'
+__updated__ = '2020-01-27'
 
 from sys import argv, path
 path.append("/home/marksa/dev/git/Python/Gnucash/createGncTxs")
@@ -80,8 +80,6 @@ class UpdateBudgetQtrly(QDialog):
         self.response_box.setText('Hello there!')
 
         self.button_box = QDialogButtonBox(QDialogButtonBox.Close)
-        # self.button_box.accepted.connect(self.accept)
-        # self.button_box.rejected.connect(self.reject)
         self.button_box.rejected.connect(partial(self.close))
 
         layout = QVBoxLayout()
@@ -243,11 +241,13 @@ class UpdateBudgetQtrly(QDialog):
 
         main_fxn = MAIN_FXNS[exe]
         if callable(main_fxn):
-            reply = main_fxn(cl_params)
+            ui_lgr.info('Calling main function...')
+            response = main_fxn(cl_params)
+            reply = {'response': response}
         else:
             msg = F"Problem with main??!! '{main_fxn}'"
-            self.log.print_error(msg)
-            reply = msg
+            ui_lgr.error(msg)
+            reply = {'msg': msg, 'log': saved_log_info}
 
         self.response_box.append(json.dumps(reply, indent=4))
 
@@ -276,8 +276,3 @@ if __name__ == '__main__':
     lgconf.dictConfig(ui_log_cfg)
     ui_lgr = lg.getLogger('gnucash')
     ui_main()
-
-# if __name__ == '__main__':
-#     app = QApplication(sys.argv)
-#     dialog = Dialog()
-#     sys.exit(dialog.exec_())

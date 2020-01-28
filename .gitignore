@@ -13,4 +13,7 @@
 **/test*
 **__pycache*
 **/secret*
-
+**/gncout*
+**/old*
+**/json*
+**/term*

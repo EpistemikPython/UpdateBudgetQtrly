@@ -11,7 +11,7 @@ __author_email__ = 'epistemik@gmail.com'
 __python_version__  = 3.9
 __gnucash_version__ = 3.8
 __created__ = '2019-04-13'
-__updated__ = '2020-01-26'
+__updated__ = '2020-01-27'
 
 from sys import path, argv
 from argparse import ArgumentParser
@@ -67,8 +67,6 @@ BAL_2_SHEET:str = 'Balance 2'
 
 MULTI_LOGGING = True
 print('MULTI_LOGGING = True')
-
-
 # load the logging config
 with open(YAML_CONFIG_FILE, 'r') as fp:
     log_cfg = yaml.safe_load(fp.read())
@@ -86,7 +84,7 @@ class UpdateBalance:
         self.dest = BAL_2_SHEET
         if '1' in self.mode:
             self.dest = BAL_1_SHEET
-        lgr.info("dest = {}".format(self.dest))
+        lgr.info(F"dest = {self.dest}")
 
         self.gnucash_file = p_filename
         self.gnc_session = None
@@ -106,7 +104,7 @@ class UpdateBalance:
         """
         lgr.info('UpdateBalance.fill_today()')
         # calls using 'today' ARE NOT off by one day??
-        tdate = today - ONE_DAY
+        tdate = now_dt - ONE_DAY
         house_sum = liab_sum = ZERO
         for item in BALANCE_ACCTS:
             acct_sum = self.get_balance(BALANCE_ACCTS[item], tdate)
@@ -118,7 +116,7 @@ class UpdateBalance:
             elif item == ASTS:
                 if house_sum is not None and liab_sum is not None:
                     acct_sum = acct_sum - house_sum - liab_sum
-                    lgr.info(F"Adjusted assets on {today} = ${acct_sum.to_eng_string()}")
+                    lgr.info(F"Adjusted assets on {now_dt} = ${acct_sum.to_eng_string()}")
                 else:
                     lgr.info('Do NOT have house sum and liab sum!')
 
@@ -128,7 +126,7 @@ class UpdateBalance:
         """
         LIABS for all years
         """
-        for i in range(today.year - BASE_YEAR - 1):
+        for i in range(now_dt.year - BASE_YEAR - 1):
             year = BASE_YEAR + i
             # fill LIABS
             self.fill_year_end_liabs(year)
@@ -140,9 +138,9 @@ class UpdateBalance:
         self.fill_today()
         lgr.info('UpdateBalance.fill_current_year()')
 
-        for i in range(today.month - 1):
-            month_end = date(today.year, i+2, 1)-ONE_DAY
-            lgr.info("month_end = {}".format(month_end))
+        for i in range(now_dt.month - 1):
+            month_end = date(now_dt.year, i + 2, 1) - ONE_DAY
+            lgr.debug(F"month_end = {month_end}")
 
             row = BASE_MTHLY_ROW + month_end.month
             # fill LIABS
@@ -153,12 +151,12 @@ class UpdateBalance:
             if month_end.month % 3 != 0:
                 acct_sum = self.get_balance(BALANCE_ACCTS[ASTS], month_end)
                 adjusted_assets = acct_sum - liab_sum
-                lgr.info(F"Adjusted assets on {month_end} = {adjusted_assets.to_eng_string()}")
+                lgr.debug(F"Adjusted assets on {month_end} = {adjusted_assets.to_eng_string()}")
                 self.fill_google_cell(BAL_MTHLY_COLS[ASTS], row, adjusted_assets)
             else:
-                lgr.info('Update reference to Assets sheet for Mar, June, Sep or Dec')
+                lgr.debug('Update reference to Assets sheet for Mar, June, Sep or Dec')
                 # have to update the CELL REFERENCE to current year/qtr ASSETS
-                year_row = BASE_ROW + year_span(today.year, UA_BASE_YEAR, UA_BASE_YEAR_SPAN, UA_HDR_SPAN)
+                year_row = BASE_ROW + year_span(now_dt.year, UA_BASE_YEAR, UA_BASE_YEAR_SPAN, UA_HDR_SPAN)
                 int_qtr = (month_end.month // 3) - 1
                 dest_row = year_row + (int_qtr * UA_QTR_SPAN)
                 val_num = '1' if '1' in self.dest else '2'
@@ -174,10 +172,10 @@ class UpdateBalance:
         """
         lgr.info('UpdateBalance.fill_previous_year()')
 
-        year = today.year - 1
-        for mth in range(12-today.month):
-            dte = date(year, mth+today.month+1, 1)-ONE_DAY
-            lgr.info("date = {}".format(dte))
+        year = now_dt.year - 1
+        for mth in range(12 - now_dt.month):
+            dte = date(year, mth + now_dt.month + 1, 1) - ONE_DAY
+            lgr.info(F"date = {dte}")
 
             row = BASE_MTHLY_ROW + dte.month
             # fill LIABS
@@ -188,7 +186,7 @@ class UpdateBalance:
             if dte.month % 3 != 0:
                 acct_sum = self.get_balance(BALANCE_ACCTS[ASTS], dte)
                 adjusted_assets = acct_sum - liab_sum
-                lgr.info("Adjusted assets on {} = ${}".format(dte, adjusted_assets.to_eng_string()))
+                lgr.info(F"Adjusted assets on {dte} = ${adjusted_assets.to_eng_string()}")
                 self.fill_google_cell(BAL_MTHLY_COLS[ASTS], row, adjusted_assets)
 
             # fill the date in Month column
@@ -211,7 +209,7 @@ class UpdateBalance:
         :param year: to get data for
         """
         year_end = date(year, 12, 31)
-        lgr.info("UpdateBalance.fill_year_end_liabs(): year_end = {}".format(year_end))
+        lgr.info(F"UpdateBalance.fill_year_end_liabs(): year_end = {year_end}")
 
         # fill LIABS
         liab_sum = self.get_balance(BALANCE_ACCTS[LIAB], year_end)
@@ -242,23 +240,23 @@ class UpdateBalance:
                 self.fill_all_years()
             else:
                 year = get_int_year(self.domain, BASE_YEAR)
-                if year == today.year:
+                if year == now_dt.year:
                     self.fill_current_year()
-                elif today.year - year == 1:
+                elif now_dt.year - year == 1:
                     self.fill_previous_year()
                 else:
                     self.fill_year_end_liabs(year)
 
             # record the date & time of this update
-            self.fill_google_cell(BAL_MTHLY_COLS[DATE], BASE_MTHLY_ROW, today.strftime(FILE_DATE_STR))
-            self.fill_google_cell(BAL_MTHLY_COLS[TIME], BASE_MTHLY_ROW, today.strftime(CELL_TIME_STR))
+            self.fill_google_cell(BAL_MTHLY_COLS[DATE], BASE_MTHLY_ROW, now_dt.strftime(CELL_DATE_STR))
+            self.fill_google_cell(BAL_MTHLY_COLS[TIME], BASE_MTHLY_ROW, now_dt.strftime(CELL_TIME_STR))
 
             # no save needed, we're just reading...
             self.gnc_session.end_session(False)
 
             if p_save and len(self.get_data()) > 0:
-                fname = "out/updateBalance_{}".format(self.domain)
-                save_to_json(fname, now, self.get_data())
+                fname = F"updateBalance_{self.domain}"
+                save_to_json(fname, self.get_data())
 
         except Exception as fgce:
             lgr.error(F"Exception: {repr(fgce)}!")
@@ -277,8 +275,7 @@ def process_args() -> ArgumentParser:
     required.add_argument('-m', '--mode', required=True, choices=[TEST,SEND+'1',SEND+'2'],
                           help='SEND to Google sheet OR just TEST')
     required.add_argument('-p', '--period', required=True,
-                          help="'today' | 'current year' | 'previous year' | {}..{} | 'allyears'"
-                               .format(BASE_YEAR, today.year - 2))
+                          help=F"'today' | 'current year' | 'previous year' | {BASE_YEAR}..{now_dt.year - 2} | 'allyears'")
     # optional arguments
     arg_parser.add_argument('--ggl_save',  action='store_true', help='Write the Google formatted data to a JSON file')
     arg_parser.add_argument('--debug', action='store_true', help='GENERATE DEBUG OUTPUT: MANY LINES!')
@@ -288,15 +285,17 @@ def process_args() -> ArgumentParser:
 
 def process_input_parameters(argl:list) -> (str, bool, bool, str, str) :
     args = process_args().parse_args(argl)
-    lgr.info("\nargs = {}".format(args))
+    lgr.info(F"\nargs = {args}")
 
     if args.debug:
         lgr.info('Printing ALL Debug output!!')
 
     if not osp.isfile(args.gnucash_file):
-        lgr.info("File path '{}' does not exist! Exiting...".format(args.gnucash_file))
-        exit(291)
-    lgr.info("\nGnucash file = {}".format(args.gnucash_file))
+        msg = F"File path '{args.gnucash_file}' DOES NOT exist! Exiting..."
+        lgr.warning(msg)
+        raise Exception(msg)
+
+    lgr.info(F"\nGnucash file = {args.gnucash_file}")
 
     return args.gnucash_file, args.ggl_save, args.debug, args.mode, args.period
 
@@ -306,7 +305,7 @@ def update_balance_main(args:list) -> dict :
     lgr.info(F"Parameters = \n{json.dumps(args, indent=4)}")
     gnucash_file, save_json, debug, mode, domain = process_input_parameters(args)
 
-    ub_now = dt.now().strftime(DATE_STR_FORMAT)
+    ub_now = dt.now().strftime(FILE_DATE_FORMAT)
     lgr.info(F"update_balance_main(): Runtime = {ub_now}")
 
     try:
@@ -318,15 +317,15 @@ def update_balance_main(args:list) -> dict :
         # send data if in PROD mode
         if SEND in mode:
             response = updater.gglu.send_sheets_data()
-            fname = "out/updateBalance_{}-response".format(domain)
-            save_to_json(fname, ub_now, response)
+            fname = F"updateBalance_{domain}-response"
+            save_to_json(fname, response, ub_now)
         else:
             response = saved_log_info
 
     except Exception as be:
         msg = repr(be)
         lgr.error(msg)
-        response = {"update_balance_main() EXCEPTION:": "{}".format(msg)}
+        response = {F"update_balance_main() EXCEPTION: {msg}"}
 
     lgr.info(" >>> PROGRAM ENDED.\n")
     if not MULTI_LOGGING:
