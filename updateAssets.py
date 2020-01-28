@@ -11,9 +11,11 @@ __author_email__ = 'epistemik@gmail.com'
 __python_version__  = 3.9
 __gnucash_version__ = 3.8
 __created__ = '2019-04-06'
-__updated__ = '2020-01-11'
+__updated__ = '2020-01-27'
 
-from sys import path
+from sys import path, argv
+import yaml
+import logging.config as lgconf
 from argparse import ArgumentParser
 path.append("/home/marksa/dev/git/Python/Gnucash/createGncTxs")
 from gnucash_utilities import *
@@ -62,39 +64,38 @@ ASSET_COLS = {
 QTR_ASTS_SHEET:str   = 'Assets 1'
 QTR_ASTS_2_SHEET:str = 'Assets 2'
 
+MULTI_LOGGING = True
+print('MULTI_LOGGING = True')
+# load the logging config
+with open(YAML_CONFIG_FILE, 'r') as fp:
+    log_cfg = yaml.safe_load(fp.read())
+lgconf.dictConfig(log_cfg)
+lgr = lg.getLogger('gnucash')
+
 
 class UpdateAssets:
     def __init__(self, p_filename:str, p_mode:str, p_debug:bool):
         self.debug = p_debug
-        self._logger = SattoLog(my_color=CYAN, do_printing=p_debug)
-        self._log('UpdateAssets', GREEN)
+        #
+        lgr.info('UpdateAssets')
 
         self.gnucash_file = p_filename
         self.gnucash_data = []
 
-        self.ggl_update = GoogleUpdate(self._logger)
+        self.ggl_update = GoogleUpdate(lgr)
 
         self.mode = p_mode
         # Google sheet to update
         self.dest = QTR_ASTS_2_SHEET
         if '1' in self.mode:
             self.dest = QTR_ASTS_SHEET
-        self._log("dest = {}".format(self.dest))
-
-    def _log(self, p_msg:str, p_color:str=''):
-        self._logger.print_info(p_msg, p_color, p_info=inspect.currentframe().f_back)
-
-    def _err(self, p_msg:str, err_frame:FrameType):
-        self._logger.print_info(p_msg, BR_RED, p_info=err_frame)
+        lgr.info(F"dest = {self.dest}")
 
     def get_gnucash_data(self) -> list:
         return self.gnucash_data
 
     def get_google_data(self) -> list:
         return self.ggl_update.get_data()
-
-    def get_log(self) -> list :
-        return self._logger.get_log()
 
     def prepare_gnucash_data(self, save_gnc:bool, p_year:int, p_qtr:int):
         """
@@ -103,12 +104,12 @@ class UpdateAssets:
         :param   p_year: year to update
         :param    p_qtr: 1..4 for quarter to update or 0 if updating ALL FOUR quarters
         """
-        self._log("UpdateAssets.prepare_gnucash_data(): find Assets in {} for {}{}"
+        lgr.info("UpdateAssets.prepare_gnucash_data(): find Assets in {} for {}{}"
                   .format(self.gnucash_file, p_year, ('-Q' + str(p_qtr)) if p_qtr else ''))
         num_quarters = 1 if p_qtr else 4
         gnc_session = None
         try:
-            gnc_session = GnucashSession(self.mode, self.gnucash_file, self.debug, BOTH)
+            gnc_session = GnucashSession(self.mode, self.gnucash_file, BOTH, lgr)
             gnc_session.begin_session()
 
             for i in range(num_quarters):
@@ -125,11 +126,11 @@ class UpdateAssets:
             gnc_session.end_session(False)
 
             if save_gnc:
-                fname = "out/updateAssets_gnc-data-{}{}".format(p_year, ('-Q' + str(p_qtr)) if p_qtr else '')
-                save_to_json(fname, now, self.gnucash_data)
+                fname = F"updateAssets_gnc-data-{p_year}{('-Q' + str(p_qtr) if p_qtr else '')}"
+                save_to_json(fname, self.gnucash_data)
 
         except Exception as gnce:
-            self._err(F"Exception: {repr(gnce)}!", inspect.currentframe().f_back)
+            lgr.error(F"Exception: {repr(gnce)}!")
             if gnc_session:
                 gnc_session.check_end_session(locals())
             raise gnce
@@ -153,16 +154,16 @@ class UpdateAssets:
         :param   p_year: year to update
         :param save_ggl: save Google data to a JSON file
         """
-        self._log("UpdateAssets.fill_google_data({},{})\n".format(p_year, save_ggl))
+        lgr.info(F"UpdateAssets.fill_google_data({p_year},{save_ggl})\n")
 
         try:
             year_row = BASE_ROW + year_span(p_year, BASE_YEAR, BASE_YEAR_SPAN, HDR_SPAN)
             # get exact row from Quarter value in each item
             for item in self.gnucash_data:
-                self._log("{} = {}".format(QTR, item[QTR]))
+                lgr.info(F"{QTR} = {item[QTR]}")
                 int_qtr = int(item[QTR])
                 dest_row = year_row + ((int_qtr - 1) * QTR_SPAN)
-                self._log("dest_row = {}\n".format(dest_row))
+                lgr.info(F"dest_row = {dest_row}\n")
                 for key in item:
                     if key != QTR:
                         # FOR YEAR 2015 OR EARLIER: GET RESP INSTEAD OF Rewards for COLUMN O
@@ -173,20 +174,20 @@ class UpdateAssets:
                         self.fill_google_cell(ASSET_COLS[key], dest_row, item[key])
 
             # fill date & time of this update
-            today_row = BASE_ROW + 1 + year_span(today.year+2, BASE_YEAR, BASE_YEAR_SPAN, HDR_SPAN)
-            self.fill_google_cell(ASSET_COLS[DATE], today_row, today.strftime(FILE_DATE_STR))
-            self.fill_google_cell(ASSET_COLS[DATE], today_row+1, today.strftime(CELL_TIME_STR))
+            today_row = BASE_ROW + 1 + year_span(now_dt.year + 2, BASE_YEAR, BASE_YEAR_SPAN, HDR_SPAN)
+            self.fill_google_cell(ASSET_COLS[DATE], today_row, now_dt.strftime(CELL_DATE_STR))
+            self.fill_google_cell(ASSET_COLS[DATE], today_row + 1, now_dt.strftime(CELL_TIME_STR))
 
             str_qtr = None
             if len(self.gnucash_data) == 1:
                 str_qtr = self.gnucash_data[0][QTR]
 
             if save_ggl:
-                fname = "out/updateAssets_google-data-{}{}".format(str(p_year), ('-Q' + str_qtr) if str_qtr else '')
-                save_to_json(fname, now, self.get_google_data())
+                fname = F"updateAssets_google-data-{str(p_year)}{('-Q' + str_qtr if str_qtr else '')}"
+                save_to_json(fname, self.get_google_data())
 
         except Exception as fgde:
-            self._err(F"Exception: {repr(fgde)}!", inspect.currentframe().f_back)
+            lgr.error(F"Exception: {repr(fgde)}!")
             raise fgde
 
 # END class UpdateAssets
@@ -199,7 +200,7 @@ def process_args() -> ArgumentParser:
     required.add_argument('-g', '--gnucash_file', required=True, help='path & filename of the Gnucash file to use')
     required.add_argument('-m', '--mode', required=True, choices=[TEST,SEND+'1',SEND+'2'],
                           help='SEND to Google sheet (1 or 2) OR just TEST')
-    required.add_argument('-y', '--year', required=True, help="year to update: {}..2019".format(BASE_YEAR))
+    required.add_argument('-y', '--year', required=True, help=F"year to update: {BASE_YEAR}..2019")
     # optional arguments
     arg_parser.add_argument('-q', '--quarter', choices=['1','2','3','4'], help="quarter to update: 1..4")
     arg_parser.add_argument('--gnc_save',  action='store_true', help='Write the Gnucash formatted data to a JSON file')
@@ -211,15 +212,17 @@ def process_args() -> ArgumentParser:
 
 def process_input_parameters(argl:list) -> (str, bool, bool, bool, str, int, int) :
     args = process_args().parse_args(argl)
-    SattoLog.print_text("\nargs = {}".format(args), BROWN)
+    lgr.info(F"\nargs = {args}")
 
     if args.debug:
-        SattoLog.print_warning('Printing ALL Debug output!!')
+        lgr.warning('Printing ALL Debug output!!')
 
     if not osp.isfile(args.gnucash_file):
-        SattoLog.print_warning("File path '{}' does not exist! Exiting...".format(args.gnucash_file))
-        exit(209)
-    SattoLog.print_text("\nGnucash file = {}".format(args.gnucash_file), GREEN)
+        msg = F"File path '{args.gnucash_file}' DOES NOT exist! Exiting..."
+        lgr.warning(msg)
+        raise Exception(msg)
+
+    lgr.info(F"\nGnucash file = {args.gnucash_file}")
 
     year = get_int_year(args.year, BASE_YEAR)
     qtr = 0 if args.quarter is None else get_int_quarter(args.quarter)
@@ -229,11 +232,11 @@ def process_input_parameters(argl:list) -> (str, bool, bool, bool, str, int, int
 
 # TODO: fill in date column for previous month when updating 'today', check to update 'today' or 'tomorrow'
 def update_assets_main(args:list) -> dict :
-    SattoLog.print_text("Parameters = \n{}".format(json.dumps(args, indent=4)), BROWN)
+    lgr.info(F"Parameters = \n{json.dumps(args, indent=4)}")
     gnucash_file, save_gnc, save_ggl, debug, mode, target_year, target_qtr = process_input_parameters(args)
 
-    ub_now = dt.now().strftime(DATE_STR_FORMAT)
-    SattoLog.print_text("update_balance_main(): Runtime = {}".format(ub_now), BLUE)
+    ua_now = dt.now().strftime(FILE_DATE_FORMAT)
+    lgr.info(F"update_balance_main(): Runtime = {ua_now}")
 
     try:
         updater = UpdateAssets(gnucash_file, mode, debug)
@@ -247,20 +250,23 @@ def update_assets_main(args:list) -> dict :
         # send data if in PROD mode
         if SEND in mode:
             response = updater.ggl_update.send_sheets_data()
-            fname = "out/updateAssets_response-{}{}".format(target_year , ('-Q' + str(target_qtr)) if target_qtr else '')
-            save_to_json(fname, ub_now, response)
+            fname = F"updateAssets_response-{target_year}{('-Q' + str(target_qtr) if target_qtr else '')}"
+            save_to_json(fname, response, ua_now)
         else:
-            response = updater.get_log()
+            response = saved_log_info
 
     except Exception as ae:
         msg = repr(ae)
-        SattoLog.print_warning(msg)
-        response = {"update_assets_main() EXCEPTION:": "{}".format(msg)}
+        lgr.warning(msg)
+        response = {F"update_assets_main() EXCEPTION: {msg}"}
 
-    SattoLog.print_text(" >>> PROGRAM ENDED.\n", GREEN)
+    lgr.info(" >>> PROGRAM ENDED.\n")
+    if not MULTI_LOGGING:
+        finish_logging(GOOGLE_BASENAME, ua_now)
     return response
 
 
 if __name__ == "__main__":
-    from sys import argv
+    MULTI_LOGGING = False
+    print('MULTI_LOGGING = False')
     update_assets_main(argv[1:])
