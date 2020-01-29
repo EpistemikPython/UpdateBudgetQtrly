@@ -6,10 +6,8 @@
 #
 # Copyright (c) 2020 Mark Sattolo <epistemik@gmail.com>
 #
-__author__ = 'Mark Sattolo'
+__author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
-__python_version__  = 3.9
-__gnucash_version__ = 3.8
 __created__ = '2019-04-06'
 __updated__ = '2020-01-27'
 
@@ -65,7 +63,7 @@ QTR_ASTS_SHEET:str   = 'Assets 1'
 QTR_ASTS_2_SHEET:str = 'Assets 2'
 
 MULTI_LOGGING = True
-print('MULTI_LOGGING = True')
+print('Assets MULTI_LOGGING = True')
 # load the logging config
 with open(YAML_CONFIG_FILE, 'r') as fp:
     log_cfg = yaml.safe_load(fp.read())
@@ -203,9 +201,9 @@ def process_args() -> ArgumentParser:
     required.add_argument('-y', '--year', required=True, help=F"year to update: {BASE_YEAR}..2019")
     # optional arguments
     arg_parser.add_argument('-q', '--quarter', choices=['1','2','3','4'], help="quarter to update: 1..4")
+    arg_parser.add_argument('-l', '--level', type=int, default=lg.INFO, help='set LEVEL of logging output')
     arg_parser.add_argument('--gnc_save',  action='store_true', help='Write the Gnucash formatted data to a JSON file')
     arg_parser.add_argument('--ggl_save',  action='store_true', help='Write the Google formatted data to a JSON file')
-    arg_parser.add_argument('--debug', action='store_true', help='GENERATE DEBUG OUTPUT: MANY LINES!')
 
     return arg_parser
 
@@ -214,8 +212,7 @@ def process_input_parameters(argl:list) -> (str, bool, bool, bool, str, int, int
     args = process_args().parse_args(argl)
     lgr.info(F"\nargs = {args}")
 
-    if args.debug:
-        lgr.warning('Printing ALL Debug output!!')
+    lgr.info(F"logger level set to {args.level}")
 
     if not osp.isfile(args.gnucash_file):
         msg = F"File path '{args.gnucash_file}' DOES NOT exist! Exiting..."
@@ -227,16 +224,19 @@ def process_input_parameters(argl:list) -> (str, bool, bool, bool, str, int, int
     year = get_int_year(args.year, BASE_YEAR)
     qtr = 0 if args.quarter is None else get_int_quarter(args.quarter)
 
-    return args.gnucash_file, args.gnc_save, args.ggl_save, args.debug, args.mode, year, qtr
+    return args.gnucash_file, args.gnc_save, args.ggl_save, args.level, args.mode, year, qtr
 
 
 # TODO: fill in date column for previous month when updating 'today', check to update 'today' or 'tomorrow'
 def update_assets_main(args:list) -> dict :
     lgr.info(F"Parameters = \n{json.dumps(args, indent=4)}")
-    gnucash_file, save_gnc, save_ggl, debug, mode, target_year, target_qtr = process_input_parameters(args)
+    gnucash_file, save_gnc, save_ggl, level, mode, target_year, target_qtr = process_input_parameters(args)
 
     ua_now = dt.now().strftime(FILE_DATE_FORMAT)
-    lgr.info(F"update_balance_main(): Runtime = {ua_now}")
+
+    lgr.setLevel(level)
+    lgr.log(level, F"\n\t\tRuntime = {ua_now}")
+    debug = lgr.level < lg.INFO
 
     try:
         updater = UpdateAssets(gnucash_file, mode, debug)
@@ -268,5 +268,5 @@ def update_assets_main(args:list) -> dict :
 
 if __name__ == "__main__":
     MULTI_LOGGING = False
-    print('MULTI_LOGGING = False')
+    print('Assets MULTI_LOGGING = False')
     update_assets_main(argv[1:])

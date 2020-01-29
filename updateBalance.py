@@ -6,10 +6,8 @@
 #
 # Copyright (c) 2020 Mark Sattolo <epistemik@gmail.com>
 #
-__author__ = 'Mark Sattolo'
+__author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
-__python_version__  = 3.9
-__gnucash_version__ = 3.8
 __created__ = '2019-04-13'
 __updated__ = '2020-01-27'
 
@@ -19,7 +17,7 @@ import logging.config as lgconf
 from updateAssets import (ASSET_COLS, BASE_YEAR as UA_BASE_YEAR, BASE_YEAR_SPAN as UA_BASE_YEAR_SPAN,
                           HDR_SPAN as UA_HDR_SPAN, QTR_SPAN as UA_QTR_SPAN)
 import yaml
-path.append("/home/marksa/dev/git/Python/Gnucash/createGncTxs")
+path.append('/newdata/dev/git/Python/Gnucash/createGncTxs')
 from gnucash_utilities import *
 path.append(BASE_PYTHON_FOLDER + 'Google/')
 from google_utilities import GoogleUpdate, BASE_ROW, GOOGLE_BASENAME
@@ -66,7 +64,7 @@ BAL_1_SHEET:str = 'Balance 1'
 BAL_2_SHEET:str = 'Balance 2'
 
 MULTI_LOGGING = True
-print('MULTI_LOGGING = True')
+print('Balance MULTI_LOGGING = True')
 # load the logging config
 with open(YAML_CONFIG_FILE, 'r') as fp:
     log_cfg = yaml.safe_load(fp.read())
@@ -102,7 +100,7 @@ class UpdateBalance:
         """
         Get Balance data for TODAY: LIABS, House, FAMILY, XCHALET, TRUST
         """
-        lgr.info('UpdateBalance.fill_today()')
+        lgr.info(get_current_time())
         # calls using 'today' ARE NOT off by one day??
         tdate = now_dt - ONE_DAY
         house_sum = liab_sum = ZERO
@@ -136,7 +134,7 @@ class UpdateBalance:
         CURRENT YEAR: fill_today() AND: LIABS for ALL completed month_ends; FAMILY for ALL non-3 completed month_ends in year
         """
         self.fill_today()
-        lgr.info('UpdateBalance.fill_current_year()')
+        lgr.info(get_current_time())
 
         for i in range(now_dt.month - 1):
             month_end = date(now_dt.year, i + 2, 1) - ONE_DAY
@@ -170,7 +168,7 @@ class UpdateBalance:
         """
         PREVIOUS YEAR: LIABS for ALL NON-completed months; FAMILY for ALL non-3 NON-completed months in year
         """
-        lgr.info('UpdateBalance.fill_previous_year()')
+        lgr.info(get_current_time())
 
         year = now_dt.year - 1
         for mth in range(12 - now_dt.month):
@@ -209,7 +207,7 @@ class UpdateBalance:
         :param year: to get data for
         """
         year_end = date(year, 12, 31)
-        lgr.info(F"UpdateBalance.fill_year_end_liabs(): year_end = {year_end}")
+        lgr.info(F"year_end = {year_end}")
 
         # fill LIABS
         liab_sum = self.get_balance(BALANCE_ACCTS[LIAB], year_end)
@@ -229,7 +227,7 @@ class UpdateBalance:
           ELSE: LIABS for year
         :param: p_save: save data to json file
         """
-        lgr.info("UpdateBalance.fill_google_data()")
+        lgr.info(get_current_time())
         try:
             self.gnc_session = GnucashSession(self.mode, self.gnucash_file, BOTH, lgr)
             self.gnc_session.begin_session()
@@ -277,8 +275,8 @@ def process_args() -> ArgumentParser:
     required.add_argument('-p', '--period', required=True,
                           help=F"'today' | 'current year' | 'previous year' | {BASE_YEAR}..{now_dt.year - 2} | 'allyears'")
     # optional arguments
+    arg_parser.add_argument('-l', '--level', type=int, default=lg.INFO, help='set LEVEL of logging output')
     arg_parser.add_argument('--ggl_save',  action='store_true', help='Write the Google formatted data to a JSON file')
-    arg_parser.add_argument('--debug', action='store_true', help='GENERATE DEBUG OUTPUT: MANY LINES!')
 
     return arg_parser
 
@@ -287,8 +285,7 @@ def process_input_parameters(argl:list) -> (str, bool, bool, str, str) :
     args = process_args().parse_args(argl)
     lgr.info(F"\nargs = {args}")
 
-    if args.debug:
-        lgr.info('Printing ALL Debug output!!')
+    lgr.info(F"logger level set to {args.level}")
 
     if not osp.isfile(args.gnucash_file):
         msg = F"File path '{args.gnucash_file}' DOES NOT exist! Exiting..."
@@ -297,16 +294,19 @@ def process_input_parameters(argl:list) -> (str, bool, bool, str, str) :
 
     lgr.info(F"\nGnucash file = {args.gnucash_file}")
 
-    return args.gnucash_file, args.ggl_save, args.debug, args.mode, args.period
+    return args.gnucash_file, args.ggl_save, args.level, args.mode, args.period
 
 
 # TODO: fill in date column for previous month when updating 'today', check to update 'today' or 'tomorrow'
 def update_balance_main(args:list) -> dict :
     lgr.info(F"Parameters = \n{json.dumps(args, indent=4)}")
-    gnucash_file, save_json, debug, mode, domain = process_input_parameters(args)
+    gnucash_file, save_json, level, mode, domain = process_input_parameters(args)
 
     ub_now = dt.now().strftime(FILE_DATE_FORMAT)
-    lgr.info(F"update_balance_main(): Runtime = {ub_now}")
+
+    lgr.setLevel(level)
+    lgr.log(level, F"\n\t\tRuntime = {ub_now}")
+    debug = lgr.level < lg.INFO
 
     try:
         updater = UpdateBalance(gnucash_file, mode, domain, debug)
@@ -335,5 +335,5 @@ def update_balance_main(args:list) -> dict :
 
 if __name__ == "__main__":
     MULTI_LOGGING = False
-    print('MULTI_LOGGING = False')
+    print('Balance MULTI_LOGGING = False')
     update_balance_main(argv[1:])
