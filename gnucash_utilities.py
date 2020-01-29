@@ -13,16 +13,18 @@ __pygnucash_version__ = '0.1'
 __created__ = '2019-04-07'
 __updated__ = '2020-01-28'
 
-from investment import *
-BASE_GNUCASH_FOLDER = BASE_PYTHON_FOLDER + 'Gnucash/'
-
-from sys import stdout
+from sys import stdout, path
 from bisect import bisect_right
 from math import log10
 from copy import copy
 import csv
 from gnucash import *
 from gnucash_core_c import CREC
+path.append('/newdata/dev/git/Python/Gnucash/createGncTxs/')
+print(path)
+from investment import *
+
+BASE_GNUCASH_FOLDER = BASE_PYTHON_FOLDER + 'Gnucash/'
 
 
 def gnc_numeric_to_python_decimal(numeric:GncNumeric, logger:lg.Logger=None) -> Decimal:
