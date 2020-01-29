@@ -7,12 +7,11 @@
 #
 # Copyright (c) 2020 Mark Sattolo <epistemik@gmail.com>
 #
-__author__ = 'Mark Sattolo'
+__author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
-__python_version__  = 3.9
-__gnucash_version__ = 3.8
+__pygnucash_version__ = '0.1'
 __created__ = '2019-04-07'
-__updated__ = '2020-01-27'
+__updated__ = '2020-01-28'
 
 from investment import *
 BASE_GNUCASH_FOLDER = BASE_PYTHON_FOLDER + 'Gnucash/'
@@ -22,17 +21,17 @@ from bisect import bisect_right
 from math import log10
 from copy import copy
 import csv
-from gnucash.gnucash_core_c import CREC
 from gnucash import *
+from gnucash_core_c import CREC
 
 
 def gnc_numeric_to_python_decimal(numeric:GncNumeric, logger:lg.Logger=None) -> Decimal:
     """
     convert a GncNumeric value to a python Decimal value
     :param numeric: value to convert
-    :param  logger: debug printing
+    :param  logger
     """
-    if logger: logger.debug('gnucash_utilities.gnc_numeric_to_python_decimal()')
+    if logger: logger.debug(get_current_time())
 
     negative = numeric.negative_p()
     sign = 1 if negative else 0
@@ -53,15 +52,15 @@ def gnc_numeric_to_python_decimal(numeric:GncNumeric, logger:lg.Logger=None) -> 
 def get_splits(p_acct:Account, period_starts:list, periods:list, logger:lg.Logger=None):
     """
     get the splits for the account and each sub-account and add to periods
-    :param logger:
     :param        p_acct: to get splits
     :param period_starts: start date for each period
     :param       periods: fill with splits for each quarter
+    :param        logger
     """
-    if logger: logger.debug('gnucash_utilities.get_splits()')
+    if logger: logger.debug(get_current_time())
     # insert and add all splits in the periods of interest
     for split in p_acct.GetSplitList():
-        if logger: logger.debug(F"split = {str(split)}")
+        if logger: logger.log(5, F"split = {str(split)}")
         trans = split.parent
         # GetDate() returns a datetime but need a date
         trans_date = trans.GetDate().date()
@@ -98,10 +97,10 @@ def fill_splits(base_acct:Account, target_path:list, period_starts:list,
     :param        logger
     :return: name of target_acct
     """
-    if logger: logger.debug(F"gnucash_utilities.fill_splits().base_acct = {base_acct.GetName()}")
+    if logger: logger.debug(get_current_time() + F" / base_acct = {base_acct.GetName()}")
     account_of_interest = account_from_path(base_acct, target_path, logger)
     acct_name = account_of_interest.GetName()
-    if logger: logger.debug(F"gnucash_utilities.fill_splits().account_of_interest = {acct_name}")
+    if logger: logger.log(5, F"gnucash_utilities.fill_splits().account_of_interest = {acct_name}")
 
     # get the split amounts for the parent account
     get_splits(account_of_interest, period_starts, periods, logger)
@@ -111,7 +110,9 @@ def fill_splits(base_acct:Account, target_path:list, period_starts:list,
         for subAcct in descendants:
             get_splits(subAcct, period_starts, periods)
 
-    csv_write_period_list(periods)
+    if logger and logger.level < lg.DEBUG:
+        csv_write_period_list(periods)
+
     return acct_name
 
 
@@ -122,7 +123,7 @@ def account_from_path(top_account:Account, account_path:list, logger:lg.Logger=N
     :param  account_path: path to follow
     :param        logger
     """
-    if logger: logger.debug(F"gnucash_utilities.account_from_path({top_account.GetName()},{account_path})")
+    if logger: logger.debug(get_current_time() + F" / account_from_path({top_account.GetName()},{account_path})")
 
     acct_name = account_path[0]
     acct_path = account_path[1:]
@@ -139,11 +140,11 @@ def account_from_path(top_account:Account, account_path:list, logger:lg.Logger=N
 def csv_write_period_list(periods:list, logger:lg.Logger=None):
     """
     Write out the details of the submitted period list in csv format
-    :param periods: dates and amounts for each quarter
-    :param logger: debug printing
+    :param   periods: dates and amounts for each quarter
+    :param   logger
     :return: to stdout
     """
-    if logger: logger.debug('gnucash_utilities.csv_write_period_list()')
+    if logger: logger.log(5, get_current_time())
 
     # write out the column headers
     csv_writer = csv.writer(stdout)
@@ -172,7 +173,7 @@ class GnucashSession:
                 price txs
         """
         self._lgr = p_logger
-        self._lgr.info(F"\n\t\tGnucashSession: Runtime = {dt.now().strftime(FILE_DATE_FORMAT)}\n")
+        self._lgr.info(F"\n\t\tRuntime = {get_current_time()}\n")
 
         self._gnc_file = p_gncfile
         self._mode     = p_mode
@@ -206,7 +207,7 @@ class GnucashSession:
             self._lgr.error(F"BAD currency '{str(p_curr)}' of type: {type(p_curr)}")
 
     def begin_session(self, p_new:bool=False):
-        self._lgr.info('GnucashSession.begin_session()')
+        self._lgr.info(get_current_time())
         self._session = Session(self._gnc_file, is_new=p_new)
         self._book = self._session.book
         self._root_acct = self._book.get_root_account()
@@ -217,22 +218,22 @@ class GnucashSession:
 
         if self._domain in (PRICE,BOTH):
             self._price_db = self._book.get_price_db()
-            self._price_db.begin_edit()
             self._lgr.debug('self.price_db.begin_edit()')
+            self._price_db.begin_edit()
 
     def end_session(self, p_save:bool=None):
-        self._lgr.info('GnucashSession.end_session()')
+        self._lgr.info(get_current_time())
         save_session = p_save if p_save else (self._mode == SEND)
         if save_session:
             self._lgr.info(F"Mode = {self._mode}: SAVE session.")
             if self._domain in (PRICE,BOTH):
-                self._lgr.debug(F"Domain = {self._domain}: COMMIT Price DB edits.")
+                self._lgr.info(F"Domain = {self._domain}: COMMIT Price DB edits.")
                 self._price_db.commit_edit()
             self._session.save()
 
         self._session.end()
         # NOT NEEDED?
-        # p_session.destroy()
+        # self._session.destroy()
 
     def check_end_session(self, p_locals:dict):
         if "gnucash_session" in p_locals and self._session is not None:
@@ -243,7 +244,7 @@ class GnucashSession:
         if acct_parent is None:
             acct_parent = self.get_root_acct()
         acct_parent_name = acct_parent.GetName()
-        self._lgr.debug(F"GnucashSession.get_account(parent={acct_parent_name}, acct_name={acct_name})")
+        self._lgr.debug(get_current_time() + F" / get_account(parent={acct_parent_name}, acct_name={acct_name})")
 
         # special location for Trust account
         if acct_name == TRUST_AST_ACCT:
@@ -267,7 +268,7 @@ class GnucashSession:
         :param p_currency: Gnucash commodity
         :return: Decimal with balance
         """
-        self._lgr.log(5, F"GnucashSession.get_account_balance({acct.GetName()})")
+        self._lgr.log(5, get_current_time() + F" / get_account_balance({acct.GetName()})")
 
         # CALLS ARE RETRIEVING ACCOUNT BALANCES FROM DAY BEFORE!!??
         p_date += ONE_DAY
@@ -299,7 +300,7 @@ class GnucashSession:
                 # ?? GETTING SLIGHT ROUNDING ERRORS WHEN ADDING MUTUAL FUND VALUES...
                 acct_sum += self.get_account_balance(sub_acct, p_date, currency)
 
-        self._lgr.debug(F"GnucashSession.get_total_balance(): {acct.GetName()} on {p_date} = {acct_sum}")
+        self._lgr.debug(get_current_time() + F" / get_total_balance(): {acct.GetName()} on {p_date} = {acct_sum}")
         return acct_sum
 
     def get_account_assets(self, asset_accts:dict, end_date:date, p_currency:GncCommodity=None) -> dict:
@@ -310,7 +311,7 @@ class GnucashSession:
         :param   p_currency: Gnucash Commodity: currency to use for the sums
         :return: dict with amounts
         """
-        self._lgr.debug('GnucashSession.get_account_assets()')
+        self._lgr.debug(get_current_time())
         data = {}
         currency = self._currency if p_currency is None else p_currency
         for item in asset_accts:
@@ -326,7 +327,7 @@ class GnucashSession:
         :param plan_type: plan names from investment.InvestmentRecord
         :param  pl_owner: needed to find proper account for RRSP & TFSA plan types
         """
-        self._lgr.debug('GnucashSession._get_asset_or_revenue_account()')
+        self._lgr.debug(get_current_time())
 
         if acct_type not in (ASSET,REVENUE):
             raise Exception(F"GnucashSession._get_asset_or_revenue_account(): BAD Account type: {acct_type}!")
@@ -347,11 +348,11 @@ class GnucashSession:
         return target_account
 
     def get_asset_parent(self, plan_type:str, pl_owner:str) -> Account:
-        self._lgr.debug('GnucashSession.get_asset_parent()')
+        self._lgr.log(5, get_current_time())
         return self._get_asset_or_revenue_account(ASSET, plan_type, pl_owner)
 
     def get_revenue_account(self, plan_type:str, pl_owner:str) -> Account:
-        self._lgr.debug('GnucashSession.get_revenue_account()')
+        self._lgr.log(5, get_current_time())
         return self._get_asset_or_revenue_account(REVENUE, plan_type, pl_owner)
 
     def show_account(self, p_path:list):
@@ -366,9 +367,9 @@ class GnucashSession:
         if len(descendants) == 0:
             self._lgr.debug(F"{acct_name} has NO Descendants!")
         else:
-            self._lgr.debug(F"Descendants of {acct_name}:")
+            self._lgr.log(5, F"Descendants of {acct_name}:")
             for item in descendants:
-                self._lgr.debug(F"account = {item.GetName()}")
+                self._lgr.log(5, F"account = {item.GetName()}")
 
     def create_price_tx(self, mtx:dict, ast_parent:Account):
         """
@@ -376,7 +377,7 @@ class GnucashSession:
         :param        mtx: InvestmentRecord transaction
         :param ast_parent: Asset parent account
         """
-        self._lgr.info('GnucashSession.create_price_tx()')
+        self._lgr.info(get_current_time())
         conv_date = dt.strptime(mtx[DATE], "%d-%b-%Y")
         pr_date = dt(conv_date.year, conv_date.month, conv_date.day)
         datestring = pr_date.strftime("%Y-%m-%d")
@@ -387,7 +388,7 @@ class GnucashSession:
 
         int_price = int(mtx[PRICE].replace('.','').replace('$',''))
         val = GncNumeric(int_price, 10000)
-        self._lgr.info(F"Adding: {fund_name}[{datestring}] @ ${val}")
+        self._lgr.debug(F"Adding: {fund_name}[{datestring}] @ ${val}")
 
         pr1 = GncPrice(self._book)
         pr1.begin_edit()
@@ -395,7 +396,7 @@ class GnucashSession:
 
         asset_acct = self.get_account(fund_name, ast_parent)
         comm = asset_acct.GetCommodity()
-        self._lgr.info(F"Commodity = {comm.get_namespace()}:{comm.get_printname()}")
+        self._lgr.debug(F"Commodity = {comm.get_namespace()}:{comm.get_printname()}")
         pr1.set_commodity(comm)
 
         pr1.set_currency(self._currency)
@@ -408,7 +409,7 @@ class GnucashSession:
             self._lgr.info(F"Mode = {self._mode}: Add Price to DB.")
             self.add_price(pr1)
         else:
-            self._lgr.info(F"Mode = {self._mode}: ABANDON Prices!\n")
+            self._lgr.warning(F"Mode = {self._mode}: ABANDON Prices!\n")
 
     def create_trade_tx(self, tx1:dict, tx2:dict):
         """
@@ -416,7 +417,7 @@ class GnucashSession:
         :param tx1: first transaction
         :param tx2: matching transaction if a switch
         """
-        self._lgr.info('GnucashSession.create_trade_tx()')
+        self._lgr.info(get_current_time())
         # create a gnucash Tx
         gtx = Transaction(self._book)
         # gets a guid on construction
