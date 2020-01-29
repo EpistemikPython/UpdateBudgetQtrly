@@ -5,16 +5,13 @@
 #
 # Copyright (c) 2020 Mark Sattolo <epistemik@gmail.com>
 #
-__author__ = 'Mark Sattolo'
+__author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
-__python_version__  = 3.9
-__gnucash_version__ = 3.8
 __created__ = '2019-03-30'
-__updated__ = '2020-01-27'
+__updated__ = '2020-01-28'
 
 from sys import argv, path
 path.append("/home/marksa/dev/git/Python/Gnucash/createGncTxs")
-# noinspection PyUnresolvedReferences
 from PyQt5.QtWidgets import ( QApplication, QComboBox, QVBoxLayout, QGroupBox, QDialog, QFileDialog,
                               QPushButton, QFormLayout, QDialogButtonBox, QLabel, QTextEdit, QCheckBox )
 from functools import partial
@@ -57,15 +54,14 @@ class UpdateBudgetQtrly(QDialog):
         super().__init__()
         self.title = 'Update Budget Quarterly'
         self.left = 120
-        self.top = 160
-        self.width = 600
+        self.top  = 160
+        self.width  = 600
         self.height = 800
         self.gnc_file = ''
         self.script = ''
         self.mode = ''
-        ui_lgr.info("{}".format(self.title))
-        # self.button_box = None
         self.init_ui()
+        ui_lgr.info(get_current_time())
 
     # noinspection PyAttributeOutsideInit,PyArgumentList
     def init_ui(self):
@@ -90,7 +86,8 @@ class UpdateBudgetQtrly(QDialog):
         self.setLayout(layout)
         self.show()
 
-    # noinspection PyAttributeOutsideInit,PyUnresolvedReferences
+    # TODO: add widget to set logging level
+    # noinspection PyAttributeOutsideInit
     def create_group_box(self):
         self.gb_main = QGroupBox('Parameters:')
         layout = QFormLayout()
@@ -158,7 +155,7 @@ class UpdateBudgetQtrly(QDialog):
         ui_lgr.info(F"Script changed to: {new_script}")
         if new_script != self.script:
             initial_domain = self.cb_domain.currentText()
-            ui_lgr.info(F"Start with domain = {initial_domain}")
+            ui_lgr.debug(F"Start with domain = {initial_domain}")
             if new_script == REV_EXPS:
                 self.cb_domain.clear()
                 self.cb_domain.addItems(PARAMS[REV_EXPS])
@@ -275,4 +272,5 @@ if __name__ == '__main__':
         ui_log_cfg = yaml.safe_load(fp.read())
     lgconf.dictConfig(ui_log_cfg)
     ui_lgr = lg.getLogger('gnucash')
+    # ui_lgr.setLevel(13)
     ui_main()
