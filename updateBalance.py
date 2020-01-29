@@ -21,7 +21,6 @@ path.append('/newdata/dev/git/Python/Gnucash/createGncTxs')
 from gnucash_utilities import *
 path.append(BASE_PYTHON_FOLDER + 'Google/')
 from google_utilities import GoogleUpdate, BASE_ROW, GOOGLE_BASENAME
-path.append(BASE_GNUCASH_FOLDER + 'createGncTxs/makeGncTx/')
 
 BASE_YEAR:int = 2008
 # number of rows between same quarter in adjacent years
