@@ -11,7 +11,6 @@ __created__ = '2019-03-30'
 __updated__ = '2020-01-28'
 
 from sys import argv, path
-path.append("/home/marksa/dev/git/Python/Gnucash/createGncTxs")
 from PyQt5.QtWidgets import ( QApplication, QComboBox, QVBoxLayout, QGroupBox, QDialog, QFileDialog,
                               QPushButton, QFormLayout, QDialogButtonBox, QLabel, QTextEdit, QCheckBox )
 from functools import partial
@@ -20,6 +19,7 @@ import logging.config as lgconf
 from updateRevExps import update_rev_exps_main
 from updateAssets import update_assets_main
 from updateBalance import update_balance_main
+path.append('/home/marksa/dev/git/Python/Gnucash/createGncTxs/')
 from investment import *
 
 
@@ -86,7 +86,7 @@ class UpdateBudgetQtrly(QDialog):
         self.setLayout(layout)
         self.show()
 
-    # TODO: add widget to set logging level
+    # TODO: change debug widget to set specific logging level
     # noinspection PyAttributeOutsideInit
     def create_group_box(self):
         self.gb_main = QGroupBox('Parameters:')
@@ -232,7 +232,7 @@ class UpdateBudgetQtrly(QDialog):
         cl_params.append(domain_key + domain)
 
         if self.ch_ggl.isChecked(): cl_params.append('--ggl_save')
-        if self.ch_debug.isChecked(): cl_params.append('--debug')
+        if self.ch_debug.isChecked(): cl_params.append('-l'+str(lg.DEBUG))
 
         ui_lgr.info(str(cl_params))
 
