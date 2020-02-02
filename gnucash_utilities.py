@@ -302,7 +302,7 @@ class GnucashSession:
                 # ?? GETTING SLIGHT ROUNDING ERRORS WHEN ADDING MUTUAL FUND VALUES...
                 acct_sum += self.get_account_balance(sub_acct, p_date, currency)
 
-        self._lgr.debug(get_current_time() + F" / get_total_balance(): {acct.GetName()} on {p_date} = {acct_sum}")
+        self._lgr.log(9, get_current_time() + F" / {acct.GetName()} on {p_date} = {acct_sum}")
         return acct_sum
 
     def get_account_assets(self, asset_accts:dict, end_date:date, p_currency:GncCommodity=None) -> dict:
