@@ -76,7 +76,8 @@ class UpdateBudgetQtrly(QDialog):
         self.response_box.setText('Hello there!')
 
         self.button_box = QDialogButtonBox(QDialogButtonBox.Close)
-        self.button_box.rejected.connect(partial(self.close))
+        self.button_box.accepted.connect(self.accept)
+        self.button_box.rejected.connect(self.reject)
 
         layout = QVBoxLayout()
         layout.addWidget(self.gb_main)
@@ -252,11 +253,6 @@ class UpdateBudgetQtrly(QDialog):
         """info printing only"""
         ui_lgr.info(F"ComboBox '{label}' selection changed to '{cb.currentText()}'.")
 
-    def close(self):
-        finish_logging(GOOGLE_BASENAME)
-        # TODO: should be some better way to exit here??
-        exit()
-
 # END class UpdateBudgetQtrly
 
 
@@ -264,6 +260,7 @@ def ui_main():
     app = QApplication(argv)
     dialog = UpdateBudgetQtrly()
     dialog.show()
+    finish_logging(UpdateBudgetQtrly.__name__, LOGGERS[UpdateBudgetQtrly.__name__][1])
     exit(app.exec_())
 
 
@@ -271,6 +268,6 @@ if __name__ == '__main__':
     with open(YAML_CONFIG_FILE, 'r') as fp:
         ui_log_cfg = yaml.safe_load(fp.read())
     lgconf.dictConfig(ui_log_cfg)
-    ui_lgr = lg.getLogger('gnucash')
+    ui_lgr = lg.getLogger(LOGGERS[UpdateBudgetQtrly.__name__][0])
     # ui_lgr.setLevel(13)
     ui_main()

@@ -20,7 +20,7 @@ import yaml
 path.append('/newdata/dev/git/Python/Gnucash/createGncTxs')
 from gnucash_utilities import *
 path.append(BASE_PYTHON_FOLDER + 'Google/')
-from google_utilities import GoogleUpdate, BASE_ROW, GOOGLE_BASENAME
+from google_utilities import GoogleUpdate, BASE_ROW
 
 BASE_YEAR:int = 2008
 # number of rows between same quarter in adjacent years
@@ -62,13 +62,11 @@ BAL_TODAY_RANGES = {
 BAL_1_SHEET:str = 'Balance 1'
 BAL_2_SHEET:str = 'Balance 2'
 
-MULTI_LOGGING = True
-print('Balance MULTI_LOGGING = True')
 # load the logging config
 with open(YAML_CONFIG_FILE, 'r') as fp:
     log_cfg = yaml.safe_load(fp.read())
 lgconf.dictConfig(log_cfg)
-lgr = lg.getLogger('gnucash')
+lgr = lg.getLogger(LOGGERS[__file__][0])
 
 
 class UpdateBalance:
@@ -327,12 +325,9 @@ def update_balance_main(args:list) -> dict :
         response = {F"update_balance_main() EXCEPTION: {msg}"}
 
     lgr.info(" >>> PROGRAM ENDED.\n")
-    if not MULTI_LOGGING:
-        finish_logging(GOOGLE_BASENAME, ub_now)
+    finish_logging(__file__, gnucash_file.split('.')[0], ub_now)
     return response
 
 
 if __name__ == "__main__":
-    MULTI_LOGGING = False
-    print('Balance MULTI_LOGGING = False')
     update_balance_main(argv[1:])

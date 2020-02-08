@@ -11,6 +11,8 @@ __author_email__ = 'epistemik@gmail.com'
 __created__ = '2019-03-30'
 __updated__ = '2020-01-28'
 
+print(__file__)
+
 from sys import path, argv, exc_info
 import yaml
 import logging.config as lgconf
@@ -63,13 +65,11 @@ NEC_INC_2_SHEET:str = 'Nec Inc 2'
 BOOL_NEC_INC = False
 BOOL_ALL_INC = True
 
-MULTI_LOGGING = True
-print('RevExps MULTI_LOGGING = True')
 # load the logging config
 with open(YAML_CONFIG_FILE, 'r') as fp:
     log_cfg = yaml.safe_load(fp.read())
 lgconf.dictConfig(log_cfg)
-lgr = lg.getLogger('gnucash')
+lgr = lg.getLogger(LOGGERS[__file__][0])
 
 
 class UpdateRevExps:
@@ -366,14 +366,11 @@ def update_rev_exps_main(args:list) -> dict:
         response = F"update_rev_exps_main() EXCEPTION: {reme_msg}"
 
     lgr.info(" >>> PROGRAM ENDED.\n")
-    if not MULTI_LOGGING:
-        finish_logging(GOOGLE_BASENAME, revexp_now)
+    finish_logging(__file__, gnucash_file.split('.')[0], revexp_now)
     return response
 
 # END class UpdateRevExps
 
 
 if __name__ == "__main__":
-    MULTI_LOGGING = False
-    print('RevExps MULTI_LOGGING = False')
     update_rev_exps_main(argv[1:])

@@ -62,13 +62,11 @@ ASSET_COLS = {
 QTR_ASTS_SHEET:str   = 'Assets 1'
 QTR_ASTS_2_SHEET:str = 'Assets 2'
 
-MULTI_LOGGING = True
-print('Assets MULTI_LOGGING = True')
 # load the logging config
 with open(YAML_CONFIG_FILE, 'r') as fp:
     log_cfg = yaml.safe_load(fp.read())
 lgconf.dictConfig(log_cfg)
-lgr = lg.getLogger('gnucash')
+lgr = lg.getLogger(LOGGERS[__file__][0])
 
 
 class UpdateAssets:
@@ -261,12 +259,9 @@ def update_assets_main(args:list) -> dict :
         response = {F"update_assets_main() EXCEPTION: {msg}"}
 
     lgr.info(" >>> PROGRAM ENDED.\n")
-    if not MULTI_LOGGING:
-        finish_logging(GOOGLE_BASENAME, ua_now)
+    finish_logging(__file__, gnucash_file.split('.')[0], ua_now)
     return response
 
 
 if __name__ == "__main__":
-    MULTI_LOGGING = False
-    print('Assets MULTI_LOGGING = False')
     update_assets_main(argv[1:])
