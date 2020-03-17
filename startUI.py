@@ -8,14 +8,12 @@
 __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __created__ = '2019-03-30'
-__updated__ = '2020-01-28'
+__updated__ = '2020-03-17'
 
 from sys import argv, path
 from PyQt5.QtWidgets import ( QApplication, QComboBox, QVBoxLayout, QGroupBox, QDialog, QFileDialog,
                               QPushButton, QFormLayout, QDialogButtonBox, QLabel, QTextEdit, QCheckBox )
 from functools import partial
-import yaml
-import logging.config as lgconf
 from updateRevExps import update_rev_exps_main
 from updateAssets import update_assets_main
 from updateBalance import update_balance_main
@@ -75,14 +73,14 @@ class UpdateBudgetQtrly(QDialog):
         self.response_box.acceptRichText()
         self.response_box.setText('Hello there!')
 
-        self.button_box = QDialogButtonBox(QDialogButtonBox.Close)
-        self.button_box.accepted.connect(self.accept)
-        self.button_box.rejected.connect(self.reject)
+        button_box = QDialogButtonBox(QDialogButtonBox.Close)
+        button_box.accepted.connect(self.accept)
+        button_box.rejected.connect(self.reject)
 
         layout = QVBoxLayout()
         layout.addWidget(self.gb_main)
         layout.addWidget(self.response_box)
-        layout.addWidget(self.button_box)
+        layout.addWidget(button_box)
 
         self.setLayout(layout)
         self.show()
@@ -260,14 +258,12 @@ def ui_main():
     app = QApplication(argv)
     dialog = UpdateBudgetQtrly()
     dialog.show()
-    finish_logging(UpdateBudgetQtrly.__name__, LOGGERS[UpdateBudgetQtrly.__name__][1])
-    exit(app.exec_())
+    app.exec_()
 
 
 if __name__ == '__main__':
-    with open(YAML_CONFIG_FILE, 'r') as fp:
-        ui_log_cfg = yaml.safe_load(fp.read())
-    lgconf.dictConfig(ui_log_cfg)
-    ui_lgr = lg.getLogger(LOGGERS[UpdateBudgetQtrly.__name__][0])
+    ui_lgr = get_logger(LOGGERS.get(UpdateBudgetQtrly.__name__)[0])
     # ui_lgr.setLevel(13)
     ui_main()
+    finish_logging(UpdateBudgetQtrly.__name__, LOGGERS.get(UpdateBudgetQtrly.__name__)[1])
+    exit()

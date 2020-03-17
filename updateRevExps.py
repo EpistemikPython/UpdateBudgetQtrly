@@ -9,13 +9,12 @@
 __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __created__ = '2019-03-30'
-__updated__ = '2020-01-28'
+__updated__ = '2020-03-17'
 
-print(__file__)
+base_run_file = __file__.split('/')[-1]
+print(base_run_file)
 
 from sys import path, argv, exc_info
-import yaml
-import logging.config as lgconf
 from argparse import ArgumentParser
 path.append("/home/marksa/dev/git/Python/Gnucash/createGncTxs")
 from gnucash_utilities import *
@@ -65,34 +64,27 @@ NEC_INC_2_SHEET:str = 'Nec Inc 2'
 BOOL_NEC_INC = False
 BOOL_ALL_INC = True
 
-# load the logging config
-with open(YAML_CONFIG_FILE, 'r') as fp:
-    log_cfg = yaml.safe_load(fp.read())
-lgconf.dictConfig(log_cfg)
-lgr = lg.getLogger(LOGGERS[__file__][0])
-
 
 class UpdateRevExps:
-    def __init__(self, p_filename:str, p_mode:str, p_debug:bool):
-        self.debug = p_debug
-        lgr.info(get_current_time())
-
+    def __init__(self, p_filename:str, p_mode:str, p_lgr:lg.Logger):
         self.gnucash_file = p_filename
         self.gnucash_data = []
 
         self.gnc_session = None
-        self.gglu = GoogleUpdate(lgr)
+        self.gglu = GoogleUpdate(p_lgr)
+
+        p_lgr.info(get_current_time())
+        self._lgr = p_lgr
 
         self.mode = p_mode
-
         # Google sheet to update
         self.all_inc_dest = ALL_INC_2_SHEET
         self.nec_inc_dest = NEC_INC_2_SHEET
         if '1' in self.mode:
             self.all_inc_dest = ALL_INC_SHEET
             self.nec_inc_dest = NEC_INC_SHEET
-        lgr.debug(F"all_inc_dest = {self.all_inc_dest}")
-        lgr.debug(F"nec_inc_dest = {self.nec_inc_dest}\n")
+        p_lgr.debug(F"all_inc_dest = {self.all_inc_dest}")
+        p_lgr.debug(F"nec_inc_dest = {self.nec_inc_dest}\n")
 
     def get_gnucash_data(self) -> list:
         return self.gnucash_data
@@ -101,8 +93,8 @@ class UpdateRevExps:
         return self.gglu.get_data()
 
     def fill_splits(self, account_path:list, period_starts:list, periods:list):
-        lgr.log(5, get_current_time())
-        return fill_splits(self.gnc_session.get_root_acct(), account_path, period_starts, periods, lgr)
+        self._lgr.log(5, get_current_time())
+        return fill_splits(self.gnc_session.get_root_acct(), account_path, period_starts, periods, self._lgr)
 
     def get_revenue(self, period_starts:list, periods:list) -> dict:
         """
@@ -111,21 +103,21 @@ class UpdateRevExps:
         :param       periods: structs with the dates and amounts for each quarter
         :return: revenue for period
         """
-        lgr.info(get_current_time())
+        self._lgr.info(get_current_time())
         data_quarter = {}
         str_rev = '= '
         for item in REV_ACCTS:
             # reset the debit and credit totals for each individual account
             periods[0][2] = ZERO
             periods[0][3] = ZERO
-            lgr.log(5, 'set periods')
+            self._lgr.log(5, 'set periods')
             acct_base = REV_ACCTS[item]
-            lgr.log(5, F"acct_base = {acct_base}")
+            self._lgr.log(5, F"acct_base = {acct_base}")
             acct_name = self.fill_splits(acct_base, period_starts, periods)
 
             sum_revenue = (periods[0][2] + periods[0][3]) * (-1)
             str_rev += sum_revenue.to_eng_string() + (' + ' if item != EMPL else '')
-            lgr.debug(F"{acct_name} Revenue for period = ${sum_revenue}")
+            self._lgr.debug(F"{acct_name} Revenue for period = ${sum_revenue}")
 
         data_quarter[REV] = str_rev
         return data_quarter
@@ -139,7 +131,7 @@ class UpdateRevExps:
         :param      data_qtr: collected data for the quarter
         :return: deductions for period
         """
-        lgr.info(get_current_time())
+        self._lgr.info(get_current_time())
         str_dedns = '= '
         for item in DEDN_ACCTS:
             # reset the debit and credit totals for each individual account
@@ -151,7 +143,7 @@ class UpdateRevExps:
 
             sum_deductions = periods[0][2] + periods[0][3]
             str_dedns += sum_deductions.to_eng_string() + (' + ' if item != "ML" else '')
-            lgr.debug(F"{acct_name} {EMPL} Deductions for {p_year}-Q{data_qtr[QTR]} = ${sum_deductions}")
+            self._lgr.debug(F"{acct_name} {EMPL} Deductions for {p_year}-Q{data_qtr[QTR]} = ${sum_deductions}")
 
         data_qtr[DEDNS] = str_dedns
         return str_dedns
@@ -165,7 +157,7 @@ class UpdateRevExps:
         :param      data_qtr: collected data for the quarter
         :return: total expenses for period
         """
-        lgr.info(get_current_time())
+        self._lgr.info(get_current_time())
         str_total = ''
         for item in EXP_ACCTS:
             # reset the debit and credit totals for each individual account
@@ -178,7 +170,7 @@ class UpdateRevExps:
             sum_expenses = periods[0][2] + periods[0][3]
             str_expenses = sum_expenses.to_eng_string()
             data_qtr[item] = str_expenses
-            lgr.debug(F"{acct_name.split('_')[-1]} Expenses for {p_year}-Q{data_qtr[QTR]} = ${str_expenses}")
+            self._lgr.debug(F"{acct_name.split('_')[-1]} Expenses for {p_year}-Q{data_qtr[QTR]} = ${str_expenses}")
             str_total += str_expenses + ' + '
 
         return str_total
@@ -194,10 +186,10 @@ class UpdateRevExps:
         :return: nil
         """
         num_quarters = 1 if p_qtr else 4
-        lgr.info("UpdateRevExps.prepare_gnucash_data(): find Revenue & Expenses in {} for {}{}"
+        self._lgr.info("UpdateRevExps.prepare_gnucash_data(): find Revenue & Expenses in {} for {}{}"
                   .format(self.gnucash_file, p_year, ('-Q' + str(p_qtr)) if p_qtr else ''))
         try:
-            self.gnc_session = GnucashSession(self.mode, self.gnucash_file, BOTH, lgr)
+            self.gnc_session = GnucashSession(self.mode, self.gnucash_file, BOTH, self._lgr)
             self.gnc_session.begin_session()
 
             for i in range(num_quarters):
@@ -219,27 +211,27 @@ class UpdateRevExps:
 
                 data_quarter = self.get_revenue(period_starts, period_list)
                 data_quarter[QTR] = str(qtr)
-                lgr.debug(F"\nTOTAL Revenue for {p_year}-Q{qtr} = ${period_list[0][4] * -1}")
+                self._lgr.debug(F"\nTOTAL Revenue for {p_year}-Q{qtr} = ${period_list[0][4] * -1}")
 
                 period_list[0][4] = ZERO
                 self.get_expenses(period_starts, period_list, p_year, data_quarter)
                 self.get_deductions(period_starts, period_list, p_year, data_quarter)
-                lgr.debug(F"\nTOTAL Expenses for {p_year}-Q{qtr} = {period_list[0][4]}\n")
+                self._lgr.debug(F"\nTOTAL Expenses for {p_year}-Q{qtr} = {period_list[0][4]}\n")
 
                 self.gnucash_data.append(data_quarter)
-                lgr.log(5, json.dumps(data_quarter, indent=4))
+                self._lgr.log(5, json.dumps(data_quarter, indent=4))
 
             # no save needed, we're just reading...
             self.gnc_session.end_session(False)
 
             if save_gnc:
                 fname = F"updateRevExps_gnc-data-{p_year}{('-Q' + str(p_qtr) if p_qtr else '')}"
-                lgr.info(F"gnucash data file = {save_to_json(fname, self.gnucash_data)}")
+                self._lgr.info(F"gnucash data file = {save_to_json(fname, self.gnucash_data)}")
 
         except Exception as fgde:
             fgde_msg = F"prepare_gnucash_data() EXCEPTION: {repr(fgde)}!"
             tb = exc_info()[2]
-            lgr.error(fgde_msg, tb)
+            self._lgr.error(fgde_msg, tb)
             if self.gnc_session:
                 self.gnc_session.check_end_session(locals())
             raise fgde.with_traceback(tb)
@@ -265,13 +257,13 @@ class UpdateRevExps:
         :param save_google: save the Google data to a JSON file
         :return: nil
         """
-        lgr.info(get_current_time())
+        self._lgr.info(get_current_time())
         year_row = BASE_ROW + year_span(p_year, BASE_YEAR, BASE_YEAR_SPAN, 0)
         # get exact row from Quarter value in each item
         for item in self.gnucash_data:
-            lgr.log(5, F"{QTR} = {item[QTR]}")
+            self._lgr.log(5, F"{QTR} = {item[QTR]}")
             dest_row = year_row + ((get_int_quarter(item[QTR]) - 1) * QTR_SPAN)
-            lgr.log(5, F"dest_row = {dest_row}\n")
+            self._lgr.log(5, F"dest_row = {dest_row}\n")
             for key in item:
                 if key != QTR:
                     dest = BOOL_NEC_INC
@@ -292,7 +284,7 @@ class UpdateRevExps:
 
         if save_google:
             fname = F"updateRevExps_google-data-{str(p_year)}{('-Q' + str_qtr if str_qtr else '')}"
-            lgr.info(F"google data file = {save_to_json(fname, self.get_google_data())}")
+            self._lgr.info(F"google data file = {save_to_json(fname, self.get_google_data())}")
 
 # END class UpdateRevExps
 
@@ -314,7 +306,7 @@ def process_args() -> ArgumentParser:
     return arg_parser
 
 
-def process_input_parameters(argl:list) -> (str, bool, bool, bool, str, int, int):
+def process_input_parameters(argl:list, lgr:lg.Logger) -> (str, bool, bool, bool, str, int, int):
     args = process_args().parse_args(argl)
     lgr.info(F"\nargs = {args}")
 
@@ -334,17 +326,21 @@ def process_input_parameters(argl:list) -> (str, bool, bool, bool, str, int, int
 
 
 def update_rev_exps_main(args:list) -> dict:
-    lgr.info(F"Parameters = \n{json.dumps(args, indent=4)}")
-    gnucash_file, save_gnc, save_ggl, level, mode, target_year, target_qtr = process_input_parameters(args)
+    lgr = get_logger(LOGGERS[base_run_file][0])
+
+    gnucash_file, save_gnc, save_ggl, level, mode, target_year, target_qtr = process_input_parameters(args, lgr)
+
+    # pluck basename from gnucash_file
+    _, fname = osp.split(gnucash_file)
+    basename, _ = osp.splitext(fname)
 
     revexp_now = dt.now().strftime(FILE_DATE_FORMAT)
 
     lgr.setLevel(level)
     lgr.log(level, F"\n\t\tRuntime = {revexp_now}")
-    debug = lgr.level < lg.INFO
 
     try:
-        updater = UpdateRevExps(gnucash_file, mode, debug)
+        updater = UpdateRevExps(gnucash_file, mode, lgr)
 
         # either for One Quarter or for Four Quarters if updating an entire Year
         updater.prepare_gnucash_data(save_gnc, target_year, target_qtr)
@@ -358,15 +354,15 @@ def update_rev_exps_main(args:list) -> dict:
             fname = F"updateRevExps_response-{target_year}{('-Q' + str(target_qtr) if target_qtr else '')}"
             lgr.info(F"google response file = {save_to_json(fname, response, revexp_now)}")
         else:
-            response = saved_log_info
+            response = {'Response':saved_log_info}
 
     except Exception as reme:
         reme_msg = repr(reme)
         lgr.error(reme_msg)
-        response = F"update_rev_exps_main() EXCEPTION: {reme_msg}"
+        response = {'Response':F"update_rev_exps_main() EXCEPTION: {reme_msg}"}
 
     lgr.info(" >>> PROGRAM ENDED.\n")
-    finish_logging(__file__, gnucash_file.split('.')[0], revexp_now)
+    finish_logging(base_run_file, basename, revexp_now)
     return response
 
 # END class UpdateRevExps

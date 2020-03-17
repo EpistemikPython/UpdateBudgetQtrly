@@ -11,7 +11,7 @@ __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __pygnucash_version__ = '0.1'
 __created__ = '2019-04-07'
-__updated__ = '2020-01-28'
+__updated__ = '2020-03-17'
 
 from sys import stdout, path
 from bisect import bisect_right
@@ -158,28 +158,26 @@ def csv_write_period_list(periods:list, logger:lg.Logger=None):
         csv_writer.writerow((start_date, end_date, debit_sum, credit_sum, total))
 
 
-# TODO: level of logging determined by debug parameter passed in
 class GnucashSession:
-    def __init__(self, p_mode:str, p_gncfile:str, p_domain:str, p_logger:lg.Logger,
-                 p_currency:GncCommodity=None):
-        """
-        Create and manage a Gnucash session
-        init = prepare session, RO or RW, from Gnucash file, debug,
-        fxns
-            get:
-                account(s) of various types
-                balances from account(s)
-                splits
-            create:
-                trade txs
-                price txs
-        """
+    """
+    Create, manage and terminate a Gnucash session
+    init = prepare session for submitted Gnucash file
+    fxns:
+        get:
+            account(s) of various types
+            balances from account(s)
+            splits
+        create:
+            trade txs
+            price txs
+    """
+    def __init__(self, p_mode:str, p_gncfile:str, p_domain:str, p_logger:lg.Logger, p_currency:GncCommodity=None):
         self._lgr = p_logger
         self._lgr.info(F"\n\t\tRuntime = {get_current_time()}\n")
 
         self._gnc_file = p_gncfile
-        self._mode     = p_mode
-        self._domain   = p_domain
+        self._mode     = p_mode   # test or send
+        self._domain   = p_domain # txs and/or prices
 
         self._currency = None
         self.set_currency(p_currency)
@@ -224,7 +222,7 @@ class GnucashSession:
             self._price_db.begin_edit()
 
     def end_session(self, p_save:bool=None):
-        self._lgr.info(get_current_time())
+        self._lgr.log(5, get_current_time())
         save_session = p_save if p_save else (self._mode == SEND)
         if save_session:
             self._lgr.info(F"Mode = {self._mode}: SAVE session.")
@@ -379,7 +377,7 @@ class GnucashSession:
         :param        mtx: InvestmentRecord transaction
         :param ast_parent: Asset parent account
         """
-        self._lgr.info(get_current_time())
+        self._lgr.log(5, get_current_time())
         conv_date = dt.strptime(mtx[DATE], "%d-%b-%Y")
         pr_date = dt(conv_date.year, conv_date.month, conv_date.day)
         datestring = pr_date.strftime("%Y-%m-%d")
@@ -408,7 +406,7 @@ class GnucashSession:
         pr1.commit_edit()
 
         if self._mode == SEND:
-            self._lgr.info(F"Mode = {self._mode}: Add Price to DB.")
+            self._lgr.log(5, F"Mode = {self._mode}: Add Price to DB.")
             self.add_price(pr1)
         else:
             self._lgr.warning(F"Mode = {self._mode}: ABANDON Prices!\n")
@@ -419,7 +417,7 @@ class GnucashSession:
         :param tx1: first transaction
         :param tx2: matching transaction if a switch
         """
-        self._lgr.info(get_current_time())
+        self._lgr.log(5, get_current_time())
         # create a gnucash Tx
         gtx = Transaction(self._book)
         # gets a guid on construction
@@ -492,7 +490,7 @@ class GnucashSession:
             return
 
         if self._mode == SEND:
-            self._lgr.info(F"Mode = {self._mode}: Commit transaction.\n")
+            self._lgr.info(F"Mode = {self._mode}: Commit transaction.")
             gtx.CommitEdit()
         else:
             self._lgr.warning(F"Mode = {self._mode}: ROLL BACK transaction!\n")
