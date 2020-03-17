@@ -11,8 +11,8 @@ __created__ = '2019-03-30'
 __updated__ = '2020-03-17'
 
 from sys import argv, path
-from PyQt5.QtWidgets import ( QApplication, QComboBox, QVBoxLayout, QGroupBox, QDialog, QFileDialog,
-                              QPushButton, QFormLayout, QDialogButtonBox, QLabel, QTextEdit, QCheckBox )
+from PyQt5.QtWidgets import (QApplication, QComboBox, QVBoxLayout, QGroupBox, QDialog, QFileDialog,
+                             QPushButton, QFormLayout, QDialogButtonBox, QLabel, QTextEdit, QCheckBox, QInputDialog)
 from functools import partial
 from updateRevExps import update_rev_exps_main
 from updateAssets import update_assets_main
@@ -45,7 +45,7 @@ MAIN_FXNS:dict = {
 }
 
 
-# noinspection PyCallByClass,PyTypeChecker,PyArgumentList,PyMethodMayBeStatic
+# noinspection PyCallByClass,PyTypeChecker,PyAttributeOutsideInit,PyArgumentList,PyMethodMayBeStatic
 class UpdateBudgetQtrly(QDialog):
     """update my 'Budget Quarterly' Google spreadsheet with information from a Gnucash file"""
     def __init__(self):
@@ -61,10 +61,11 @@ class UpdateBudgetQtrly(QDialog):
         self.init_ui()
         ui_lgr.info(get_current_time())
 
-    # noinspection PyAttributeOutsideInit,PyArgumentList
     def init_ui(self):
         self.setWindowTitle(self.title)
         self.setGeometry(self.left, self.top, self.width, self.height)
+
+        self.log_level = lg.INFO
 
         self.create_group_box()
 
@@ -85,8 +86,6 @@ class UpdateBudgetQtrly(QDialog):
         self.setLayout(layout)
         self.show()
 
-    # TODO: change debug widget to set specific logging level
-    # noinspection PyAttributeOutsideInit
     def create_group_box(self):
         self.gb_main = QGroupBox('Parameters:')
         layout = QFormLayout()
@@ -125,10 +124,14 @@ class UpdateBudgetQtrly(QDialog):
         vert_layout = QVBoxLayout()
         self.ch_gnc = QCheckBox('Save Gnucash info to JSON file?')
         self.ch_ggl = QCheckBox('Save Google info to JSON file?')
-        self.ch_debug = QCheckBox('Print DEBUG info?')
+
+        # self.ch_debug = QCheckBox('Print DEBUG info?')
+        self.pb_logging = QPushButton("Change the logging level?")
+        self.pb_logging.clicked.connect(self.get_log_level)
+
         vert_layout.addWidget(self.ch_gnc)
         vert_layout.addWidget(self.ch_ggl)
-        vert_layout.addWidget(self.ch_debug)
+        vert_layout.addWidget(self.pb_logging)
         vert_box.setLayout(vert_layout)
         layout.addRow(QLabel('Options'), vert_box)
 
@@ -231,7 +234,8 @@ class UpdateBudgetQtrly(QDialog):
         cl_params.append(domain_key + domain)
 
         if self.ch_ggl.isChecked(): cl_params.append('--ggl_save')
-        if self.ch_debug.isChecked(): cl_params.append('-l'+str(lg.DEBUG))
+        # if self.ch_debug.isChecked(): cl_params.append('-l'+str(lg.DEBUG))
+        cl_params.append('-l'+str(self.log_level))
 
         ui_lgr.info(str(cl_params))
 
@@ -246,6 +250,12 @@ class UpdateBudgetQtrly(QDialog):
             reply = {'msg': msg, 'log': saved_log_info}
 
         self.response_box.append(json.dumps(reply, indent=4))
+
+    def get_log_level(self):
+        num, ok = QInputDialog.getInt(self, "Logging Level", "Enter a value (0-100)", value=self.log_level, min=0, max=100)
+        if ok:
+            self.log_level = num
+            ui_lgr.info(F"logging level changed to {num}.")
 
     def selection_change(self, cb:QComboBox, label:str):
         """info printing only"""
