@@ -330,9 +330,10 @@ def update_rev_exps_main(args:list) -> dict:
 
     gnucash_file, save_gnc, save_ggl, level, mode, target_year, target_qtr = process_input_parameters(args, lgr)
 
-    # pluck basename from gnucash_file
+    # pluck log name from gnucash and run file names
     _, fname = osp.split(gnucash_file)
-    basename, _ = osp.splitext(fname)
+    base_name, _ = osp.splitext(fname)
+    log_name = LOGGERS.get(base_run_file)[1] + '_' + base_name
 
     revexp_now = dt.now().strftime(FILE_DATE_FORMAT)
 
@@ -362,7 +363,7 @@ def update_rev_exps_main(args:list) -> dict:
         response = {'update_rev_exps_main() EXCEPTION':F"{reme_msg}"}
 
     lgr.info(" >>> PROGRAM ENDED.\n")
-    finish_logging(base_run_file, basename, revexp_now)
+    finish_logging(base_run_file, log_name, revexp_now)
     return response
 
 # END class UpdateRevExps

@@ -297,7 +297,8 @@ def update_balance_main(args:list) -> dict:
 
     # pluck basename from gnucash_file
     _, fname = osp.split(gnucash_file)
-    basename, _ = osp.splitext(fname)
+    base_name, _ = osp.splitext(fname)
+    log_name = LOGGERS.get(base_run_file)[1] + '_' + base_name
 
     ub_now = dt.now().strftime(FILE_DATE_FORMAT)
 
@@ -324,7 +325,7 @@ def update_balance_main(args:list) -> dict:
         response = {'update_balance_main() EXCEPTION':F"{msg}"}
 
     lgr.info(" >>> PROGRAM ENDED.\n")
-    finish_logging(base_run_file, basename, ub_now)
+    finish_logging(base_run_file, log_name, ub_now)
     return response
 
 
