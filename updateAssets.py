@@ -9,11 +9,12 @@
 __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __created__ = '2019-04-06'
-__updated__ = '2020-01-27'
+__updated__ = '2020-03-17'
+
+base_run_file = __file__.split('/')[-1]
+print(base_run_file)
 
 from sys import path, argv
-import yaml
-import logging.config as lgconf
 from argparse import ArgumentParser
 path.append("/home/marksa/dev/git/Python/Gnucash/createGncTxs")
 from gnucash_utilities import *
@@ -62,30 +63,23 @@ ASSET_COLS = {
 QTR_ASTS_SHEET:str   = 'Assets 1'
 QTR_ASTS_2_SHEET:str = 'Assets 2'
 
-# load the logging config
-with open(YAML_CONFIG_FILE, 'r') as fp:
-    log_cfg = yaml.safe_load(fp.read())
-lgconf.dictConfig(log_cfg)
-lgr = lg.getLogger(LOGGERS[__file__][0])
-
 
 class UpdateAssets:
-    def __init__(self, p_filename:str, p_mode:str, p_debug:bool):
-        self.debug = p_debug
-        #
-        lgr.info('UpdateAssets')
+    def __init__(self, p_filename:str, p_mode:str, p_lgr:lg.Logger):
+        p_lgr.info('UpdateAssets')
+        self._lgr = p_lgr
 
         self.gnucash_file = p_filename
         self.gnucash_data = []
 
-        self.ggl_update = GoogleUpdate(lgr)
+        self.ggl_update = GoogleUpdate(p_lgr)
 
         self.mode = p_mode
         # Google sheet to update
         self.dest = QTR_ASTS_2_SHEET
         if '1' in self.mode:
             self.dest = QTR_ASTS_SHEET
-        lgr.info(F"dest = {self.dest}")
+        p_lgr.info(F"dest = {self.dest}")
 
     def get_gnucash_data(self) -> list:
         return self.gnucash_data
@@ -100,12 +94,12 @@ class UpdateAssets:
         :param   p_year: year to update
         :param    p_qtr: 1..4 for quarter to update or 0 if updating ALL FOUR quarters
         """
-        lgr.info("UpdateAssets.prepare_gnucash_data(): find Assets in {} for {}{}"
+        self._lgr.info("UpdateAssets.prepare_gnucash_data(): find Assets in {} for {}{}"
                   .format(self.gnucash_file, p_year, ('-Q' + str(p_qtr)) if p_qtr else ''))
         num_quarters = 1 if p_qtr else 4
         gnc_session = None
         try:
-            gnc_session = GnucashSession(self.mode, self.gnucash_file, BOTH, lgr)
+            gnc_session = GnucashSession(self.mode, self.gnucash_file, BOTH, self._lgr)
             gnc_session.begin_session()
 
             for i in range(num_quarters):
@@ -126,7 +120,7 @@ class UpdateAssets:
                 save_to_json(fname, self.gnucash_data)
 
         except Exception as gnce:
-            lgr.error(F"Exception: {repr(gnce)}!")
+            self._lgr.error(F"Exception: {repr(gnce)}!")
             if gnc_session:
                 gnc_session.check_end_session(locals())
             raise gnce
@@ -150,16 +144,16 @@ class UpdateAssets:
         :param   p_year: year to update
         :param save_ggl: save Google data to a JSON file
         """
-        lgr.info(F"UpdateAssets.fill_google_data({p_year},{save_ggl})\n")
+        self._lgr.info(F"UpdateAssets.fill_google_data({p_year},{save_ggl})\n")
 
         try:
             year_row = BASE_ROW + year_span(p_year, BASE_YEAR, BASE_YEAR_SPAN, HDR_SPAN)
             # get exact row from Quarter value in each item
             for item in self.gnucash_data:
-                lgr.info(F"{QTR} = {item[QTR]}")
+                self._lgr.info(F"{QTR} = {item[QTR]}")
                 int_qtr = int(item[QTR])
                 dest_row = year_row + ((int_qtr - 1) * QTR_SPAN)
-                lgr.info(F"dest_row = {dest_row}\n")
+                self._lgr.info(F"dest_row = {dest_row}\n")
                 for key in item:
                     if key != QTR:
                         # FOR YEAR 2015 OR EARLIER: GET RESP INSTEAD OF Rewards for COLUMN O
@@ -183,7 +177,7 @@ class UpdateAssets:
                 save_to_json(fname, self.get_google_data())
 
         except Exception as fgde:
-            lgr.error(F"Exception: {repr(fgde)}!")
+            self._lgr.error(F"Exception: {repr(fgde)}!")
             raise fgde
 
 # END class UpdateAssets
@@ -206,7 +200,7 @@ def process_args() -> ArgumentParser:
     return arg_parser
 
 
-def process_input_parameters(argl:list) -> (str, bool, bool, bool, str, int, int) :
+def process_input_parameters(argl:list, lgr:lg.Logger) -> (str, bool, bool, bool, str, int, int):
     args = process_args().parse_args(argl)
     lgr.info(F"\nargs = {args}")
 
@@ -226,18 +220,22 @@ def process_input_parameters(argl:list) -> (str, bool, bool, bool, str, int, int
 
 
 # TODO: fill in date column for previous month when updating 'today', check to update 'today' or 'tomorrow'
-def update_assets_main(args:list) -> dict :
-    lgr.info(F"Parameters = \n{json.dumps(args, indent=4)}")
-    gnucash_file, save_gnc, save_ggl, level, mode, target_year, target_qtr = process_input_parameters(args)
+def update_assets_main(args:list) -> dict:
+    lgr = get_logger(LOGGERS.get(base_run_file)[0])
+
+    gnucash_file, save_gnc, save_ggl, level, mode, target_year, target_qtr = process_input_parameters(args, lgr)
+
+    # pluck basename from gnucash_file
+    _, fname = osp.split(gnucash_file)
+    basename, _ = osp.splitext(fname)
 
     ua_now = dt.now().strftime(FILE_DATE_FORMAT)
 
     lgr.setLevel(level)
     lgr.log(level, F"\n\t\tRuntime = {ua_now}")
-    debug = lgr.level < lg.INFO
 
     try:
-        updater = UpdateAssets(gnucash_file, mode, debug)
+        updater = UpdateAssets(gnucash_file, mode, lgr)
 
         # either for One Quarter or for Four Quarters if updating an entire Year
         updater.prepare_gnucash_data(save_gnc, target_year, target_qtr)
@@ -251,15 +249,15 @@ def update_assets_main(args:list) -> dict :
             fname = F"updateAssets_response-{target_year}{('-Q' + str(target_qtr) if target_qtr else '')}"
             save_to_json(fname, response, ua_now)
         else:
-            response = saved_log_info
+            response = {'Response':saved_log_info}
 
     except Exception as ae:
         msg = repr(ae)
         lgr.warning(msg)
-        response = {F"update_assets_main() EXCEPTION: {msg}"}
+        response = {'update_assets_main() EXCEPTION':F"{msg}"}
 
     lgr.info(" >>> PROGRAM ENDED.\n")
-    finish_logging(__file__, gnucash_file.split('.')[0], ua_now)
+    finish_logging(base_run_file, basename, ua_now)
     return response
 
 

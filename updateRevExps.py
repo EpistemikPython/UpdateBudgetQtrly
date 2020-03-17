@@ -326,7 +326,7 @@ def process_input_parameters(argl:list, lgr:lg.Logger) -> (str, bool, bool, bool
 
 
 def update_rev_exps_main(args:list) -> dict:
-    lgr = get_logger(LOGGERS[base_run_file][0])
+    lgr = get_logger(LOGGERS.get(base_run_file)[0])
 
     gnucash_file, save_gnc, save_ggl, level, mode, target_year, target_qtr = process_input_parameters(args, lgr)
 
@@ -359,7 +359,7 @@ def update_rev_exps_main(args:list) -> dict:
     except Exception as reme:
         reme_msg = repr(reme)
         lgr.error(reme_msg)
-        response = {'Response':F"update_rev_exps_main() EXCEPTION: {reme_msg}"}
+        response = {'update_rev_exps_main() EXCEPTION':F"{reme_msg}"}
 
     lgr.info(" >>> PROGRAM ENDED.\n")
     finish_logging(base_run_file, basename, revexp_now)
