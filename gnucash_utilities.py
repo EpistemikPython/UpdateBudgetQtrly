@@ -11,7 +11,7 @@ __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __pygnucash_version__ = '0.1'
 __created__ = '2019-04-07'
-__updated__ = '2020-03-17'
+__updated__ = '2020-03-21'
 
 from sys import stdout, path
 from bisect import bisect_right
@@ -21,7 +21,7 @@ import csv
 from gnucash import *
 from gnucash_core_c import CREC
 path.append('/newdata/dev/git/Python/Gnucash/createGncTxs/')
-print(path)
+# print(path)
 from investment import *
 
 BASE_GNUCASH_FOLDER = BASE_PYTHON_FOLDER + 'Gnucash/'

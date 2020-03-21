@@ -9,7 +9,7 @@
 __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __created__ = '2019-04-06'
-__updated__ = '2020-03-17'
+__updated__ = '2020-03-20'
 
 base_run_file = __file__.split('/')[-1]
 print(base_run_file)
@@ -65,6 +65,7 @@ QTR_ASTS_2_SHEET:str = 'Assets 2'
 
 
 class UpdateAssets:
+    """Take data from a Gnucash file and update an Assets tab of my Google Budget-Quarterly document"""
     def __init__(self, p_filename:str, p_mode:str, p_lgr:lg.Logger):
         p_lgr.info('UpdateAssets')
         self._lgr = p_lgr
@@ -202,7 +203,7 @@ def process_args() -> ArgumentParser:
 
 def process_input_parameters(argl:list, lgr:lg.Logger) -> (str, bool, bool, bool, str, int, int):
     args = process_args().parse_args(argl)
-    lgr.info(F"\nargs = {args}")
+    # lgr.info(F"\nargs = {args}")
 
     lgr.info(F"logger level set to {args.level}")
 
@@ -211,7 +212,7 @@ def process_input_parameters(argl:list, lgr:lg.Logger) -> (str, bool, bool, bool
         lgr.warning(msg)
         raise Exception(msg)
 
-    lgr.info(F"\nGnucash file = {args.gnucash_file}")
+    lgr.info(F"\n\t\tGnucash file = {args.gnucash_file}")
 
     year = get_int_year(args.year, BASE_YEAR)
     qtr = 0 if args.quarter is None else get_int_quarter(args.quarter)
@@ -221,14 +222,15 @@ def process_input_parameters(argl:list, lgr:lg.Logger) -> (str, bool, bool, bool
 
 # TODO: fill in date column for previous month when updating 'today', check to update 'today' or 'tomorrow'
 def update_assets_main(args:list) -> dict:
-    lgr = get_logger(LOGGERS.get(base_run_file)[0])
+    lgr = get_logger(base_run_file)
 
     gnucash_file, save_gnc, save_ggl, level, mode, target_year, target_qtr = process_input_parameters(args, lgr)
 
     # pluck basename from gnucash_file
     _, fname = osp.split(gnucash_file)
     base_name, _ = osp.splitext(fname)
-    log_name = LOGGERS.get(base_run_file)[1] + '_' + base_name
+    target_name = F"-{target_year}{('-Q' + str(target_qtr) if target_qtr else '')}"
+    log_name = LOGGERS.get(base_run_file)[1] + '_' + base_name + target_name
 
     ua_now = dt.now().strftime(FILE_DATE_FORMAT)
 
@@ -247,7 +249,7 @@ def update_assets_main(args:list) -> dict:
         # send data if in PROD mode
         if SEND in mode:
             response = updater.ggl_update.send_sheets_data()
-            fname = F"updateAssets_response-{target_year}{('-Q' + str(target_qtr) if target_qtr else '')}"
+            fname = F"UpdateAssets_response{target_name}"
             save_to_json(fname, response, ua_now)
         else:
             response = {'Response':saved_log_info}

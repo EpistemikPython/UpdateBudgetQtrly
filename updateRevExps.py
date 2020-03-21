@@ -9,7 +9,7 @@
 __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __created__ = '2019-03-30'
-__updated__ = '2020-03-17'
+__updated__ = '2020-03-20'
 
 base_run_file = __file__.split('/')[-1]
 print(base_run_file)
@@ -66,6 +66,7 @@ BOOL_ALL_INC = True
 
 
 class UpdateRevExps:
+    """Take data from a Gnucash file and update an Income tab of my Google Budget-Quarterly document"""
     def __init__(self, p_filename:str, p_mode:str, p_lgr:lg.Logger):
         self.gnucash_file = p_filename
         self.gnucash_data = []
@@ -103,7 +104,7 @@ class UpdateRevExps:
         :param       periods: structs with the dates and amounts for each quarter
         :return: revenue for period
         """
-        self._lgr.info(get_current_time())
+        self._lgr.log(5, get_current_time())
         data_quarter = {}
         str_rev = '= '
         for item in REV_ACCTS:
@@ -131,7 +132,7 @@ class UpdateRevExps:
         :param      data_qtr: collected data for the quarter
         :return: deductions for period
         """
-        self._lgr.info(get_current_time())
+        self._lgr.log(5, get_current_time())
         str_dedns = '= '
         for item in DEDN_ACCTS:
             # reset the debit and credit totals for each individual account
@@ -157,7 +158,7 @@ class UpdateRevExps:
         :param      data_qtr: collected data for the quarter
         :return: total expenses for period
         """
-        self._lgr.info(get_current_time())
+        self._lgr.log(5, get_current_time())
         str_total = ''
         for item in EXP_ACCTS:
             # reset the debit and credit totals for each individual account
@@ -308,7 +309,7 @@ def process_args() -> ArgumentParser:
 
 def process_input_parameters(argl:list, lgr:lg.Logger) -> (str, bool, bool, bool, str, int, int):
     args = process_args().parse_args(argl)
-    lgr.info(F"\nargs = {args}")
+    # lgr.info(F"\nargs = {args}")
 
     lgr.info(F"logger level set to {args.level}")
 
@@ -317,7 +318,7 @@ def process_input_parameters(argl:list, lgr:lg.Logger) -> (str, bool, bool, bool
         lgr.error(msg)
         raise Exception(msg)
 
-    lgr.info(F"\nGnucash file = {args.gnucash_file}")
+    lgr.info(F"\n\t\tGnucash file = {args.gnucash_file}")
 
     year = get_int_year(args.year, BASE_YEAR)
     qtr = 0 if args.quarter is None else get_int_quarter(args.quarter)
@@ -326,14 +327,15 @@ def process_input_parameters(argl:list, lgr:lg.Logger) -> (str, bool, bool, bool
 
 
 def update_rev_exps_main(args:list) -> dict:
-    lgr = get_logger(LOGGERS.get(base_run_file)[0])
+    lgr = get_logger(base_run_file)
 
     gnucash_file, save_gnc, save_ggl, level, mode, target_year, target_qtr = process_input_parameters(args, lgr)
 
-    # pluck log name from gnucash and run file names
+    # get info for log names
     _, fname = osp.split(gnucash_file)
     base_name, _ = osp.splitext(fname)
-    log_name = LOGGERS.get(base_run_file)[1] + '_' + base_name
+    target_name = F"-{target_year}{('-Q' + str(target_qtr) if target_qtr else '')}"
+    log_name = LOGGERS.get(base_run_file)[1] + '_' + base_name + target_name
 
     revexp_now = dt.now().strftime(FILE_DATE_FORMAT)
 
@@ -352,7 +354,7 @@ def update_rev_exps_main(args:list) -> dict:
         # send data if in PROD mode
         if SEND in mode:
             response = updater.gglu.send_sheets_data()
-            fname = F"updateRevExps_response-{target_year}{('-Q' + str(target_qtr) if target_qtr else '')}"
+            fname = F"UpdateRevExps_response{target_name}"
             lgr.info(F"google response file = {save_to_json(fname, response, revexp_now)}")
         else:
             response = {'Response':saved_log_info}

@@ -9,7 +9,7 @@
 __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __created__ = '2019-04-13'
-__updated__ = '2020-03-17'
+__updated__ = '2020-03-20'
 
 base_run_file = __file__.split('/')[-1]
 print(base_run_file)
@@ -65,6 +65,7 @@ BAL_2_SHEET:str = 'Balance 2'
 
 
 class UpdateBalance:
+    """Take data from a Gnucash file and update a Balance tab of my Google Budget-Quarterly document"""
     def __init__(self, p_filename:str, p_mode:str, p_domain:str, p_lgr:lg.Logger):
         p_lgr.info(F"UpdateBalance({p_mode}, {p_domain})")
         self._lgr = p_lgr
@@ -275,7 +276,7 @@ def process_args() -> ArgumentParser:
 
 def process_input_parameters(argl:list, lgr:lg.Logger) -> (str, bool, bool, str, str):
     args = process_args().parse_args(argl)
-    lgr.info(F"\nargs = {args}")
+    # lgr.info(F"\nargs = {args}")
 
     lgr.info(F"logger level set to {args.level}")
 
@@ -284,21 +285,21 @@ def process_input_parameters(argl:list, lgr:lg.Logger) -> (str, bool, bool, str,
         lgr.warning(msg)
         raise Exception(msg)
 
-    lgr.info(F"\nGnucash file = {args.gnucash_file}")
+    lgr.info(F"\n\t\tGnucash file = {args.gnucash_file}")
 
     return args.gnucash_file, args.ggl_save, args.level, args.mode, args.period
 
 
 # TODO: fill in date column for previous month when updating 'today', check to update 'today' or 'tomorrow'
 def update_balance_main(args:list) -> dict:
-    lgr = get_logger(LOGGERS.get(base_run_file)[0])
+    lgr = get_logger(base_run_file)
 
     gnucash_file, save_json, level, mode, domain = process_input_parameters(args, lgr)
 
     # pluck basename from gnucash_file
     _, fname = osp.split(gnucash_file)
     base_name, _ = osp.splitext(fname)
-    log_name = LOGGERS.get(base_run_file)[1] + '_' + base_name
+    log_name = LOGGERS.get(base_run_file)[1] + '_' + base_name + '-' + domain
 
     ub_now = dt.now().strftime(FILE_DATE_FORMAT)
 
@@ -314,7 +315,7 @@ def update_balance_main(args:list) -> dict:
         # send data if in PROD mode
         if SEND in mode:
             response = updater.gglu.send_sheets_data()
-            fname = F"updateBalance_{domain}-response"
+            fname = F"UpdateBalance_response-{domain}"
             save_to_json(fname, response, ub_now)
         else:
             response = {'Response':saved_log_info}
