@@ -124,6 +124,7 @@ class UpdateBudgetQtrly(QDialog):
         vert_layout = QVBoxLayout()
         self.ch_gnc = QCheckBox('Save Gnucash info to JSON file?')
         self.ch_ggl = QCheckBox('Save Google info to JSON file?')
+        self.ch_rsp = QCheckBox('Save Google RESPONSE to JSON file?')
 
         # self.ch_debug = QCheckBox('Print DEBUG info?')
         self.pb_logging = QPushButton("Change the logging level?")
@@ -131,6 +132,7 @@ class UpdateBudgetQtrly(QDialog):
 
         vert_layout.addWidget(self.ch_gnc)
         vert_layout.addWidget(self.ch_ggl)
+        vert_layout.addWidget(self.ch_rsp)
         vert_layout.addWidget(self.pb_logging)
         vert_box.setLayout(vert_layout)
         layout.addRow(QLabel('Options'), vert_box)
@@ -212,6 +214,8 @@ class UpdateBudgetQtrly(QDialog):
             self.response_box.append('>>> MUST select a Gnucash File!')
             return
 
+        cl_params = ['-g' + self.gnc_file]
+
         # if sending, adjust the mode string to match the Sheet selected
         send_mode = self.cb_mode.currentText()
         if send_mode == SEND:
@@ -219,8 +223,9 @@ class UpdateBudgetQtrly(QDialog):
                 send_mode += '1'
             elif self.cb_dest.currentText() == SHEET_2:
                 send_mode += '2'
-
-        cl_params = ['-g' + self.gnc_file, '-m' + send_mode]
+            # save Google response
+            if self.ch_rsp.isChecked(): cl_params.append('--resp_save')
+        cl_params.append('-m' + send_mode)
 
         quarter = self.cb_qtr.currentText().replace('#','')
         domain_key = '-p'
@@ -235,7 +240,7 @@ class UpdateBudgetQtrly(QDialog):
 
         if self.ch_ggl.isChecked(): cl_params.append('--ggl_save')
         # if self.ch_debug.isChecked(): cl_params.append('-l'+str(lg.DEBUG))
-        cl_params.append('-l'+str(self.log_level))
+        cl_params.append('-l' + str(self.log_level))
 
         ui_lgr.info(str(cl_params))
 

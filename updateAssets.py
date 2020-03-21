@@ -9,7 +9,7 @@
 __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __created__ = '2019-04-06'
-__updated__ = '2020-03-20'
+__updated__ = '2020-03-21'
 
 base_run_file = __file__.split('/')[-1]
 print(base_run_file)
@@ -96,8 +96,11 @@ class UpdateAssets:
         :param    p_qtr: 1..4 for quarter to update or 0 if updating ALL FOUR quarters
         """
         self._lgr.info("UpdateAssets.prepare_gnucash_data(): find Assets in {} for {}{}"
-                  .format(self.gnucash_file, p_year, ('-Q' + str(p_qtr)) if p_qtr else ''))
+                       .format(self.gnucash_file, p_year, ('-Q' + str(p_qtr)) if p_qtr else ''))
+
+        # either for One Quarter or for Four Quarters if updating an entire Year
         num_quarters = 1 if p_qtr else 4
+
         gnc_session = None
         try:
             gnc_session = GnucashSession(self.mode, self.gnucash_file, BOTH, self._lgr)
@@ -197,6 +200,7 @@ def process_args() -> ArgumentParser:
     arg_parser.add_argument('-l', '--level', type=int, default=lg.INFO, help='set LEVEL of logging output')
     arg_parser.add_argument('--gnc_save',  action='store_true', help='Write the Gnucash formatted data to a JSON file')
     arg_parser.add_argument('--ggl_save',  action='store_true', help='Write the Google formatted data to a JSON file')
+    arg_parser.add_argument('--resp_save', action='store_true', help='Write the Google RESPONSE to a JSON file')
 
     return arg_parser
 
@@ -217,16 +221,16 @@ def process_input_parameters(argl:list, lgr:lg.Logger) -> (str, bool, bool, bool
     year = get_int_year(args.year, BASE_YEAR)
     qtr = 0 if args.quarter is None else get_int_quarter(args.quarter)
 
-    return args.gnucash_file, args.gnc_save, args.ggl_save, args.level, args.mode, year, qtr
+    return args.gnucash_file, args.gnc_save, args.ggl_save, args.resp_save, args.level, args.mode, year, qtr
 
 
 # TODO: fill in date column for previous month when updating 'today', check to update 'today' or 'tomorrow'
 def update_assets_main(args:list) -> dict:
     lgr = get_logger(base_run_file)
 
-    gnucash_file, save_gnc, save_ggl, level, mode, target_year, target_qtr = process_input_parameters(args, lgr)
+    gnucash_file, save_gnc, save_ggl, save_resp, level, mode, target_year, target_qtr = process_input_parameters(args, lgr)
 
-    # pluck basename from gnucash_file
+    # get info for log names
     _, fname = osp.split(gnucash_file)
     base_name, _ = osp.splitext(fname)
     target_name = F"-{target_year}{('-Q' + str(target_qtr) if target_qtr else '')}"
@@ -239,23 +243,23 @@ def update_assets_main(args:list) -> dict:
 
     try:
         updater = UpdateAssets(gnucash_file, mode, lgr)
-
-        # either for One Quarter or for Four Quarters if updating an entire Year
+        # READ the required Gnucash data
         updater.prepare_gnucash_data(save_gnc, target_year, target_qtr)
 
-        # get the requested data from Gnucash and package in the update format required by Google sheets
+        # package the Gnucash data in the update format required by Google sheets
         updater.fill_google_data(target_year, save_ggl)
 
         # send data if in PROD mode
         if SEND in mode:
             response = updater.ggl_update.send_sheets_data()
-            fname = F"UpdateAssets_response{target_name}"
-            save_to_json(fname, response, ua_now)
+            if save_resp:
+                rf_name = F"UpdateAssets_response{target_name}"
+                save_to_json(rf_name, response, ua_now)
         else:
             response = {'Response':saved_log_info}
 
-    except Exception as ae:
-        msg = repr(ae)
+    except Exception as ame:
+        msg = repr(ame)
         lgr.warning(msg)
         response = {'update_assets_main() EXCEPTION':F"{msg}"}
 
