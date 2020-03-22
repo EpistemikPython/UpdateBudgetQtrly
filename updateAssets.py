@@ -9,10 +9,7 @@
 __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __created__ = '2019-04-06'
-__updated__ = '2020-03-21'
-
-base_run_file = __file__.split('/')[-1]
-print(base_run_file)
+__updated__ = '2020-03-22'
 
 from sys import path, argv
 from argparse import ArgumentParser
@@ -20,6 +17,9 @@ path.append("/home/marksa/dev/git/Python/Gnucash/createGncTxs")
 from gnucash_utilities import *
 path.append("/home/marksa/dev/git/Python/Google")
 from google_utilities import GoogleUpdate, BASE_ROW
+
+base_run_file = get_base_filename(__file__)
+print(base_run_file)
 
 BASE_YEAR:int = 2007
 # number of rows between same quarter in adjacent years
@@ -95,7 +95,7 @@ class UpdateAssets:
         :param   p_year: year to update
         :param    p_qtr: 1..4 for quarter to update or 0 if updating ALL FOUR quarters
         """
-        self._lgr.info("UpdateAssets.prepare_gnucash_data(): find Assets in {} for {}{}"
+        self._lgr.info("find Assets in {} for {}{}"
                        .format(self.gnucash_file, p_year, ('-Q' + str(p_qtr)) if p_qtr else ''))
 
         # either for One Quarter or for Four Quarters if updating an entire Year
@@ -148,7 +148,7 @@ class UpdateAssets:
         :param   p_year: year to update
         :param save_ggl: save Google data to a JSON file
         """
-        self._lgr.info(F"UpdateAssets.fill_google_data({p_year},{save_ggl})\n")
+        self._lgr.info(F"p_year = {p_year}, save_ggl = {save_ggl})\n")
 
         try:
             year_row = BASE_ROW + year_span(p_year, BASE_YEAR, BASE_YEAR_SPAN, HDR_SPAN)
@@ -234,7 +234,7 @@ def update_assets_main(args:list) -> dict:
     _, fname = osp.split(gnucash_file)
     base_name, _ = osp.splitext(fname)
     target_name = F"-{target_year}{('-Q' + str(target_qtr) if target_qtr else '')}"
-    log_name = LOGGERS.get(base_run_file)[1] + '_' + base_name + target_name
+    log_name = get_logger_filename(base_run_file) + '_' + base_name + target_name
 
     ua_now = dt.now().strftime(FILE_DATE_FORMAT)
 

@@ -9,10 +9,7 @@
 __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __created__ = '2019-03-30'
-__updated__ = '2020-03-21'
-
-base_run_file = __file__.split('/')[-1]
-print(base_run_file)
+__updated__ = '2020-03-22'
 
 from sys import path, argv, exc_info
 from argparse import ArgumentParser
@@ -20,6 +17,9 @@ path.append("/home/marksa/dev/git/Python/Gnucash/createGncTxs")
 from gnucash_utilities import *
 path.append("/home/marksa/dev/git/Python/Google")
 from google_utilities import GoogleUpdate, BASE_ROW
+
+base_run_file = get_base_filename(__file__)
+print(base_run_file)
 
 BASE_YEAR:int = 2012
 # number of rows between same quarter in adjacent years
@@ -188,7 +188,7 @@ class UpdateRevExps:
         """
         # get either ONE Quarter or ALL Quarters if updating an entire Year
         num_quarters = 1 if p_qtr else 4
-        self._lgr.info("UpdateRevExps.prepare_gnucash_data(): find Revenue & Expenses in {} for {}{}"
+        self._lgr.info("find Revenue & Expenses in {} for {}{}"
                        .format(self.gnucash_file, p_year, ('-Q' + str(p_qtr)) if p_qtr else ''))
         try:
             self.gnc_session = GnucashSession(self.mode, self.gnucash_file, BOTH, self._lgr)
@@ -337,7 +337,7 @@ def update_rev_exps_main(args:list) -> dict:
     _, fname = osp.split(gnucash_file)
     base_name, _ = osp.splitext(fname)
     target_name = F"-{target_year}{('-Q' + str(target_qtr) if target_qtr else '')}"
-    log_name = LOGGERS.get(base_run_file)[1] + '_' + base_name + target_name
+    log_name = get_logger_filename(base_run_file) + '_' + base_name + target_name
 
     revexp_now = dt.now().strftime(FILE_DATE_FORMAT)
 

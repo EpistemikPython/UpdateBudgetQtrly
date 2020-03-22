@@ -8,7 +8,7 @@
 __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __created__ = '2019-03-30'
-__updated__ = '2020-03-21'
+__updated__ = '2020-03-22'
 
 from sys import argv, path
 from PyQt5.QtWidgets import (QApplication, QComboBox, QVBoxLayout, QGroupBox, QDialog, QFileDialog,
@@ -280,5 +280,5 @@ if __name__ == '__main__':
     ui_lgr = get_logger(UpdateBudgetQtrly.__name__)
     # ui_lgr.setLevel(13)
     ui_main()
-    finish_logging(UpdateBudgetQtrly.__name__, LOGGERS.get(UpdateBudgetQtrly.__name__)[1])
+    finish_logging(UpdateBudgetQtrly.__name__)
     exit()

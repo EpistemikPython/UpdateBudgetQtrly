@@ -9,10 +9,7 @@
 __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __created__ = '2019-04-13'
-__updated__ = '2020-03-21'
-
-base_run_file = __file__.split('/')[-1]
-print(base_run_file)
+__updated__ = '2020-03-22'
 
 from sys import path, argv
 from argparse import ArgumentParser
@@ -22,6 +19,9 @@ path.append('/newdata/dev/git/Python/Gnucash/createGncTxs')
 from gnucash_utilities import *
 path.append(BASE_PYTHON_FOLDER + 'Google/')
 from google_utilities import GoogleUpdate, BASE_ROW
+
+base_run_file = get_base_filename(__file__)
+print(base_run_file)
 
 BASE_YEAR:int = 2008
 # number of rows between same quarter in adjacent years
@@ -93,7 +93,7 @@ class UpdateBalance:
         """
         Get Balance data for TODAY: LIABS, House, FAMILY, XCHALET, TRUST
         """
-        self._lgr.info(get_current_time())
+        self._lgr.debug(get_current_time())
         # calls using 'today' ARE NOT off by one day??
         tdate = now_dt - ONE_DAY
         house_sum = liab_sum = ZERO
@@ -127,7 +127,7 @@ class UpdateBalance:
         CURRENT YEAR: fill_today() AND: LIABS for ALL completed month_ends; FAMILY for ALL non-3 completed month_ends in year
         """
         self.fill_today()
-        self._lgr.info(get_current_time())
+        self._lgr.debug(get_current_time())
 
         for i in range(now_dt.month - 1):
             month_end = date(now_dt.year, i + 2, 1) - ONE_DAY
@@ -161,7 +161,7 @@ class UpdateBalance:
         """
         PREVIOUS YEAR: LIABS for ALL NON-completed months; FAMILY for ALL non-3 NON-completed months in year
         """
-        self._lgr.info(get_current_time())
+        self._lgr.debug(get_current_time())
 
         year = now_dt.year - 1
         for mth in range(12 - now_dt.month):
@@ -200,7 +200,7 @@ class UpdateBalance:
         :param year: to get data for
         """
         year_end = date(year, 12, 31)
-        self._lgr.info(F"year_end = {year_end}")
+        self._lgr.debug(F"year_end = {year_end}")
 
         # fill LIABS
         liab_sum = self.get_balance(BALANCE_ACCTS[LIAB], year_end)
@@ -300,7 +300,7 @@ def update_balance_main(args:list) -> dict:
     # get info for log names
     _, fname = osp.split(gnucash_file)
     base_name, _ = osp.splitext(fname)
-    log_name = LOGGERS.get(base_run_file)[1] + '_' + base_name + '-' + domain
+    log_name = get_logger_filename(base_run_file) + '_' + base_name + domain
 
     ub_now = dt.now().strftime(FILE_DATE_FORMAT)
 
