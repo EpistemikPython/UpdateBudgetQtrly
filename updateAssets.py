@@ -9,7 +9,7 @@
 __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __created__ = '2019-04-06'
-__updated__ = '2020-03-22'
+__updated__ = '2020-03-29'
 
 from sys import path, argv
 from argparse import ArgumentParser
@@ -205,7 +205,7 @@ def process_args() -> ArgumentParser:
     return arg_parser
 
 
-def process_input_parameters(argl:list, lgr:lg.Logger) -> (str, bool, bool, bool, str, int, int):
+def process_input_parameters(argl:list, lgr:lg.Logger) -> (str, bool, bool, bool, int, str, int, int):
     args = process_args().parse_args(argl)
     # lgr.info(F"\nargs = {args}")
 

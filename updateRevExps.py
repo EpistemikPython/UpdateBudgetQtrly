@@ -9,7 +9,7 @@
 __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __created__ = '2019-03-30'
-__updated__ = '2020-03-22'
+__updated__ = '2020-03-29'
 
 from sys import path, argv, exc_info
 from argparse import ArgumentParser
@@ -273,12 +273,7 @@ class UpdateRevExps:
                         dest = BOOL_ALL_INC
                     self.fill_google_cell(dest, REV_EXP_COLS[key], dest_row, item[key])
 
-        # fill update date & time to ALL and NEC
-        today_row = BASE_ROW - 1 + year_span(now_dt.year + 2, BASE_YEAR, BASE_YEAR_SPAN, 0)
-        self.fill_google_cell(BOOL_NEC_INC, REV_EXP_COLS[DATE], today_row, now_dt.strftime(CELL_DATE_STR))
-        self.fill_google_cell(BOOL_NEC_INC, REV_EXP_COLS[DATE], today_row + 1, now_dt.strftime(CELL_TIME_STR))
-        self.fill_google_cell(BOOL_ALL_INC, REV_EXP_COLS[DATE], today_row, now_dt.strftime(CELL_DATE_STR))
-        self.fill_google_cell(BOOL_ALL_INC, REV_EXP_COLS[DATE], today_row + 1, now_dt.strftime(CELL_TIME_STR))
+        self.fill_update_date_and_time()
 
         str_qtr = None
         if len(self.gnucash_data) == 1:
@@ -287,6 +282,16 @@ class UpdateRevExps:
         if save_google:
             fname = F"updateRevExps_google-data-{str(p_year)}{('-Q' + str_qtr if str_qtr else '')}"
             self._lgr.info(F"google data file = {save_to_json(fname, self.get_google_data())}")
+
+    # TODO: keep record of all changes: what exactly and when
+    def fill_update_date_and_time(self):
+        """fill update date & time to ALL and NEC"""
+        today_row = BASE_ROW - 1 + year_span(now_dt.year + 2, BASE_YEAR, BASE_YEAR_SPAN, 0)
+        self.fill_google_cell(BOOL_NEC_INC, REV_EXP_COLS[DATE], today_row, now_dt.strftime(CELL_DATE_STR))
+        self.fill_google_cell(BOOL_NEC_INC, REV_EXP_COLS[DATE], today_row + 1, now_dt.strftime(CELL_TIME_STR))
+        self.fill_google_cell(BOOL_ALL_INC, REV_EXP_COLS[DATE], today_row, now_dt.strftime(CELL_DATE_STR))
+        self.fill_google_cell(BOOL_ALL_INC, REV_EXP_COLS[DATE], today_row + 1, now_dt.strftime(CELL_TIME_STR))
+
 
 # END class UpdateRevExps
 
@@ -309,7 +314,7 @@ def process_args() -> ArgumentParser:
     return arg_parser
 
 
-def process_input_parameters(argl:list, lgr:lg.Logger) -> (str, bool, bool, bool, str, int, int):
+def process_input_parameters(argl:list, lgr:lg.Logger) -> (str, bool, bool, bool, int, str, int, int):
     args = process_args().parse_args(argl)
     # lgr.info(F"\nargs = {args}")
 
