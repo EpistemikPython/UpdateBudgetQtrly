@@ -26,6 +26,24 @@ from investment import *
 
 BASE_GNUCASH_FOLDER = BASE_PYTHON_FOLDER + 'Gnucash/'
 
+# path to the account in the Gnucash file
+REV_ACCTS = {
+    INV : ["REV_Invest"],
+    OTH : ["REV_Other"],
+    EMPL: ["REV_Employment"]
+}
+EXP_ACCTS = {
+    BAL  : ["EXP_Balance"],
+    CONT : ["EXP_CONTINGENT"],
+    NEC  : ["EXP_NECESSARY"]
+}
+DEDNS_BASE = 'DEDNS_Employment'
+DEDN_ACCTS = {
+    "Mark" : [DEDNS_BASE, 'Mark'],
+    "Lulu" : [DEDNS_BASE, 'Lulu'],
+    "ML"   : [DEDNS_BASE, 'Marie-Laure']
+}
+
 
 def gnc_numeric_to_python_decimal(numeric:GncNumeric, logger:lg.Logger=None) -> Decimal:
     """
@@ -88,8 +106,7 @@ def get_splits(p_acct:Account, period_starts:list, periods:list, logger:lg.Logge
             period[4] += split_amount
 
 
-def fill_splits(base_acct:Account, target_path:list, period_starts:list,
-                periods:list, logger:lg.Logger=None) -> str:
+def fill_splits(base_acct:Account, target_path:list, period_starts:list, periods:list, logger:lg.Logger=None) -> str:
     """
     fill the period list for each account
     :param     base_acct: base account

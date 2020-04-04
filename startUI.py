@@ -16,8 +16,9 @@ from PyQt5.QtWidgets import (QApplication, QComboBox, QVBoxLayout, QGroupBox, QD
 from functools import partial
 path.append('/home/marksa/dev/git/Python/Gnucash/createGncTxs/')
 from investment import *
-from updateBudget import *
-
+from updateRevExps import update_rev_exps_main
+from updateAssets import update_assets_main
+from updateBalance import update_balance_main
 
 # constant strings
 REV_EXPS:str = 'Rev & Exps'
@@ -44,7 +45,7 @@ MAIN_FXNS:dict = {
 
 
 # noinspection PyCallByClass,PyTypeChecker,PyAttributeOutsideInit,PyArgumentList,PyMethodMayBeStatic
-class UpdateBudgetQtrly(QDialog):
+class UpdateBudgetUI(QDialog):
     """update my 'Budget Quarterly' Google spreadsheet with information from a Gnucash file"""
     def __init__(self):
         super().__init__()
@@ -264,19 +265,19 @@ class UpdateBudgetQtrly(QDialog):
         """info printing only"""
         ui_lgr.info(F"ComboBox '{label}' selection changed to '{cb.currentText()}'.")
 
-# END class UpdateBudgetQtrly
+# END class UpdateBudgetUI
 
 
 def ui_main():
     app = QApplication(argv)
-    dialog = UpdateBudgetQtrly()
+    dialog = UpdateBudgetUI()
     dialog.show()
     app.exec_()
 
 
 if __name__ == '__main__':
-    ui_lgr = get_logger(UpdateBudgetQtrly.__name__)
+    ui_lgr = get_logger(UpdateBudgetUI.__name__)
     # ui_lgr.setLevel(13)
     ui_main()
-    finish_logging(UpdateBudgetQtrly.__name__)
+    finish_logging(UpdateBudgetUI.__name__)
     exit()
