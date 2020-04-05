@@ -81,6 +81,9 @@ class UpdateAssets:
     def get_gnucash_data(self) -> list:
         return self._gnucash_data
 
+    def get_google_updater(self) -> object:
+        return self._gglu
+
     def get_google_data(self) -> list:
         return self._gglu.get_data()
 
@@ -129,19 +132,12 @@ class UpdateAssets:
                         continue
                     self.fill_google_cell(ASSET_COLS[key], dest_row, item[key])
 
-    def record_update(self):
-        today_row = BASE_ROW + 1 + year_span(now_dt.year + 2, ASSETS_DATA.get(BASE_YEAR),
-                                             ASSETS_DATA.get(YEAR_SPAN), ASSETS_DATA.get(HDR_SPAN))
-        self.fill_google_cell(ASSET_COLS[DATE], today_row, now_dt.strftime(CELL_DATE_STR))
-        self.fill_google_cell(ASSET_COLS[DATE], today_row + 1, now_dt.strftime(CELL_TIME_STR))
-
     def send_sheets_data(self) -> dict:
         return self._gglu.send_sheets_data()
 
 # END class UpdateAssets
 
 
-# TODO: fill in date column for previous month when updating 'today', check to update 'today' or 'tomorrow'
 def update_assets_main(args:list) -> dict:
     updater = UpdateBudget(args, base_run_file, ASSETS_DATA)
 

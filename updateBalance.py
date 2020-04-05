@@ -80,6 +80,9 @@ class UpdateBalance:
         self._gnc_session = None
         self._gglu = GoogleUpdate(p_lgr)
 
+    def get_google_updater(self) -> object:
+        return self._gglu
+
     def get_google_data(self) -> list:
         return self._gglu.get_data()
 
@@ -210,6 +213,7 @@ class UpdateBalance:
     def fill_google_cell(self, p_col:str, p_row:int, p_val:str):
         self._gglu.fill_cell(self.dest, p_col, p_row, p_val)
 
+    # TODO: fill in date column for previous month when updating 'today', check to update 'today' or 'tomorrow'
     def fill_google_data(self, p_domain:str):
         """
         Get Balance data for TODAY:
@@ -234,18 +238,12 @@ class UpdateBalance:
             else:
                 self.fill_year_end_liabs(year)
 
-    # record the date & time of this update
-    def record_update(self):
-        self.fill_google_cell(BAL_MTHLY_COLS[DATE], BASE_MTHLY_ROW, now_dt.strftime(CELL_DATE_STR))
-        self.fill_google_cell(BAL_MTHLY_COLS[TIME], BASE_MTHLY_ROW, now_dt.strftime(CELL_TIME_STR))
-
     def send_sheets_data(self) -> dict:
         return self._gglu.send_sheets_data()
 
 # END class UpdateBalance
 
 
-# TODO: fill in date column for previous month when updating 'today', check to update 'today' or 'tomorrow'
 def update_balance_main(args:list) -> dict:
     updater = UpdateBudget(args, base_run_file, BALANCE_DATA)
 

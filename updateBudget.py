@@ -157,8 +157,8 @@ class UpdateBudget:
         self.record_update(call_object)
 
         if self.save_ggl:
-            str_qtr = self._gnucash_data[0][QTR] if len(self._gnucash_data) == 1 else None
-            fname = F"{call_object.__class__.__name__}_google-data-{str(self.domain)}{('-Q' + str_qtr if str_qtr else '')}"
+            str_qtr = '-Q' + self._gnucash_data[0][QTR] if len(self._gnucash_data) == 1 else ''
+            fname = F"{call_object.__class__.__name__}_google-data-{str(self.domain)}{str_qtr}"
             self._lgr.info(F"google data file = {save_to_json(fname, call_object.get_google_data())}")
 
     def record_update(self, call_object:object):
@@ -168,6 +168,7 @@ class UpdateBudget:
         self._lgr.info(F"current row = {current_row}\n")
 
         update_info = call_object.__class__.__name__ + ' ' + self.domain + ' Q' + str(self.qtr) + self.get_mode()
+        self._lgr.info(F"update info = {update_info}\n")
 
         # keep record of this update
         ggl_updater.fill_cell(RECORD_SHEET, RECORD_DATE_COL, current_row, now_dt.strftime(CELL_DATE_STR))
@@ -177,8 +178,6 @@ class UpdateBudget:
 
         # update the row tally
         ggl_updater.fill_cell(RECORD_SHEET, RECORD_DATE_COL, 1, str(current_row+1))
-
-        # call_object.record_update()
 
     def go(self, update_subtype:object) -> dict:
         try:
@@ -209,10 +208,13 @@ class UpdateBudget:
 # END class UpdateBudget
 
 
-# if __name__ == "__main__":
-    # test Google read
-    # logger = get_logger(UpdateBudget.__name__)
-    # ggl_updater = GoogleUpdate(logger)
-    # result = ggl_updater.read_sheets_data(RECORD_RANGE)
-    # print(result)
-    # print(result[0][0])
+def test_google_read():
+    logger = get_logger(UpdateBudget.__name__)
+    ggl_updater = GoogleUpdate(logger)
+    result = ggl_updater.read_sheets_data(RECORD_RANGE)
+    print(result)
+    print(result[0][0])
+
+
+if __name__ == "__main__":
+    test_google_read()
