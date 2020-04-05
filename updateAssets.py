@@ -31,22 +31,52 @@ ASSETS_DATA = {
     HDR_SPAN : 3
 }
 
+# path to the account in the Gnucash file
+ASSET_ACCTS = {
+    AU    : ["FAMILY", "Prec Metals", "Au"],
+    AG    : ["FAMILY", "Prec Metals", "Ag"],
+    CASH  : ["FAMILY", "LIQUID", "$&"],
+    BANK  : ["FAMILY", "LIQUID", BANK],
+    RWRDS : ["FAMILY", RWRDS],
+    RESP  : ["FAMILY", "INVEST", "xRESP"],
+    OPEN  : ["FAMILY", "INVEST", OPEN],
+    RRSP  : ["FAMILY", "INVEST", RRSP],
+    TFSA  : ["FAMILY", "INVEST", TFSA],
+    HOUSE : ["FAMILY", HOUSE]
+}
+
+# column index in the Google sheets
+ASSET_COLS = {
+    DATE  : 'B',
+    AU    : 'U',
+    AG    : 'T',
+    CASH  : 'R',
+    BANK  : 'Q',
+    RWRDS : 'O',
+    RESP  : 'O',
+    OPEN  : 'L',
+    RRSP  : 'M',
+    TFSA  : 'N',
+    HOUSE : 'I',
+    TOTAL : 'H'
+}
+
 
 class UpdateAssets:
     """Take data from a Gnucash file and update an Assets tab of my Google Budget-Quarterly document"""
     def __init__(self, p_mode:str, p_lgr:lg.Logger):
+        p_lgr.info(F"{self.__class__.__name__}({p_mode})")
+        self._lgr = p_lgr
+
         self._gnucash_data = []
         self._gglu = GoogleUpdate(p_lgr)
-
-        p_lgr.info(get_current_time())
-        self._lgr = p_lgr
 
         self.mode = p_mode
         # Google sheet to update
         self.dest = QTR_ASTS_2_SHEET
         if '1' in self.mode:
             self.dest = QTR_ASTS_SHEET
-        p_lgr.info(F"dest = {self.dest}")
+        p_lgr.debug(F"dest = {self.dest}")
 
     def get_gnucash_data(self) -> list:
         return self._gnucash_data
@@ -75,12 +105,13 @@ class UpdateAssets:
     def fill_google_cell(self, p_col:str, p_row:int, p_val:str):
         self._gglu.fill_cell(self.dest, p_col, p_row, p_val)
 
-    def fill_google_data(self, target_year:int):
+    def fill_google_data(self, p_domain:str):
         """
         Fill the Google data list.
-        :param   target_year: year to update
+        :param   p_domain: timeframe for update
         """
-        self._lgr.info(F"target year = {target_year}\n")
+        self._lgr.info(F"domain = {p_domain}\n")
+        target_year = get_int_year(p_domain, ASSETS_DATA.get(BASE_YEAR))
         year_row = BASE_ROW + year_span(target_year, ASSETS_DATA.get(BASE_YEAR),
                                         ASSETS_DATA.get(YEAR_SPAN), ASSETS_DATA.get(HDR_SPAN))
         # get exact row from Quarter value in each item

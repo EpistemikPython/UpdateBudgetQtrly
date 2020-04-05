@@ -9,25 +9,28 @@
 __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __created__ = '2019-04-13'
-__updated__ = '2020-03-29'
+__updated__ = '2020-04-05'
 
 from sys import path, argv
-from argparse import ArgumentParser
-from updateAssets import (ASSET_COLS, BASE_YEAR as UA_BASE_YEAR, BASE_YEAR_SPAN as UA_BASE_YEAR_SPAN,
-                          HDR_SPAN as UA_HDR_SPAN, QTR_SPAN as UA_QTR_SPAN)
+from updateAssets import ASSETS_DATA, ASSET_COLS
 path.append('/newdata/dev/git/Python/Gnucash/createGncTxs')
 from gnucash_utilities import *
 path.append(BASE_PYTHON_FOLDER + 'Google/')
-from google_utilities import GoogleUpdate, BASE_ROW
+from updateBudget import *
 
 base_run_file = get_base_filename(__file__)
 print(base_run_file)
 
-BASE_YEAR:int = 2008
-# number of rows between same quarter in adjacent years
-BASE_YEAR_SPAN:int = 1
-# number of year groups between header rows
-HDR_SPAN:int = 9
+BALANCE_DATA = {
+    # first year row in google sheet
+    BASE_YEAR : 2008 ,
+    # number of rows between same quarter in adjacent years
+    YEAR_SPAN : 1 ,
+    # number of rows between quarters in the same year
+    QTR_SPAN : 0 ,
+    # number of year groups between header rows
+    HDR_SPAN : 9
+}
 
 BASE_MTHLY_ROW:int = 24
 BASE_TOTAL_WORTH_ROW:int = 25
@@ -41,6 +44,7 @@ BALANCE_ACCTS = {
     ASTS  : [ASTS]
 }
 
+# column index in the Google sheets
 BAL_MTHLY_COLS = {
     LIAB  : {YR: 'U', MTH: 'L'},
     DATE  : 'E' ,
@@ -59,15 +63,11 @@ BAL_TODAY_RANGES = {
     ASTS  : BASE_TOTAL_WORTH_ROW + 7
 }
 
-# sheet names in Budget Quarterly
-BAL_1_SHEET:str = 'Balance 1'
-BAL_2_SHEET:str = 'Balance 2'
-
 
 class UpdateBalance:
     """Take data from a Gnucash file and update a Balance tab of my Google Budget-Quarterly document"""
-    def __init__(self, p_filename:str, p_mode:str, p_domain:str, p_lgr:lg.Logger):
-        p_lgr.info(F"UpdateBalance({p_mode}, {p_domain})")
+    def __init__(self, p_mode:str, p_lgr:lg.Logger):
+        p_lgr.info(F"{self.__class__.__name__}({p_mode})")
         self._lgr = p_lgr
 
         self.mode = p_mode
@@ -75,19 +75,16 @@ class UpdateBalance:
         self.dest = BAL_2_SHEET
         if '1' in self.mode:
             self.dest = BAL_1_SHEET
-        p_lgr.info(F"dest = {self.dest}")
+        p_lgr.debug(F"dest = {self.dest}")
 
-        self.gnucash_file = p_filename
-        self.gnc_session = None
-        self.domain = p_domain
+        self._gnc_session = None
+        self._gglu = GoogleUpdate(p_lgr)
 
-        self.gglu = GoogleUpdate(p_lgr)
-
-    def get_data(self) -> list:
-        return self.gglu.get_data()
+    def get_google_data(self) -> list:
+        return self._gglu.get_data()
 
     def get_balance(self, bal_path, p_date):
-        return self.gnc_session.get_total_balance(bal_path, p_date)
+        return self._gnc_session.get_total_balance(bal_path, p_date)
 
     def fill_today(self):
         """
@@ -117,8 +114,8 @@ class UpdateBalance:
         """
         LIABS for all years
         """
-        for i in range(now_dt.year - BASE_YEAR - 1):
-            year = BASE_YEAR + i
+        for i in range(now_dt.year - BALANCE_DATA.get(BASE_YEAR) - 1):
+            year = BALANCE_DATA.get(BASE_YEAR) + i
             # fill LIABS
             self.fill_year_end_liabs(year)
 
@@ -147,9 +144,11 @@ class UpdateBalance:
             else:
                 self._lgr.debug('Update reference to Assets sheet for Mar, June, Sep or Dec')
                 # have to update the CELL REFERENCE to current year/qtr ASSETS
-                year_row = BASE_ROW + year_span(now_dt.year, UA_BASE_YEAR, UA_BASE_YEAR_SPAN, UA_HDR_SPAN)
+                year_row = BASE_ROW + year_span(now_dt.year, ASSETS_DATA.get(BASE_YEAR),
+                                                ASSETS_DATA.get(YEAR_SPAN), ASSETS_DATA.get(HDR_SPAN), self._lgr)
                 int_qtr = (month_end.month // 3) - 1
-                dest_row = year_row + (int_qtr * UA_QTR_SPAN)
+                self._lgr.debug(F"int_qtr = {int_qtr}")
+                dest_row = year_row + (int_qtr * ASSETS_DATA.get(QTR_SPAN))
                 val_num = '1' if '1' in self.dest else '2'
                 value = "='Assets " + val_num + "'!" + ASSET_COLS[TOTAL] + str(dest_row)
                 self.fill_google_cell(BAL_MTHLY_COLS[ASTS], row, value)
@@ -196,21 +195,22 @@ class UpdateBalance:
         self.fill_year_end_liabs(year)
 
     def fill_year_end_liabs(self, year:int):
-        """
-        :param year: to get data for
-        """
         year_end = date(year, 12, 31)
         self._lgr.debug(F"year_end = {year_end}")
 
         # fill LIABS
         liab_sum = self.get_balance(BALANCE_ACCTS[LIAB], year_end)
-        yr_span = year_span(year, BASE_YEAR, BASE_YEAR_SPAN, HDR_SPAN)
-        self.fill_google_cell(BAL_MTHLY_COLS[LIAB][YR], BASE_ROW + yr_span, liab_sum)
+        yr_span = year_span(year, BALANCE_DATA.get(BASE_YEAR), BALANCE_DATA.get(YEAR_SPAN), BALANCE_DATA.get(HDR_SPAN))
+        self.fill_google_cell(BAL_MTHLY_COLS[LIAB][YR], BASE_ROW + yr_span, str(liab_sum))
+
+    # noinspection PyUnusedLocal
+    def fill_gnucash_data(self, p_session:GnucashSession, p_qtr:int, p_year:int, data_qtr:dict):
+        self._gnc_session = p_session
 
     def fill_google_cell(self, p_col:str, p_row:int, p_val:str):
-        self.gglu.fill_cell(self.dest, p_col, p_row, p_val)
+        self._gglu.fill_cell(self.dest, p_col, p_row, p_val)
 
-    def fill_google_data(self, p_save:bool):
+    def fill_google_data(self, p_domain:str):
         """
         Get Balance data for TODAY:
           LIABS, House, FAMILY, XCHALET, TRUST
@@ -218,117 +218,40 @@ class UpdateBalance:
           IF CURRENT YEAR: TODAY & LIABS for ALL completed months; FAMILY for ALL non-3 completed months in year
           IF PREVIOUS YEAR: LIABS for ALL NON-completed months; FAMILY for ALL non-3 NON-completed months in year
           ELSE: LIABS for year
-        :param: p_save: save data to json file
         """
-        self._lgr.info(get_current_time())
-        try:
-            self.gnc_session = GnucashSession(self.mode, self.gnucash_file, BOTH, self._lgr)
-            self.gnc_session.begin_session()
+        self._lgr.info(F"domain = {p_domain}\n")
 
-            if self.domain == 'today':
-                self.fill_today()
-            elif self.domain == 'allyears':
-                self.fill_all_years()
+        if p_domain == 'today':
+            self.fill_today()
+        elif p_domain == 'allyears':
+            self.fill_all_years()
+        else:
+            year = get_int_year(p_domain, BALANCE_DATA.get(BASE_YEAR))
+            if year == now_dt.year:
+                self.fill_current_year()
+            elif now_dt.year - year == 1:
+                self.fill_previous_year()
             else:
-                year = get_int_year(self.domain, BASE_YEAR)
-                if year == now_dt.year:
-                    self.fill_current_year()
-                elif now_dt.year - year == 1:
-                    self.fill_previous_year()
-                else:
-                    self.fill_year_end_liabs(year)
+                self.fill_year_end_liabs(year)
 
-            # record the date & time of this update
-            self.fill_google_cell(BAL_MTHLY_COLS[DATE], BASE_MTHLY_ROW, now_dt.strftime(CELL_DATE_STR))
-            self.fill_google_cell(BAL_MTHLY_COLS[TIME], BASE_MTHLY_ROW, now_dt.strftime(CELL_TIME_STR))
+    # record the date & time of this update
+    def record_update(self):
+        self.fill_google_cell(BAL_MTHLY_COLS[DATE], BASE_MTHLY_ROW, now_dt.strftime(CELL_DATE_STR))
+        self.fill_google_cell(BAL_MTHLY_COLS[TIME], BASE_MTHLY_ROW, now_dt.strftime(CELL_TIME_STR))
 
-            # no save needed, we're just reading...
-            self.gnc_session.end_session(False)
-
-            if p_save and len(self.get_data()) > 0:
-                fname = F"updateBalance_{self.domain}"
-                save_to_json(fname, self.get_data())
-
-        except Exception as fgce:
-            self._lgr.error(F"Exception: {repr(fgce)}!")
-            if self.gnc_session:
-                self.gnc_session.check_end_session(locals())
-            raise fgce
+    def send_sheets_data(self) -> dict:
+        return self._gglu.send_sheets_data()
 
 # END class UpdateBalance
 
 
-def process_args() -> ArgumentParser:
-    arg_parser = ArgumentParser(description='Update the Balance section of my Google Sheet', prog='updateBalance.py')
-    # required arguments
-    required = arg_parser.add_argument_group('REQUIRED')
-    required.add_argument('-g', '--gnucash_file', required=True, help='path & filename of the Gnucash file to use')
-    required.add_argument('-m', '--mode', required=True, choices=[TEST,SEND+'1',SEND+'2'],
-                          help='SEND to Google sheet OR just TEST')
-    required.add_argument('-p', '--period', required=True,
-                          help=F"'today' | 'current year' | 'previous year' | {BASE_YEAR}..{now_dt.year - 2} | 'allyears'")
-    # optional arguments
-    arg_parser.add_argument('-l', '--level', type=int, default=lg.INFO, help='set LEVEL of logging output')
-    arg_parser.add_argument('--ggl_save',  action='store_true', help='Write the Google formatted data to a JSON file')
-    arg_parser.add_argument('--resp_save', action='store_true', help='Write the Google RESPONSE to a JSON file')
-
-    return arg_parser
-
-
-def process_input_parameters(argl:list, lgr:lg.Logger) -> (str, bool, bool, int, str, str):
-    args = process_args().parse_args(argl)
-    # lgr.info(F"\nargs = {args}")
-
-    lgr.info(F"logger level set to {args.level}")
-
-    if not osp.isfile(args.gnucash_file):
-        msg = F"File path '{args.gnucash_file}' DOES NOT exist! Exiting..."
-        lgr.warning(msg)
-        raise Exception(msg)
-
-    lgr.info(F"\n\t\tGnucash file = {args.gnucash_file}")
-
-    return args.gnucash_file, args.ggl_save, args.resp_save, args.level, args.mode, args.period
-
-
 # TODO: fill in date column for previous month when updating 'today', check to update 'today' or 'tomorrow'
 def update_balance_main(args:list) -> dict:
-    lgr = get_logger(base_run_file)
+    updater = UpdateBudget(args, base_run_file, BALANCE_DATA)
 
-    gnucash_file, save_ggl, save_resp, level, mode, domain = process_input_parameters(args, lgr)
+    balance = UpdateBalance(updater.get_mode(), updater.get_logger())
 
-    # get info for log names
-    _, fname = osp.split(gnucash_file)
-    base_name, _ = osp.splitext(fname)
-    log_name = get_logger_filename(base_run_file) + '_' + base_name + domain
-
-    ub_now = dt.now().strftime(FILE_DATE_FORMAT)
-
-    lgr.setLevel(level)
-    lgr.log(level, F"\n\t\tRuntime = {ub_now}")
-
-    try:
-        updater = UpdateBalance(gnucash_file, mode, domain, lgr)
-        # get the requested data from Gnucash and package in the update format required by Google sheets
-        updater.fill_google_data(save_ggl)
-
-        # send data if in PROD mode
-        if SEND in mode:
-            response = updater.gglu.send_sheets_data()
-            if save_resp:
-                rf_name = F"UpdateBalance_response-{domain}"
-                save_to_json(rf_name, response, ub_now)
-        else:
-            response = {'Response':saved_log_info}
-
-    except Exception as bme:
-        msg = repr(bme)
-        lgr.error(msg)
-        response = {'update_balance_main() EXCEPTION':F"{msg}"}
-
-    lgr.info(" >>> PROGRAM ENDED.\n")
-    finish_logging(base_run_file, log_name, ub_now)
-    return response
+    return updater.go(balance)
 
 
 if __name__ == "__main__":

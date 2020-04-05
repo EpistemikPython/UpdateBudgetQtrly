@@ -4,6 +4,7 @@
 *.gnucash
 *.log
 *.out
+*.term
 *.L[NC]K
 **/in
 **/out

@@ -26,38 +26,6 @@ from investment import *
 
 BASE_GNUCASH_FOLDER = BASE_PYTHON_FOLDER + 'Gnucash/'
 
-# path to the account in the Gnucash file
-REV_ACCTS = {
-    INV : ["REV_Invest"],
-    OTH : ["REV_Other"],
-    EMPL: ["REV_Employment"]
-}
-EXP_ACCTS = {
-    BAL  : ["EXP_Balance"],
-    CONT : ["EXP_CONTINGENT"],
-    NEC  : ["EXP_NECESSARY"]
-}
-DEDNS_BASE = 'DEDNS_Employment'
-DEDN_ACCTS = {
-    "Mark" : [DEDNS_BASE, 'Mark'],
-    "Lulu" : [DEDNS_BASE, 'Lulu'],
-    "ML"   : [DEDNS_BASE, 'Marie-Laure']
-}
-
-# path to the account in the Gnucash file
-ASSET_ACCTS = {
-    AU    : ["FAMILY", "Prec Metals", "Au"],
-    AG    : ["FAMILY", "Prec Metals", "Ag"],
-    CASH  : ["FAMILY", "LIQUID", "$&"],
-    BANK  : ["FAMILY", "LIQUID", BANK],
-    RWRDS : ["FAMILY", RWRDS],
-    RESP  : ["FAMILY", "INVEST", "xRESP"],
-    OPEN  : ["FAMILY", "INVEST", OPEN],
-    RRSP  : ["FAMILY", "INVEST", RRSP],
-    TFSA  : ["FAMILY", "INVEST", TFSA],
-    HOUSE : ["FAMILY", HOUSE]
-}
-
 
 def gnc_numeric_to_python_decimal(numeric:GncNumeric, logger:lg.Logger=None) -> Decimal:
     """

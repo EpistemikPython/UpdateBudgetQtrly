@@ -26,7 +26,8 @@ def process_args(base_year:int) -> ArgumentParser:
     required.add_argument('-g', '--gnucash_file', required = True, help = 'path & filename of the Gnucash file to use')
     required.add_argument('-m', '--mode', required = True, choices = [TEST, SEND + '1', SEND + '2'],
                           help = 'SEND to Google sheet (1 or 2) OR just TEST')
-    required.add_argument('-y', '--year', required = True, help = F"year to update: {base_year}..2019")
+    required.add_argument('-t', '--timeframe', required=True,
+                          help=F"'today' | 'current year' | 'previous year' | {base_year}..{now_dt.year} | 'allyears'")
     # optional arguments
     arg_parser.add_argument('-q', '--quarter', choices = ['1', '2', '3', '4'], help = "quarter to update: 1..4")
     arg_parser.add_argument('-l', '--level', type = int, default = lg.INFO, help = 'set LEVEL of logging output')
@@ -41,6 +42,7 @@ class UpdateBudget:
     """update my 'Budget Quarterly' Google spreadsheet with information from a Gnucash file"""
     def __init__(self, args:list, p_log_name:str, p_sheet_data:dict):
         self._lgr = get_logger(p_log_name)
+        self._lgr.info(F"{self.__class__.__name__}({p_log_name})")
         self.base_log_name = p_log_name
 
         self.base_data = p_sheet_data
@@ -49,7 +51,7 @@ class UpdateBudget:
         # get info for log names
         _, fname = osp.split(self.gnucash_file)
         base_name, _ = osp.splitext(fname)
-        self.target_name = F"-{self.year}{('-Q' + str(self.qtr) if self.qtr else '')}"
+        self.target_name = F"-{self.domain}{('-Q' + str(self.qtr) if self.qtr else '')}"
         self.log_name = get_logger_filename(p_log_name) + '_' + base_name + self.target_name
 
         self.now = dt.now().strftime(FILE_DATE_FORMAT)
@@ -79,9 +81,16 @@ class UpdateBudget:
         self.gnucash_file = args.gnucash_file
         self._lgr.info(F"\n\t\tGnucash file = {self.gnucash_file}")
 
-        self.year = get_int_year(args.year, p_year)
+        self.domain = args.timeframe
+        try:
+            self.year = get_int_year(self.domain, self.base_data.get(BASE_YEAR))
+        except Exception as e:
+            msg = repr(e)
+            self._lgr.warning(msg)
+            self.year = self.base_data.get(BASE_YEAR)
+
         self.qtr  = 0 if args.quarter is None else get_int_quarter(args.quarter)
-        self._lgr.info(F"year = {self.year} & quarter = {self.qtr}")
+        self._lgr.info(F"year = {self.domain} & quarter = {self.qtr}")
 
         self.save_gnc = args.gnc_save
         self.save_ggl = args.ggl_save
@@ -117,7 +126,7 @@ class UpdateBudget:
             self.gnc_session.end_session(False)
 
             if self.save_gnc:
-                fname = F"{call_object.__class__.__name__}_gnc-data-{self.year}{('-Q' + str(self.qtr) if self.qtr else '')}"
+                fname = F"{call_object.__class__.__name__}_gnc-data-{self.domain}{('-Q' + str(self.qtr) if self.qtr else '')}"
                 self._lgr.info(F"gnucash data file = {save_to_json(fname, self.gnucash_data)}")
 
         except Exception as fgde:
@@ -132,13 +141,13 @@ class UpdateBudget:
         """ Fill the Google data list """
         self._lgr.info(get_current_time())
 
-        call_object.fill_google_data(self.year)
+        call_object.fill_google_data(self.domain)
 
         self.record_update(call_object)
 
         if self.save_ggl:
             str_qtr = self.gnucash_data[0][QTR] if len(self.gnucash_data) == 1 else None
-            fname = F"{call_object.__class__.__name__}_google-data-{str(self.year)}{('-Q' + str_qtr if str_qtr else '')}"
+            fname = F"{call_object.__class__.__name__}_google-data-{str(self.domain)}{('-Q' + str_qtr if str_qtr else '')}"
             self._lgr.info(F"google data file = {save_to_json(fname, call_object.get_google_data())}")
 
     # TODO: keep record of all changes to Google sheet: what exactly and when

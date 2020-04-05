@@ -28,15 +28,43 @@ REVEXPS_DATA = {
     HDR_SPAN : 0
 }
 
+# path to the account in the Gnucash file
+REV_ACCTS = {
+    INV : ["REV_Invest"],
+    OTH : ["REV_Other"],
+    EMPL: ["REV_Employment"]
+}
+EXP_ACCTS = {
+    BAL  : ["EXP_Balance"],
+    CONT : ["EXP_CONTINGENT"],
+    NEC  : ["EXP_NECESSARY"]
+}
+DEDNS_BASE = 'DEDNS_Employment'
+DEDN_ACCTS = {
+    "Mark" : [DEDNS_BASE, 'Mark'],
+    "Lulu" : [DEDNS_BASE, 'Lulu'],
+    "ML"   : [DEDNS_BASE, 'Marie-Laure']
+}
+
+# column index in the Google sheets
+REV_EXP_COLS = {
+    DATE  : 'B',
+    REV   : 'D',
+    BAL   : 'P',
+    CONT  : 'O',
+    NEC   : 'G',
+    DEDNS : 'D'
+}
+
 
 class UpdateRevExps:
     """Take data from a Gnucash file and update an Income tab of my Google Budget-Quarterly document"""
     def __init__(self, p_mode:str, p_lgr:lg.Logger):
+        p_lgr.info(F"{self.__class__.__name__}({p_mode})")
+        self._lgr = p_lgr
+
         self._gnucash_data = []
         self._gglu = GoogleUpdate(p_lgr)
-
-        p_lgr.info(get_current_time())
-        self._lgr = p_lgr
 
         self.mode = p_mode
         # Google sheet to update
@@ -176,7 +204,7 @@ class UpdateRevExps:
     def fill_google_cell(self, p_dest:str, p_col:str, p_row:int, p_val:str):
         self._gglu.fill_cell(p_dest, p_col, p_row, p_val)
 
-    def fill_google_data(self, target_year:int):
+    def fill_google_data(self, p_domain:str):
         """
         Fill the data list:
             for each item in results, either 1 for one quarter or 4 for four quarters:
@@ -187,10 +215,11 @@ class UpdateRevExps:
             REV string is '= ${INV} + ${OTH} + ${SAL}'
             DEDNS string is '= ${Mk-Dedns} + ${Lu-Dedns} + ${ML-Dedns}'
             others are just the string from the item
-        :param target_year: year to update
+        :param p_domain: timeframe for update
         """
         self._lgr.info(get_current_time())
         self._lgr.debug(json.dumps(self._gnucash_data, indent = 4))
+        target_year = get_int_year(p_domain, REVEXPS_DATA.get(BASE_YEAR))
         year_row = BASE_ROW + year_span(target_year, REVEXPS_DATA.get(BASE_YEAR), REVEXPS_DATA.get(YEAR_SPAN),
                                         REVEXPS_DATA.get(HDR_SPAN), self._lgr)
         # get exact row from Quarter value in each item

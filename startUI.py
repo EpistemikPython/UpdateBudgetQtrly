@@ -227,15 +227,13 @@ class UpdateBudgetUI(QDialog):
         cl_params.append('-m' + send_mode)
 
         quarter = self.cb_qtr.currentText().replace('#','')
-        domain_key = '-p'
         # BALANCE has slightly different parameters than REV_EXPS and ASSETS
         if exe != BALANCE:
-            domain_key = '-y'
             if quarter != 'ALL' : cl_params.append('-q' + quarter)
             if self.ch_gnc.isChecked(): cl_params.append('--gnc_save')
 
         domain = self.cb_domain.currentText()
-        cl_params.append(domain_key + domain)
+        cl_params.append('-t' + domain)
 
         if self.ch_ggl.isChecked(): cl_params.append('--ggl_save')
         # if self.ch_debug.isChecked(): cl_params.append('-l'+str(lg.DEBUG))
