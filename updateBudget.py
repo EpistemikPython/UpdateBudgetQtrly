@@ -17,6 +17,13 @@ from gnucash_utilities import *
 path.append("/home/marksa/dev/git/Python/Google")
 from google_utilities import *
 
+RECORD_RANGE    = "'Record'!A1"
+RECORD_SHEET    = 'Record'
+RECORD_DATE_COL = 'A'
+RECORD_TIME_COL = 'B'
+RECORD_GNC_COL  = 'C'
+RECORD_INFO_COL = 'D'
+
 
 def process_args(base_year:int) -> ArgumentParser:
     arg_parser = ArgumentParser(description = 'Update the Revenues & Expenses section of my Google Sheet',
@@ -49,14 +56,14 @@ class UpdateBudget:
         self.process_input_parameters(args, p_sheet_data.get(BASE_YEAR))
 
         # get info for log names
-        _, fname = osp.split(self.gnucash_file)
+        _, fname = osp.split(self._gnucash_file)
         base_name, _ = osp.splitext(fname)
         self.target_name = F"-{self.domain}{('-Q' + str(self.qtr) if self.qtr else '')}"
         self.log_name = get_logger_filename(p_log_name) + '_' + base_name + self.target_name
 
         self.now = dt.now().strftime(FILE_DATE_FORMAT)
 
-        self.gnucash_data = []
+        self._gnucash_data = []
 
         self._lgr.setLevel(self.level)
         self._lgr.info(F"\n\t\tRuntime = {self.now}")
@@ -66,6 +73,9 @@ class UpdateBudget:
 
     def get_mode(self) -> str:
         return self.mode
+
+    def get_gnucash_file(self) -> str:
+        return self._gnucash_file
 
     # noinspection PyAttributeOutsideInit
     def process_input_parameters(self, argl:list, p_year:int):
@@ -78,8 +88,8 @@ class UpdateBudget:
             msg = F"File path '{args.gnucash_file}' DOES NOT exist! Exiting..."
             self._lgr.error(msg)
             raise Exception(msg)
-        self.gnucash_file = args.gnucash_file
-        self._lgr.info(F"\n\t\tGnucash file = {self.gnucash_file}")
+        self._gnucash_file = args.gnucash_file
+        self._lgr.info(F"\n\t\tGnucash file = {self._gnucash_file}")
 
         self.domain = args.timeframe
         try:
@@ -109,32 +119,33 @@ class UpdateBudget:
         # get either ONE Quarter or ALL Quarters if updating an entire Year
         num_quarters = 1 if self.qtr else 4
         self._lgr.info(F"call object = {str(call_object)}")
+        gnc_session = None
         try:
-            self.gnc_session = GnucashSession(self.mode, self.gnucash_file, BOTH, self._lgr)
-            self.gnc_session.begin_session()
+            gnc_session = GnucashSession(self.mode, self._gnucash_file, BOTH, self._lgr)
+            gnc_session.begin_session()
 
             for i in range(num_quarters):
                 qtr = self.qtr if self.qtr else i + 1
 
                 data_quarter = {}
-                call_object.fill_gnucash_data(self.gnc_session, qtr, self.year, data_quarter)
+                call_object.fill_gnucash_data(gnc_session, qtr, self.year, data_quarter)
 
-                self.gnucash_data.append(data_quarter)
+                self._gnucash_data.append(data_quarter)
                 self._lgr.debug(json.dumps(data_quarter, indent=4))
 
             # no save needed, we're just reading...
-            self.gnc_session.end_session(False)
+            gnc_session.end_session(False)
 
             if self.save_gnc:
                 fname = F"{call_object.__class__.__name__}_gnc-data-{self.domain}{('-Q' + str(self.qtr) if self.qtr else '')}"
-                self._lgr.info(F"gnucash data file = {save_to_json(fname, self.gnucash_data)}")
+                self._lgr.info(F"gnucash data file = {save_to_json(fname, self._gnucash_data)}")
 
         except Exception as fgde:
             fgde_msg = F"prepare_gnucash_data() EXCEPTION: {repr(fgde)}!"
             tb = exc_info()[2]
             self._lgr.error(fgde_msg, tb)
-            if self.gnc_session:
-                self.gnc_session.check_end_session(locals())
+            if gnc_session:
+                gnc_session.check_end_session(locals())
             raise fgde.with_traceback(tb)
 
     def fill_google_data(self, call_object:object):
@@ -146,14 +157,28 @@ class UpdateBudget:
         self.record_update(call_object)
 
         if self.save_ggl:
-            str_qtr = self.gnucash_data[0][QTR] if len(self.gnucash_data) == 1 else None
+            str_qtr = self._gnucash_data[0][QTR] if len(self._gnucash_data) == 1 else None
             fname = F"{call_object.__class__.__name__}_google-data-{str(self.domain)}{('-Q' + str_qtr if str_qtr else '')}"
             self._lgr.info(F"google data file = {save_to_json(fname, call_object.get_google_data())}")
 
-    # TODO: keep record of all changes to Google sheet: what exactly and when
-    @staticmethod
-    def record_update(call_object:object):
-        call_object.record_update()
+    def record_update(self, call_object:object):
+        ggl_updater = call_object.get_google_updater()
+        ru_result = ggl_updater.read_sheets_data(RECORD_RANGE)
+        current_row = int(ru_result[0][0])
+        self._lgr.info(F"current row = {current_row}\n")
+
+        update_info = call_object.__class__.__name__ + ' ' + self.domain + ' Q' + str(self.qtr) + self.get_mode()
+
+        # keep record of this update
+        ggl_updater.fill_cell(RECORD_SHEET, RECORD_DATE_COL, current_row, now_dt.strftime(CELL_DATE_STR))
+        ggl_updater.fill_cell(RECORD_SHEET, RECORD_TIME_COL, current_row, now_dt.strftime(CELL_TIME_STR))
+        ggl_updater.fill_cell(RECORD_SHEET, RECORD_GNC_COL,  current_row, self.get_gnucash_file())
+        ggl_updater.fill_cell(RECORD_SHEET, RECORD_INFO_COL, current_row, update_info)
+
+        # update the row tally
+        ggl_updater.fill_cell(RECORD_SHEET, RECORD_DATE_COL, 1, str(current_row+1))
+
+        # call_object.record_update()
 
     def go(self, update_subtype:object) -> dict:
         try:
@@ -182,3 +207,12 @@ class UpdateBudget:
         return response
 
 # END class UpdateBudget
+
+
+# if __name__ == "__main__":
+    # test Google read
+    # logger = get_logger(UpdateBudget.__name__)
+    # ggl_updater = GoogleUpdate(logger)
+    # result = ggl_updater.read_sheets_data(RECORD_RANGE)
+    # print(result)
+    # print(result[0][0])

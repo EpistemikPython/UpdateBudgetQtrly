@@ -79,6 +79,9 @@ class UpdateRevExps:
     def get_gnucash_data(self) -> list:
         return self._gnucash_data
 
+    def get_google_updater(self) -> object:
+        return self._gglu
+
     def get_google_data(self) -> list:
         return self._gglu.get_data()
 
@@ -235,14 +238,27 @@ class UpdateRevExps:
                         dest = self.all_inc_dest
                     self.fill_google_cell(dest, REV_EXP_COLS[key], dest_row, item[key])
 
-    def record_update(self):
+    def record_update(self, updater:object):
+        ru_result = self._gglu.read_sheets_data(RECORD_RANGE)
+        current_row = int(ru_result[0][0])
+        self._lgr.info(F"current row = {current_row}\n")
+
+        # keep record of this update
+        self.fill_google_cell(RECORD_SHEET, RECORD_DATE_COL, current_row, now_dt.strftime(CELL_DATE_STR))
+        self.fill_google_cell(RECORD_SHEET, RECORD_TIME_COL, current_row, now_dt.strftime(CELL_TIME_STR))
+        self.fill_google_cell(RECORD_SHEET, RECORD_GNC_COL,  current_row, updater.get_gnucash_file())
+        self.fill_google_cell(RECORD_SHEET, RECORD_INFO_COL, current_row, self.__class__.__name__ + updater.get_mode())
+
+        # update the row tally
+        self.fill_google_cell(RECORD_SHEET, RECORD_DATE_COL, 1, str(current_row+1))
+
         """fill update date & time to ALL and NEC"""
-        today_row = BASE_ROW - 1 + year_span(now_dt.year + 2, REVEXPS_DATA.get(BASE_YEAR), REVEXPS_DATA.get(YEAR_SPAN),
-                                             REVEXPS_DATA.get(HDR_SPAN))
-        self.fill_google_cell(self.nec_inc_dest, REV_EXP_COLS[DATE], today_row, now_dt.strftime(CELL_DATE_STR))
-        self.fill_google_cell(self.nec_inc_dest, REV_EXP_COLS[DATE], today_row + 1, now_dt.strftime(CELL_TIME_STR))
-        self.fill_google_cell(self.all_inc_dest, REV_EXP_COLS[DATE], today_row, now_dt.strftime(CELL_DATE_STR))
-        self.fill_google_cell(self.all_inc_dest, REV_EXP_COLS[DATE], today_row + 1, now_dt.strftime(CELL_TIME_STR))
+        # today_row = BASE_ROW - 1 + year_span(now_dt.year + 2, REVEXPS_DATA.get(BASE_YEAR), REVEXPS_DATA.get(YEAR_SPAN),
+        #                                      REVEXPS_DATA.get(HDR_SPAN))
+        # self.fill_google_cell(RECORD_SHEET, REV_EXP_COLS[DATE], today_row, now_dt.strftime(CELL_DATE_STR))
+        # self.fill_google_cell(self.nec_inc_dest, REV_EXP_COLS[DATE], today_row + 1, now_dt.strftime(CELL_TIME_STR))
+        # self.fill_google_cell(self.all_inc_dest, REV_EXP_COLS[DATE], today_row, now_dt.strftime(CELL_DATE_STR))
+        # self.fill_google_cell(self.all_inc_dest, REV_EXP_COLS[DATE], today_row + 1, now_dt.strftime(CELL_TIME_STR))
 
     def send_sheets_data(self) -> dict:
         return self._gglu.send_sheets_data()
