@@ -8,7 +8,7 @@
 __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __created__ = '2019-03-30'
-__updated__ = '2020-03-31'
+__updated__ = '2020-04-05'
 
 from sys import argv, path
 from PyQt5.QtWidgets import (QApplication, QComboBox, QVBoxLayout, QGroupBox, QDialog, QFileDialog,
@@ -158,7 +158,7 @@ class UpdateBudgetUI(QDialog):
         ui_lgr.info(F"Script changed to: {new_script}")
         if new_script != self.script:
             initial_domain = self.cb_domain.currentText()
-            ui_lgr.debug(F"Start with domain = {initial_domain}")
+            ui_lgr.debug(F"previous domain = {initial_domain}")
             if new_script == REV_EXPS:
                 self.cb_domain.clear()
                 self.cb_domain.addItems(PARAMS[REV_EXPS])
@@ -186,7 +186,7 @@ class UpdateBudgetUI(QDialog):
                     and initial_domain in [self.cb_domain.itemText(i) for i in range(self.cb_domain.count())]:
                 self.cb_domain.setCurrentText(initial_domain)
 
-            ui_lgr.info("Finish with domain = {}".format(self.cb_domain.currentText()))
+            ui_lgr.info("domain changed to {}".format(self.cb_domain.currentText()))
             self.script = new_script
 
     def mode_change(self):

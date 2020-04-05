@@ -8,7 +8,7 @@
 __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __created__ = '2020-03-31'
-__updated__ = '2020-04-04'
+__updated__ = '2020-04-05'
 
 from sys import path, exc_info
 from argparse import ArgumentParser
@@ -39,8 +39,8 @@ def process_args(base_year:int) -> ArgumentParser:
 
 class UpdateBudget:
     """update my 'Budget Quarterly' Google spreadsheet with information from a Gnucash file"""
-    def __init__(self, args:list, p_log_name:str, p_sheet_data:dict, p_lgr:lg.Logger):
-        self._lgr = p_lgr
+    def __init__(self, args:list, p_log_name:str, p_sheet_data:dict):
+        self._lgr = get_logger(p_log_name)
         self.base_log_name = p_log_name
 
         self.base_data = p_sheet_data
@@ -57,7 +57,10 @@ class UpdateBudget:
         self.gnucash_data = []
 
         self._lgr.setLevel(self.level)
-        self.info(F"\n\t\tRuntime = {self.now}")
+        self._lgr.info(F"\n\t\tRuntime = {self.now}")
+
+    def get_logger(self) -> lg.Logger:
+        return self._lgr
 
     def get_mode(self) -> str:
         return self.mode
@@ -65,20 +68,20 @@ class UpdateBudget:
     # noinspection PyAttributeOutsideInit
     def process_input_parameters(self, argl:list, p_year:int):
         args = process_args(p_year).parse_args(argl)
-        self.info(F"\nargs = {args}")
+        self._lgr.info(F"\nargs = {args}")
 
-        self.info(F"logger level set to {args.level}")
+        self._lgr.info(F"logger level set to {args.level}")
 
         if not osp.isfile(args.gnucash_file):
             msg = F"File path '{args.gnucash_file}' DOES NOT exist! Exiting..."
-            self.error(msg)
+            self._lgr.error(msg)
             raise Exception(msg)
         self.gnucash_file = args.gnucash_file
-        self.info(F"\n\t\tGnucash file = {self.gnucash_file}")
+        self._lgr.info(F"\n\t\tGnucash file = {self.gnucash_file}")
 
         self.year = get_int_year(args.year, p_year)
         self.qtr  = 0 if args.quarter is None else get_int_quarter(args.quarter)
-        self.info(F"year = {self.year} & quarter = {self.qtr}")
+        self._lgr.info(F"year = {self.year} & quarter = {self.qtr}")
 
         self.save_gnc = args.gnc_save
         self.save_ggl = args.ggl_save
@@ -96,70 +99,47 @@ class UpdateBudget:
         """
         # get either ONE Quarter or ALL Quarters if updating an entire Year
         num_quarters = 1 if self.qtr else 4
-        self.info("find Revenue & Expenses in {} for {}{}"
-                  .format(self.gnucash_file, self.year, ('-Q' + str(self.qtr)) if self.qtr else ''))
+        self._lgr.info(F"call object = {str(call_object)}")
         try:
             self.gnc_session = GnucashSession(self.mode, self.gnucash_file, BOTH, self._lgr)
             self.gnc_session.begin_session()
 
             for i in range(num_quarters):
                 qtr = self.qtr if self.qtr else i + 1
-                start_month = (qtr * 3) - 2
-
-                # for each period keep the start date, end date, debits and credits sums and overall total
-                period_list = [
-                    [
-                        start_date, end_date,
-                        ZERO, # debits sum
-                        ZERO, # credits sum
-                        ZERO  # TOTAL
-                    ]
-                    for start_date, end_date in generate_quarter_boundaries(self.year, start_month, 1)
-                ]
-                # a copy of the above list with just the period start dates
-                period_starts = [e[0] for e in period_list]
 
                 data_quarter = {}
-                call_object.fill_gnucash_data(self.gnc_session.get_root_acct(), qtr, period_starts, period_list,
-                                              self.year, data_quarter)
-                self.debug(F"\nTOTAL Expenses for {self.year}-Q{qtr} = {period_list[0][4]}\n")
+                call_object.fill_gnucash_data(self.gnc_session, qtr, self.year, data_quarter)
 
                 self.gnucash_data.append(data_quarter)
-                self.debug(json.dumps(data_quarter, indent=4))
+                self._lgr.debug(json.dumps(data_quarter, indent=4))
 
             # no save needed, we're just reading...
             self.gnc_session.end_session(False)
 
             if self.save_gnc:
-                fname = F"updateRevExps_gnc-data-{self.year}{('-Q' + str(self.qtr) if self.qtr else '')}"
-                self.info(F"gnucash data file = {save_to_json(fname, self.gnucash_data)}")
+                fname = F"{call_object.__class__.__name__}_gnc-data-{self.year}{('-Q' + str(self.qtr) if self.qtr else '')}"
+                self._lgr.info(F"gnucash data file = {save_to_json(fname, self.gnucash_data)}")
 
         except Exception as fgde:
             fgde_msg = F"prepare_gnucash_data() EXCEPTION: {repr(fgde)}!"
             tb = exc_info()[2]
-            self.error(fgde_msg, tb)
+            self._lgr.error(fgde_msg, tb)
             if self.gnc_session:
                 self.gnc_session.check_end_session(locals())
             raise fgde.with_traceback(tb)
 
     def fill_google_data(self, call_object:object):
         """ Fill the Google data list """
-        self.info(get_current_time())
-        year_row = BASE_ROW + year_span(self.year, self.base_data.get(BASE_YEAR), self.base_data.get(YEAR_SPAN),
-                                        self.base_data.get(HDR_SPAN), self._lgr)
+        self._lgr.info(get_current_time())
 
-        call_object.fill_google_data(year_row)
+        call_object.fill_google_data(self.year)
 
         self.record_update(call_object)
 
         if self.save_ggl:
             str_qtr = self.gnucash_data[0][QTR] if len(self.gnucash_data) == 1 else None
-            fname = F"updateRevExps_google-data-{str(self.year)}{('-Q' + str_qtr if str_qtr else '')}"
-            self.info(F"google data file = {save_to_json(fname, call_object.get_google_data())}")
-
-    def info(self, msg:str): self._lgr.info(msg)
-    def debug(self, msg:str): self._lgr.debug(msg)
-    def error(self, msg:str, tb:object=None): self._lgr.error(msg, tb)
+            fname = F"{call_object.__class__.__name__}_google-data-{str(self.year)}{('-Q' + str_qtr if str_qtr else '')}"
+            self._lgr.info(F"google data file = {save_to_json(fname, call_object.get_google_data())}")
 
     # TODO: keep record of all changes to Google sheet: what exactly and when
     @staticmethod
@@ -178,17 +158,17 @@ class UpdateBudget:
             if SEND in self.mode:
                 response = update_subtype.send_sheets_data()
                 if self.save_resp:
-                    rf_name = F"UpdateRevExps_response{self.target_name}"
-                    self.info(F"google response file = {save_to_json(rf_name, response, self.now)}")
+                    rf_name = F"{update_subtype.__class__.__name__}_response{self.target_name}"
+                    self._lgr.info(F"google response file = {save_to_json(rf_name, response, self.now)}")
             else:
                 response = {'Response':saved_log_info}
 
         except Exception as goe:
             goe_msg = repr(goe)
-            self.error(goe_msg)
+            self._lgr.error(goe_msg)
             response = {'go() EXCEPTION':F"{goe_msg}"}
 
-        self.info(" >>> PROGRAM ENDED.\n")
+        self._lgr.info(" >>> PROGRAM ENDED.\n")
         finish_logging(self.base_log_name, self.log_name, self.now)
         return response
 

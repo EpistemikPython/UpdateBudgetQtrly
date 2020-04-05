@@ -11,7 +11,7 @@ __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __pygnucash_version__ = '0.1'
 __created__ = '2019-04-07'
-__updated__ = '2020-04-04'
+__updated__ = '2020-04-05'
 
 from sys import stdout, path
 from bisect import bisect_right
@@ -42,6 +42,20 @@ DEDN_ACCTS = {
     "Mark" : [DEDNS_BASE, 'Mark'],
     "Lulu" : [DEDNS_BASE, 'Lulu'],
     "ML"   : [DEDNS_BASE, 'Marie-Laure']
+}
+
+# path to the account in the Gnucash file
+ASSET_ACCTS = {
+    AU    : ["FAMILY", "Prec Metals", "Au"],
+    AG    : ["FAMILY", "Prec Metals", "Ag"],
+    CASH  : ["FAMILY", "LIQUID", "$&"],
+    BANK  : ["FAMILY", "LIQUID", BANK],
+    RWRDS : ["FAMILY", RWRDS],
+    RESP  : ["FAMILY", "INVEST", "xRESP"],
+    OPEN  : ["FAMILY", "INVEST", OPEN],
+    RRSP  : ["FAMILY", "INVEST", RRSP],
+    TFSA  : ["FAMILY", "INVEST", TFSA],
+    HOUSE : ["FAMILY", HOUSE]
 }
 
 
@@ -209,6 +223,9 @@ class GnucashSession:
     def get_root_acct(self) -> Account:
         return self._root_acct
 
+    def get_file_name(self):
+        return self._gnc_file
+
     def add_price(self, prc:GncPrice):
         self._price_db.add_price(prc)
 
@@ -283,7 +300,7 @@ class GnucashSession:
         :param p_currency: Gnucash commodity
         :return: Decimal with balance
         """
-        self._lgr.debug(F"account = {acct.GetName()}")
+        # self._lgr.debug(F"account = {acct.GetName()}")
 
         # CALLS ARE RETRIEVING ACCOUNT BALANCES FROM DAY BEFORE!!??
         p_date += ONE_DAY
@@ -318,16 +335,17 @@ class GnucashSession:
         self._lgr.debug(F"{acct.GetName()} on {p_date} = {acct_sum}")
         return acct_sum
 
-    def get_account_assets(self, asset_accts:dict, end_date:date, p_currency:GncCommodity=None) -> dict:
+    def get_account_assets(self, asset_accts:dict, end_date:date, p_currency:GncCommodity=None, p_data:dict=None) -> dict:
         """
         Get ASSET data for the specified accounts for the specified date
+        :param       p_data: optional dict for data
         :param  asset_accts: from Gnucash file
         :param     end_date: on which to read the account total
         :param   p_currency: Gnucash Commodity: currency to use for the sums
         :return: dict with amounts
         """
         self._lgr.debug(get_current_time())
-        data = {}
+        data = {} if p_data is None else p_data
         currency = self._currency if p_currency is None else p_currency
         for item in asset_accts:
             acct_sum = self.get_total_balance(asset_accts[item], end_date, currency)

@@ -9,7 +9,7 @@
 __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __created__ = '2019-03-30'
-__updated__ = '2020-04-04'
+__updated__ = '2020-04-05'
 
 from sys import argv
 from updateBudget import *
@@ -17,7 +17,7 @@ from updateBudget import *
 base_run_file = get_base_filename(__file__)
 print(base_run_file)
 
-BASE_DATA = {
+REVEXPS_DATA = {
     # first year row in google sheet
     BASE_YEAR : 2012 ,
     # number of rows between same quarter in adjacent years
@@ -61,15 +61,32 @@ class UpdateRevExps:
         self._lgr.error("NO root account!")
         return ''
 
-    def fill_gnucash_data(self, p_root_acct:Account, p_qtr:int, period_starts:list, periods:list,
-                          p_year:int, data_qtr:dict) -> dict:
-        self.get_revenue(p_root_acct, period_starts, periods, data_qtr)
-        data_qtr[QTR] = str(p_qtr)
-        self._lgr.debug(F"\nTOTAL Revenue for {p_year}-Q{p_qtr} = ${periods[0][4] * -1}")
+    def fill_gnucash_data(self, p_session:GnucashSession, p_qtr:int, p_year:int, data_qtr:dict) -> dict:
+        root_acct = p_session.get_root_acct()
+        start_month = (p_qtr * 3) - 2
 
-        periods[0][4] = ZERO
-        self.get_expenses(p_root_acct, period_starts, periods, p_year, data_qtr)
-        self.get_deductions(p_root_acct, period_starts, periods, p_year, data_qtr)
+        # for each period keep the start date, end date, debits and credits sums and overall total
+        period_list = [
+            [
+                start_date, end_date,
+                ZERO,  # debits sum
+                ZERO,  # credits sum
+                ZERO  # TOTAL
+            ]
+            for start_date, end_date in generate_quarter_boundaries(p_year, start_month, 1)
+        ]
+        # a copy of the above list with just the period start dates
+        period_starts = [e[0] for e in period_list]
+
+        self.get_revenue(root_acct, period_starts, period_list, data_qtr)
+        data_qtr[QTR] = str(p_qtr)
+        self._lgr.debug(F"\nTOTAL Revenue for {p_year}-Q{p_qtr} = ${period_list[0][4] * -1}")
+
+        period_list[0][4] = ZERO
+        self.get_expenses(root_acct, period_starts, period_list, p_year, data_qtr)
+        self._lgr.debug(F"\nTOTAL Expenses for {p_year}-Q{p_qtr} = {period_list[0][4]}\n")
+
+        self.get_deductions(root_acct, period_starts, period_list, p_year, data_qtr)
 
         self._gnucash_data.append(data_qtr)
         return data_qtr
@@ -159,7 +176,7 @@ class UpdateRevExps:
     def fill_google_cell(self, p_dest:str, p_col:str, p_row:int, p_val:str):
         self._gglu.fill_cell(p_dest, p_col, p_row, p_val)
 
-    def fill_google_data(self, year_row:int):
+    def fill_google_data(self, target_year:int):
         """
         Fill the data list:
             for each item in results, either 1 for one quarter or 4 for four quarters:
@@ -170,15 +187,17 @@ class UpdateRevExps:
             REV string is '= ${INV} + ${OTH} + ${SAL}'
             DEDNS string is '= ${Mk-Dedns} + ${Lu-Dedns} + ${ML-Dedns}'
             others are just the string from the item
-        :param year_row: row number of this year in the sheet
+        :param target_year: year to update
         """
         self._lgr.info(get_current_time())
         self._lgr.debug(json.dumps(self._gnucash_data, indent = 4))
+        year_row = BASE_ROW + year_span(target_year, REVEXPS_DATA.get(BASE_YEAR), REVEXPS_DATA.get(YEAR_SPAN),
+                                        REVEXPS_DATA.get(HDR_SPAN), self._lgr)
         # get exact row from Quarter value in each item
         for item in self._gnucash_data:
             self._lgr.info(F"item = {item}")
             self._lgr.debug(F"{QTR} = {item[QTR]}")
-            dest_row = year_row + ((get_int_quarter(item[QTR]) - 1) * BASE_DATA.get(QTR_SPAN))
+            dest_row = year_row + ((get_int_quarter(item[QTR]) - 1) * REVEXPS_DATA.get(QTR_SPAN))
             self._lgr.debug(F"dest_row = {dest_row}\n")
             for key in item:
                 if key != QTR:
@@ -189,8 +208,8 @@ class UpdateRevExps:
 
     def record_update(self):
         """fill update date & time to ALL and NEC"""
-        today_row = BASE_ROW - 1 + year_span(now_dt.year + 2, BASE_DATA.get(BASE_YEAR), BASE_DATA.get(YEAR_SPAN),
-                                             BASE_DATA.get(HDR_SPAN))
+        today_row = BASE_ROW - 1 + year_span(now_dt.year + 2, REVEXPS_DATA.get(BASE_YEAR), REVEXPS_DATA.get(YEAR_SPAN),
+                                             REVEXPS_DATA.get(HDR_SPAN))
         self.fill_google_cell(self.nec_inc_dest, REV_EXP_COLS[DATE], today_row, now_dt.strftime(CELL_DATE_STR))
         self.fill_google_cell(self.nec_inc_dest, REV_EXP_COLS[DATE], today_row + 1, now_dt.strftime(CELL_TIME_STR))
         self.fill_google_cell(self.all_inc_dest, REV_EXP_COLS[DATE], today_row, now_dt.strftime(CELL_DATE_STR))
@@ -203,11 +222,9 @@ class UpdateRevExps:
 
 
 def update_rev_exps_main(args:list) -> dict:
-    lgr = get_logger(base_run_file)
+    updater = UpdateBudget(args, base_run_file, REVEXPS_DATA)
 
-    updater = UpdateBudget(args, base_run_file, BASE_DATA, lgr)
-
-    rev_exp = UpdateRevExps(updater.get_mode(), lgr)
+    rev_exp = UpdateRevExps(updater.get_mode(), updater.get_logger())
 
     return updater.go(rev_exp)
 
