@@ -59,7 +59,7 @@ def get_splits(p_acct:Account, period_starts:list, periods:list, logger:lg.Logge
     :param       periods: fill with splits for each quarter
     :param        logger
     """
-    if logger: logger.debug(get_current_time())
+    if logger: logger.debug(F"account = {p_acct.GetName()}, period starts = {period_starts}, periods = {periods}")
     # insert and add all splits in the periods of interest
     for split in p_acct.GetSplitList():
         trans = split.parent
@@ -203,16 +203,19 @@ class GnucashSession:
             return
         if isinstance(p_curr, GncCommodity):
             self._currency = p_curr
+            self._lgr.debug(F"currency set to {p_curr}")
         else:
             self._lgr.error(F"BAD currency '{str(p_curr)}' of type: {type(p_curr)}")
 
     def begin_session(self, p_new:bool=False):
         self._lgr.info(get_current_time())
+
         self._session = Session(self._gnc_file, is_new=p_new)
         self._book = self._session.book
         self._root_acct = self._book.get_root_account()
         self._root_acct.get_instance()
         self._commod_table = self._book.get_table()
+
         if self._currency is None:
             self.set_currency(self._commod_table.lookup("ISO4217", "CAD"))
 
@@ -223,6 +226,7 @@ class GnucashSession:
 
     def end_session(self, p_save:bool=None):
         self._lgr.debug(get_current_time())
+
         save_session = p_save if p_save else (self._mode == SEND)
         if save_session:
             self._lgr.info(F"Mode = {self._mode}: SAVE session.")
@@ -293,6 +297,7 @@ class GnucashSession:
         acct = account_from_path(self._root_acct, p_path)
         # get the split amounts for the parent account
         acct_sum = self.get_account_balance(acct, p_date, currency)
+
         descendants = acct.get_descendants()
         if len(descendants) > 0:
             # for EACH sub-account add to the overall total
@@ -312,9 +317,11 @@ class GnucashSession:
         :param   p_currency: Gnucash Commodity: currency to use for the sums
         :return: dict with amounts
         """
-        self._lgr.debug(get_current_time())
+        self._lgr.debug(F"end_date = {end_date}")
+
         data = {} if p_data is None else p_data
         currency = self._currency if p_currency is None else p_currency
+
         for item in asset_accts:
             acct_sum = self.get_total_balance(asset_accts[item], end_date, currency)
             data[item] = acct_sum.to_eng_string()
@@ -328,7 +335,7 @@ class GnucashSession:
         :param plan_type: plan names from investment.InvestmentRecord
         :param  pl_owner: needed to find proper account for RRSP & TFSA plan types
         """
-        self._lgr.debug(F"account type = {acct_type}; plan type = {plan_type}; plan owner = {pl_owner:str}")
+        self._lgr.debug(F"account type = {acct_type}; plan type = {plan_type}; plan owner = {pl_owner}")
 
         if acct_type not in (ASSET,REVENUE):
             raise Exception(F"GnucashSession._get_asset_or_revenue_account(): BAD Account type: {acct_type}!")
@@ -364,6 +371,7 @@ class GnucashSession:
         acct = account_from_path(self._root_acct, p_path)
         acct_name = acct.GetName()
         self._lgr.debug(F"account = {acct_name}")
+
         descendants = acct.get_descendants()
         if len(descendants) == 0:
             self._lgr.debug(F"{acct_name} has NO Descendants!")
@@ -378,7 +386,8 @@ class GnucashSession:
         :param        mtx: InvestmentRecord transaction
         :param ast_parent: Asset parent account
         """
-        self._lgr.debug(get_current_time())
+        self._lgr.debug(F"asset parent = {ast_parent}")
+
         conv_date = dt.strptime(mtx[DATE], "%d-%b-%Y")
         pr_date = dt(conv_date.year, conv_date.month, conv_date.day)
         datestring = pr_date.strftime("%Y-%m-%d")
@@ -419,6 +428,7 @@ class GnucashSession:
         :param tx2: matching transaction if a switch
         """
         self._lgr.debug(get_current_time())
+
         # create a gnucash Tx
         gtx = Transaction(self._book)
         # gets a guid on construction
