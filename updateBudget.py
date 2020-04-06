@@ -99,7 +99,7 @@ class UpdateBudget:
             self._lgr.warning(msg)
             self.year = self.base_data.get(BASE_YEAR)
 
-        self.qtr  = 0 if args.quarter is None else get_int_quarter(args.quarter)
+        self.qtr = 0 if args.quarter is None else get_int_quarter(args.quarter)
         self._lgr.info(F"year = {self.domain} & quarter = {self.qtr}")
 
         self.save_gnc = args.gnc_save
@@ -218,3 +218,4 @@ def test_google_read():
 
 if __name__ == "__main__":
     test_google_read()
+    exit()

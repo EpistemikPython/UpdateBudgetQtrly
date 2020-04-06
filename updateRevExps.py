@@ -254,3 +254,4 @@ def update_rev_exps_main(args:list) -> dict:
 
 if __name__ == "__main__":
     update_rev_exps_main(argv[1:])
+    exit()

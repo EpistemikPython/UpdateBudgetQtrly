@@ -148,3 +148,4 @@ def update_assets_main(args:list) -> dict:
 
 if __name__ == "__main__":
     update_assets_main(argv[1:])
+    exit()

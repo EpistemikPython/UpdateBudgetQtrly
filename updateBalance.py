@@ -254,3 +254,4 @@ def update_balance_main(args:list) -> dict:
 
 if __name__ == "__main__":
     update_balance_main(argv[1:])
+    exit()
