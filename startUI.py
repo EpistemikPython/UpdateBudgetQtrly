@@ -125,28 +125,27 @@ class UpdateBudgetUI(QDialog):
         self.ch_ggl = QCheckBox('Save Google info to JSON file?')
         self.ch_rsp = QCheckBox('Save Google RESPONSE to JSON file?')
 
-        # self.ch_debug = QCheckBox('Print DEBUG info?')
-        self.pb_logging = QPushButton("Change the logging level?")
-        self.pb_logging.clicked.connect(self.get_log_level)
-
         vert_layout.addWidget(self.ch_gnc)
         vert_layout.addWidget(self.ch_ggl)
         vert_layout.addWidget(self.ch_rsp)
-        vert_layout.addWidget(self.pb_logging)
         vert_box.setLayout(vert_layout)
         layout.addRow(QLabel('Options'), vert_box)
 
+        self.pb_logging = QPushButton("Change the logging level?")
+        self.pb_logging.clicked.connect(self.get_log_level)
+        layout.addRow(QLabel('Logging'), self.pb_logging)
+
         self.exe_btn = QPushButton('Go!')
         self.exe_btn.clicked.connect(partial(self.button_click))
-        layout.addRow(QLabel('Execute:'), self.exe_btn)
+        layout.addRow(QLabel('EXECUTE:'), self.exe_btn)
 
         self.gb_main.setLayout(layout)
 
     def open_file_name_dialog(self):
         options = QFileDialog.Options()
         options |= QFileDialog.DontUseNativeDialog
-        file_name, _ = QFileDialog.getOpenFileName(self, 'Get Gnucash Files', '',
-                                                   "Gnucash Files (*.gnc);;All Files (*)", options=options)
+        file_name, _ = QFileDialog.getOpenFileName(self, 'Get Gnucash Files', '/newdata/dev/git/Python/Gnucash/app-files',
+                                                   "Gnucash Files (*.gnc *.gnucash);;All Files (*)", options=options)
         if file_name:
             self.gnc_file = file_name
             gnc_file_display = file_name.split('/')[-1]
@@ -227,17 +226,13 @@ class UpdateBudgetUI(QDialog):
         cl_params.append('-m' + send_mode)
 
         quarter = self.cb_qtr.currentText().replace('#','')
-        # BALANCE has slightly different parameters than REV_EXPS and ASSETS
-        if exe != BALANCE:
-            if quarter != 'ALL' : cl_params.append('-q' + quarter)
-            if self.ch_gnc.isChecked(): cl_params.append('--gnc_save')
+        if quarter != 'ALL' : cl_params.append('-q' + quarter)
 
-        domain = self.cb_domain.currentText()
-        cl_params.append('-t' + domain)
-
-        if self.ch_ggl.isChecked(): cl_params.append('--ggl_save')
-        # if self.ch_debug.isChecked(): cl_params.append('-l'+str(lg.DEBUG))
+        cl_params.append('-t' + self.cb_domain.currentText())
         cl_params.append('-l' + str(self.log_level))
+
+        if self.ch_ggl.isChecked() : cl_params.append('--ggl_save')
+        if self.ch_gnc.isChecked() : cl_params.append('--gnc_save')
 
         ui_lgr.info(str(cl_params))
 
