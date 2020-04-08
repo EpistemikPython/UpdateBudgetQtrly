@@ -8,7 +8,7 @@
 __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __created__ = '2020-03-31'
-__updated__ = '2020-04-05'
+__updated__ = '2020-04-08'
 
 from sys import path, exc_info
 from argparse import ArgumentParser
@@ -69,6 +69,9 @@ class UpdateBudget:
         self.now = dt.now().strftime(FILE_DATE_FORMAT)
 
         self._gnucash_data = []
+
+        self._gt = None
+        self.response = None
 
         self._lgr.setLevel(self.level)
         self._lgr.info(F"\n\t\tRuntime = {self.now}")
@@ -180,6 +183,19 @@ class UpdateBudget:
         # update the row tally
         ggl_updater.fill_cell(RECORD_SHEET, RECORD_DATE_COL, 1, str(current_row+1))
 
+    def start_google_thread(self, call_object:object):
+        self._lgr.info("before creating thread")
+        self._gt = threading.Thread(target = self.send_google_data, args = (call_object,))
+        self._lgr.info("before running thread")
+        self._gt.start()
+        self._lgr.info("thread is started")
+
+    def send_google_data(self, call_object:object):
+        self.response = call_object.send_sheets_data()
+        if self.save_resp:
+            rf_name = F"{call_object.__class__.__name__}_response{self.target_name}"
+            self._lgr.info(F"google response file = {save_to_json(rf_name, self.response, self.now)}")
+
     def go(self, update_subtype:object) -> dict:
         try:
             # READ the required Gnucash data
@@ -190,21 +206,22 @@ class UpdateBudget:
 
             # check if SENDING data
             if SEND in self.mode:
-                response = update_subtype.send_sheets_data()
-                if self.save_resp:
-                    rf_name = F"{update_subtype.__class__.__name__}_response{self.target_name}"
-                    self._lgr.info(F"google response file = {save_to_json(rf_name, response, self.now)}")
+                self.start_google_thread(update_subtype)
             else:
-                response = {'Response':saved_log_info}
+                self.response = {'Response':saved_log_info}
 
         except Exception as goe:
             goe_msg = repr(goe)
             self._lgr.error(goe_msg)
-            response = {'go() EXCEPTION':F"{goe_msg}"}
+            self.response = {'go() EXCEPTION':F"{goe_msg}"}
 
+        # check if we started the google thread and wait if necessary
+        if self._gt and self._gt.is_alive():
+            self._lgr.info("wait for the thread to finish")
+            self._gt.join()
         self._lgr.info(" >>> PROGRAM ENDED.\n")
         finish_logging(self.base_log_name, self.log_name, self.now)
-        return response
+        return self.response
 
 # END class UpdateBudget
 
