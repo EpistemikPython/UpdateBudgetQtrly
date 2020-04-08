@@ -17,6 +17,11 @@ from gnucash_utilities import *
 path.append("/home/marksa/dev/git/Python/Google")
 from google_utilities import *
 
+BASE_YEAR:str = BASE + YR
+YEAR_SPAN:str = BASE_YEAR + SPAN
+QTR_SPAN:str  = QTR + SPAN
+HDR_SPAN:str  = 'Header' + SPAN
+
 RECORD_RANGE    = "'Record'!A1"
 RECORD_SHEET    = 'Record'
 RECORD_DATE_COL = 'A'
@@ -58,7 +63,7 @@ class UpdateBudget:
         # get info for log names
         _, fname = osp.split(self._gnucash_file)
         base_name, _ = osp.splitext(fname)
-        self.target_name = F"-{self.domain}{('-Q' + str(self.qtr) if self.qtr else '')}"
+        self.target_name = F"-{self.domain}"
         self.log_name = get_logger_filename(p_log_name) + '_' + base_name + self.target_name
 
         self.now = dt.now().strftime(FILE_DATE_FORMAT)
@@ -80,7 +85,7 @@ class UpdateBudget:
     # noinspection PyAttributeOutsideInit
     def process_input_parameters(self, argl:list, p_year:int):
         args = process_args(p_year).parse_args(argl)
-        self._lgr.info(F"\nargs = {args}")
+        # self._lgr.info(F"\nargs = {args}")
 
         self._lgr.info(F"logger level set to {args.level}")
 
@@ -99,25 +104,24 @@ class UpdateBudget:
             self._lgr.warning(msg)
             self.year = self.base_data.get(BASE_YEAR)
 
-        self.qtr = 0 if args.quarter is None else get_int_quarter(args.quarter)
-        self._lgr.info(F"year = {self.domain} & quarter = {self.qtr}")
-
         self.save_gnc = args.gnc_save
         self.save_ggl = args.ggl_save
         self.save_resp = args.resp_save
         self.level = args.level
         self.mode = args.mode
 
+        self._lgr.info(F"year = {self.domain} & mode = {self.mode}")
+
     # noinspection PyAttributeOutsideInit
     def prepare_gnucash_data(self, call_object:object):
         """
-        Get REVENUE and EXPENSE data for ONE specified Quarter or ALL four Quarters for the specified Year
-        >> NOT really necessary to have a separate variable for the Gnucash data, but useful to have all
-           the Gnucash data in a separate dict instead of just preparing a Google data dict
-           :param call_object: instance with required functions
+        Get data for the specified year, or ALL years
+            NOT really necessary to have a separate variable for the Gnucash data, but useful to have all
+            the Gnucash data in a separate dict instead of just preparing a Google data dict
+        :param call_object: instance with required functions
         """
-        # get either ONE Quarter or ALL Quarters if updating an entire Year
-        num_quarters = 1 if self.qtr else 4
+        # for ALL Quarters since updating an entire Year
+        num_quarters = 4
         self._lgr.info(F"call object = {str(call_object)}")
         gnc_session = None
         try:
@@ -125,10 +129,8 @@ class UpdateBudget:
             gnc_session.begin_session()
 
             for i in range(num_quarters):
-                qtr = self.qtr if self.qtr else i + 1
-
                 data_quarter = {}
-                call_object.fill_gnucash_data(gnc_session, qtr, self.year, data_quarter)
+                call_object.fill_gnucash_data(gnc_session, i+1, self.year, data_quarter)
 
                 self._gnucash_data.append(data_quarter)
                 self._lgr.debug(json.dumps(data_quarter, indent=4))
@@ -137,7 +139,7 @@ class UpdateBudget:
             gnc_session.end_session(False)
 
             if self.save_gnc:
-                fname = F"{call_object.__class__.__name__}_gnc-data-{self.domain}{('-Q' + str(self.qtr) if self.qtr else '')}"
+                fname = F"{call_object.__class__.__name__}_gnc-data-{self.domain}"
                 self._lgr.info(F"gnucash data file = {save_to_json(fname, self._gnucash_data)}")
 
         except Exception as fgde:
@@ -157,8 +159,7 @@ class UpdateBudget:
         self.record_update(call_object)
 
         if self.save_ggl:
-            str_qtr = '-Q' + self._gnucash_data[0][QTR] if len(self._gnucash_data) == 1 else ''
-            fname = F"{call_object.__class__.__name__}_google-data-{str(self.domain)}{str_qtr}"
+            fname = F"{call_object.__class__.__name__}_google-data-{str(self.domain)}"
             self._lgr.info(F"google data file = {save_to_json(fname, call_object.get_google_data())}")
 
     def record_update(self, call_object:object):
@@ -167,7 +168,7 @@ class UpdateBudget:
         current_row = int(ru_result[0][0])
         self._lgr.info(F"current row = {current_row}\n")
 
-        update_info = call_object.__class__.__name__ + ' ' + self.domain + ' Q' + str(self.qtr) + self.get_mode()
+        update_info = call_object.__class__.__name__ + ' - ' + self.domain + ' - ' + self.get_mode()
         self._lgr.info(F"update info = {update_info}\n")
 
         # keep record of this update

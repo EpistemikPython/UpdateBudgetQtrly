@@ -9,7 +9,7 @@
 __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __created__ = '2019-04-13'
-__updated__ = '2020-04-05'
+__updated__ = '2020-04-07'
 
 from sys import path, argv
 from updateAssets import ASSETS_DATA, ASSET_COLS
@@ -22,13 +22,13 @@ base_run_file = get_base_filename(__file__)
 print(base_run_file)
 
 BALANCE_DATA = {
-    # first year row in google sheet
+    # first year in google sheet
     BASE_YEAR : 2008 ,
-    # number of rows between same quarter in adjacent years
+    # number of rows between same quarter in adjacent years, not including header rows
     YEAR_SPAN : 1 ,
     # number of rows between quarters in the same year
     QTR_SPAN : 0 ,
-    # number of year groups between header rows
+    # number of years between header rows
     HDR_SPAN : 9
 }
 

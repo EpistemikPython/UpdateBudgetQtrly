@@ -8,7 +8,7 @@
 __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __created__ = '2019-03-30'
-__updated__ = '2020-04-05'
+__updated__ = '2020-04-07'
 
 from sys import argv, path
 from PyQt5.QtWidgets import (QApplication, QComboBox, QVBoxLayout, QGroupBox, QDialog, QFileDialog,
@@ -21,6 +21,8 @@ from updateAssets import update_assets_main
 from updateBalance import update_balance_main
 
 # constant strings
+ALL:str      = 'ALL'
+ALL_YRS:str  = ALL + ' Years'
 REV_EXPS:str = 'Rev & Exps'
 ASSETS:str   = 'Assets'
 BALANCE:str  = 'Balance'
@@ -30,17 +32,21 @@ QTRS:str     = 'Quarters'
 SHEET_1:str  = 'Sheet 1'
 SHEET_2:str  = 'Sheet 2'
 
+# TODO? unified list of domains; remove Quarters from options
 PARAMS:dict = {
     REV_EXPS  : ['2020', '2019', '2018', '2017', '2016', '2015', '2014', '2013', '2012'] ,
     ASSETS    : ['2011', '2010', '2009', '2008'] ,
     BALANCE   : ['today', 'allyears'] ,
-    QTRS      : ['ALL', '#1', '#2', '#3', '#4']
+    QTRS      : [ALL, '#1', '#2', '#3', '#4'] ,
+    YEAR      : ['2020', '2019', '2018', '2017', '2016', '2015', '2014', '2013', '2012', '2011', '2010', '2009', '2008', ALL_YRS]
 }
 
+# TODO? add option for ALL
 MAIN_FXNS:dict = {
     REV_EXPS : update_rev_exps_main ,
     ASSETS   : update_assets_main   ,
-    BALANCE  : update_balance_main
+    BALANCE  : update_balance_main  ,
+    ALL      : ALL
 }
 
 
@@ -91,7 +97,7 @@ class UpdateBudgetUI(QDialog):
 
         self.cb_script = QComboBox()
         self.cb_script.addItems([x for x in MAIN_FXNS])
-        self.cb_script.currentIndexChanged.connect(partial(self.script_change))
+        # self.cb_script.currentIndexChanged.connect(partial(self.script_change))
         layout.addRow(QLabel('Script:'), self.cb_script)
         self.script = self.cb_script.currentText()
 
@@ -106,14 +112,14 @@ class UpdateBudgetUI(QDialog):
         self.mode = self.cb_mode.currentText()
 
         self.cb_domain = QComboBox()
-        self.cb_domain.addItems(PARAMS[REV_EXPS])
+        self.cb_domain.addItems(PARAMS[YEAR])
         self.cb_domain.currentIndexChanged.connect(partial(self.selection_change, self.cb_domain, DOMAIN))
         layout.addRow(QLabel(DOMAIN+':'), self.cb_domain)
 
         self.cb_qtr = QComboBox()
         self.cb_qtr.addItems(PARAMS[QTRS])
         self.cb_qtr.currentIndexChanged.connect(partial(self.selection_change, self.cb_qtr, QTR))
-        layout.addRow(QLabel(QTR+':'), self.cb_qtr)
+        # layout.addRow(QLabel(QTR+':'), self.cb_qtr)
 
         self.cb_dest = QComboBox()
         self.cb_dest.currentIndexChanged.connect(partial(self.selection_change, self.cb_dest, DEST))
@@ -225,8 +231,8 @@ class UpdateBudgetUI(QDialog):
             if self.ch_rsp.isChecked(): cl_params.append('--resp_save')
         cl_params.append('-m' + send_mode)
 
-        quarter = self.cb_qtr.currentText().replace('#','')
-        if quarter != 'ALL' : cl_params.append('-q' + quarter)
+        # quarter = self.cb_qtr.currentText().replace('#','')
+        # if quarter != 'ALL' : cl_params.append('-q' + quarter)
 
         cl_params.append('-t' + self.cb_domain.currentText())
         cl_params.append('-l' + str(self.log_level))
@@ -241,6 +247,12 @@ class UpdateBudgetUI(QDialog):
             ui_lgr.info('Calling main function...')
             response = main_fxn(cl_params)
             reply = {'response': response}
+        elif main_fxn == ALL:
+            # TODO: call a separate thread for each script
+            msg = "'ALL' not implemented yet... Select another script."
+            self.response_box.append(msg)
+            ui_lgr.warning(msg)
+            return
         else:
             msg = F"Problem with main??!! '{main_fxn}'"
             ui_lgr.error(msg)
