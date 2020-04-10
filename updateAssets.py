@@ -9,7 +9,7 @@
 __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __created__ = '2019-04-06'
-__updated__ = '2020-04-07'
+__updated__ = '2020-04-09'
 
 from sys import path, argv
 path.append("/home/marksa/dev/git/Python/Gnucash/createGncTxs")
@@ -87,17 +87,18 @@ class UpdateAssets:
     def get_google_data(self) -> list:
         return self._gglu.get_data()
 
-    def fill_gnucash_data(self, p_session:GnucashSession, p_qtr:int, p_year:int, data_qtr:dict) -> dict:
+    def fill_gnucash_data(self, p_session:GnucashSession, p_qtr:int, p_year:str, data_qtr:dict) -> dict:
         """
-        Get ASSET data for ONE specified Quarter or ALL four Quarters for the specified Year
+        Get ASSET data for specified year and quarter
         :param   p_session: Gnucash session reference
-        :param       p_qtr: 1..4 for quarter to update or 0 if updating ALL FOUR quarters
+        :param       p_qtr: 1..4 for quarter to update
         :param      p_year: year to update
         :param    data_qtr: dict for data
         """
-        self._lgr.info(F"find Assets in {p_session.get_file_name()} for {p_year}{('-Q' + str(p_qtr) if p_qtr else '')}")
+        self._lgr.info(F"find Assets in {p_session.get_file_name()} for {p_year}-Q{p_qtr}")
         start_month = (p_qtr * 3) - 2
-        end_date = current_quarter_end(p_year, start_month)
+        int_year = get_int_year(p_year, ASSETS_DATA.get(BASE_YEAR))
+        end_date = current_quarter_end(int_year, start_month)
 
         p_session.get_account_assets(ASSET_ACCTS, end_date, p_data=data_qtr)
         data_qtr[QTR] = str(p_qtr)

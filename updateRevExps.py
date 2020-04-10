@@ -9,7 +9,7 @@
 __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __created__ = '2019-03-30'
-__updated__ = '2020-04-07'
+__updated__ = '2020-04-09'
 
 from sys import argv
 from updateBudget import *
@@ -92,9 +92,10 @@ class UpdateRevExps:
         self._lgr.error("NO root account!")
         return ''
 
-    def fill_gnucash_data(self, p_session:GnucashSession, p_qtr:int, p_year:int, data_qtr:dict) -> dict:
+    def fill_gnucash_data(self, p_session:GnucashSession, p_qtr:int, p_year:str, data_qtr:dict) -> dict:
         root_acct = p_session.get_root_acct()
         start_month = (p_qtr * 3) - 2
+        int_year = get_int_year(p_year, REVEXPS_DATA.get(BASE_YEAR))
 
         # for each period keep the start date, end date, debits and credits sums and overall total
         period_list = [
@@ -104,20 +105,20 @@ class UpdateRevExps:
                 ZERO,  # credits sum
                 ZERO  # TOTAL
             ]
-            for start_date, end_date in generate_quarter_boundaries(p_year, start_month, 1)
+            for start_date, end_date in generate_quarter_boundaries(int_year, start_month, 1)
         ]
         # a copy of the above list with just the period start dates
         period_starts = [e[0] for e in period_list]
 
         self.get_revenue(root_acct, period_starts, period_list, data_qtr)
         data_qtr[QTR] = str(p_qtr)
-        self._lgr.debug(F"\nTOTAL Revenue for {p_year}-Q{p_qtr} = ${period_list[0][4] * -1}")
+        self._lgr.debug(F"\n\t\tTOTAL Revenue for {p_year}-Q{p_qtr} = ${period_list[0][4] * -1}")
 
         period_list[0][4] = ZERO
-        self.get_expenses(root_acct, period_starts, period_list, p_year, data_qtr)
-        self._lgr.debug(F"\nTOTAL Expenses for {p_year}-Q{p_qtr} = {period_list[0][4]}\n")
+        self.get_expenses(root_acct, period_starts, period_list, int_year, data_qtr)
+        self._lgr.debug(F"\n\t\tTOTAL Expenses for {p_year}-Q{p_qtr} = {period_list[0][4]}\n")
 
-        self.get_deductions(root_acct, period_starts, period_list, p_year, data_qtr)
+        self.get_deductions(root_acct, period_starts, period_list, int_year, data_qtr)
 
         self._gnucash_data.append(data_qtr)
         return data_qtr

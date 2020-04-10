@@ -9,7 +9,7 @@
 __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __created__ = '2019-04-13'
-__updated__ = '2020-04-07'
+__updated__ = '2020-04-09'
 
 from sys import path, argv
 from updateAssets import ASSETS_DATA, ASSET_COLS
@@ -113,15 +113,6 @@ class UpdateBalance:
 
             self.fill_google_cell(BAL_MTHLY_COLS[TODAY], BAL_TODAY_RANGES[item], acct_sum)
 
-    def fill_all_years(self):
-        """
-        LIABS for all years
-        """
-        for i in range(now_dt.year - BALANCE_DATA.get(BASE_YEAR) - 1):
-            year = BALANCE_DATA.get(BASE_YEAR) + i
-            # fill LIABS
-            self.fill_year_end_liabs(year)
-
     def fill_current_year(self):
         """
         CURRENT YEAR: fill_today() AND: LIABS for ALL completed month_ends; FAMILY for ALL non-3 completed month_ends in year
@@ -207,36 +198,29 @@ class UpdateBalance:
         self.fill_google_cell(BAL_MTHLY_COLS[LIAB][YR], BASE_ROW + yr_span, str(liab_sum))
 
     # noinspection PyUnusedLocal
-    def fill_gnucash_data(self, p_session:GnucashSession, p_qtr:int, p_year:int, data_qtr:dict):
-        self._gnc_session = p_session
+    def fill_gnucash_data(self, p_session:GnucashSession, p_qtr:int, p_year:str, data_qtr:dict):
+        if self._gnc_session is None:
+            self._gnc_session = p_session
 
     def fill_google_cell(self, p_col:str, p_row:int, p_val:str):
         self._gglu.fill_cell(self.dest, p_col, p_row, p_val)
 
-    # TODO: fill in date column for previous month when updating 'today', check to update 'today' or 'tomorrow'
     def fill_google_data(self, p_domain:str):
         """
-        Get Balance data for TODAY:
-          LIABS, House, FAMILY, XCHALET, TRUST
-        OR for the specified year:
-          IF CURRENT YEAR: TODAY & LIABS for ALL completed months; FAMILY for ALL non-3 completed months in year
-          IF PREVIOUS YEAR: LIABS for ALL NON-completed months; FAMILY for ALL non-3 NON-completed months in year
-          ELSE: LIABS for year
+        for the specified year:
+            IF CURRENT YEAR: TODAY & LIABS for ALL completed months; FAMILY for ALL non-3 completed months in year
+                Balance data for TODAY: LIABS, House, FAMILY, XCHALET, TRUST
+            IF PREVIOUS YEAR: LIABS for ALL NON-completed months; FAMILY for ALL non-3 NON-completed months in year
         """
         self._lgr.info(F"domain = {p_domain}\n")
 
-        if p_domain == 'today':
-            self.fill_today()
-        elif p_domain == 'allyears':
-            self.fill_all_years()
+        year = get_int_year(p_domain, BALANCE_DATA.get(BASE_YEAR))
+        if year == now_dt.year:
+            self.fill_current_year()
+        elif now_dt.year - year == 1:
+            self.fill_previous_year()
         else:
-            year = get_int_year(p_domain, BALANCE_DATA.get(BASE_YEAR))
-            if year == now_dt.year:
-                self.fill_current_year()
-            elif now_dt.year - year == 1:
-                self.fill_previous_year()
-            else:
-                self.fill_year_end_liabs(year)
+            self.fill_year_end_liabs(year)
 
     def send_sheets_data(self) -> dict:
         return self._gglu.send_sheets_data()

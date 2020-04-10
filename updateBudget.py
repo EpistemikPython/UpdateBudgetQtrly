@@ -8,7 +8,7 @@
 __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __created__ = '2020-03-31'
-__updated__ = '2020-04-08'
+__updated__ = '2020-04-09'
 
 from sys import path, exc_info
 from argparse import ArgumentParser
@@ -16,6 +16,11 @@ path.append("/home/marksa/dev/git/Python/Gnucash/createGncTxs")
 from gnucash_utilities import *
 path.append("/home/marksa/dev/git/Python/Google")
 from google_utilities import *
+
+UPDATE_YEARS   = ['2020', '2019', '2018', '2017', '2016', '2015', '2014', '2013', '2012', '2011', '2010', '2009', '2008']
+UPDATE_DOMAINS = copy(UPDATE_YEARS)
+UPDATE_DOMAINS.append(ALL_YRS)
+print(UPDATE_DOMAINS)
 
 BASE_YEAR:str = BASE + YR
 YEAR_SPAN:str = BASE_YEAR + SPAN
@@ -100,12 +105,6 @@ class UpdateBudget:
         self._lgr.info(F"\n\t\tGnucash file = {self._gnucash_file}")
 
         self.domain = args.timeframe
-        try:
-            self.year = get_int_year(self.domain, self.base_data.get(BASE_YEAR))
-        except Exception as e:
-            msg = repr(e)
-            self._lgr.warning(msg)
-            self.year = self.base_data.get(BASE_YEAR)
 
         self.save_gnc = args.gnc_save
         self.save_ggl = args.ggl_save
@@ -116,27 +115,27 @@ class UpdateBudget:
         self._lgr.info(F"year = {self.domain} & mode = {self.mode}")
 
     # noinspection PyAttributeOutsideInit
-    def prepare_gnucash_data(self, call_object:object):
+    def prepare_gnucash_data(self, call_object:object, p_years:list):
         """
         Get data for the specified year, or ALL years
             NOT really necessary to have a separate variable for the Gnucash data, but useful to have all
             the Gnucash data in a separate dict instead of just preparing a Google data dict
         :param call_object: instance with required functions
+        :param p_years: year(s) to update
         """
-        # for ALL Quarters since updating an entire Year
-        num_quarters = 4
         self._lgr.info(F"call object = {str(call_object)}")
         gnc_session = None
         try:
             gnc_session = GnucashSession(self.mode, self._gnucash_file, BOTH, self._lgr)
             gnc_session.begin_session()
 
-            for i in range(num_quarters):
-                data_quarter = {}
-                call_object.fill_gnucash_data(gnc_session, i+1, self.year, data_quarter)
+            for year in p_years:
+                for i in range(4): # ALL quarters since updating an entire year
+                    data_quarter = {}
+                    call_object.fill_gnucash_data(gnc_session, i+1, year, data_quarter)
 
-                self._gnucash_data.append(data_quarter)
-                self._lgr.debug(json.dumps(data_quarter, indent=4))
+                    self._gnucash_data.append(data_quarter)
+                    self._lgr.debug(json.dumps(data_quarter, indent=4))
 
             # no save needed, we're just reading...
             gnc_session.end_session(False)
@@ -153,11 +152,12 @@ class UpdateBudget:
                 gnc_session.check_end_session(locals())
             raise fgde.with_traceback(tb)
 
-    def fill_google_data(self, call_object:object):
+    def fill_google_data(self, call_object:object, p_years:list):
         """ Fill the Google data list """
         self._lgr.info(get_current_time())
 
-        call_object.fill_google_data(self.domain)
+        for year in p_years:
+            call_object.fill_google_data(year)
 
         self.record_update(call_object)
 
@@ -197,12 +197,13 @@ class UpdateBudget:
             self._lgr.info(F"google response file = {save_to_json(rf_name, self.response, self.now)}")
 
     def go(self, update_subtype:object) -> dict:
+        years = UPDATE_YEARS if self.domain == ALL_YRS else [self.domain]
         try:
             # READ the required Gnucash data
-            self.prepare_gnucash_data(update_subtype)
+            self.prepare_gnucash_data(update_subtype, years)
 
             # package the Gnucash data in the update format required by Google sheets
-            self.fill_google_data(update_subtype)
+            self.fill_google_data(update_subtype, years)
 
             # check if SENDING data
             if SEND in self.mode:

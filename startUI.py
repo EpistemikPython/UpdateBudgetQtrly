@@ -8,21 +8,22 @@
 __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __created__ = '2019-03-30'
-__updated__ = '2020-04-07'
+__updated__ = '2020-04-09'
 
+import concurrent.futures as confut
+from functools import partial
 from sys import argv, path
 from PyQt5.QtWidgets import (QApplication, QComboBox, QVBoxLayout, QGroupBox, QDialog, QFileDialog,
                              QPushButton, QFormLayout, QDialogButtonBox, QLabel, QTextEdit, QCheckBox, QInputDialog)
-from functools import partial
+
 path.append('/home/marksa/dev/git/Python/Gnucash/createGncTxs/')
 from investment import *
+from updateBudget import UPDATE_DOMAINS
 from updateRevExps import update_rev_exps_main
 from updateAssets import update_assets_main
 from updateBalance import update_balance_main
 
 # constant strings
-ALL:str      = 'ALL'
-ALL_YRS:str  = ALL + ' Years'
 REV_EXPS:str = 'Rev & Exps'
 ASSETS:str   = 'Assets'
 BALANCE:str  = 'Balance'
@@ -32,20 +33,11 @@ QTRS:str     = 'Quarters'
 SHEET_1:str  = 'Sheet 1'
 SHEET_2:str  = 'Sheet 2'
 
-# TODO? unified list of domains; remove Quarters from options
-PARAMS:dict = {
-    REV_EXPS  : ['2020', '2019', '2018', '2017', '2016', '2015', '2014', '2013', '2012'] ,
-    ASSETS    : ['2011', '2010', '2009', '2008'] ,
-    BALANCE   : ['today', 'allyears'] ,
-    QTRS      : [ALL, '#1', '#2', '#3', '#4'] ,
-    YEAR      : ['2020', '2019', '2018', '2017', '2016', '2015', '2014', '2013', '2012', '2011', '2010', '2009', '2008', ALL_YRS]
-}
-
-# TODO? add option for ALL
-MAIN_FXNS:dict = {
-    REV_EXPS : update_rev_exps_main ,
-    ASSETS   : update_assets_main   ,
-    BALANCE  : update_balance_main  ,
+UPDATE_FXNS = [update_rev_exps_main, update_assets_main, update_balance_main]
+CHOICE_FXNS = {
+    REV_EXPS : UPDATE_FXNS[0] ,
+    ASSETS   : UPDATE_FXNS[1] ,
+    BALANCE  : UPDATE_FXNS[2] ,
     ALL      : ALL
 }
 
@@ -96,7 +88,7 @@ class UpdateBudgetUI(QDialog):
         layout = QFormLayout()
 
         self.cb_script = QComboBox()
-        self.cb_script.addItems([x for x in MAIN_FXNS])
+        self.cb_script.addItems([x for x in CHOICE_FXNS])
         # self.cb_script.currentIndexChanged.connect(partial(self.script_change))
         layout.addRow(QLabel('Script:'), self.cb_script)
         self.script = self.cb_script.currentText()
@@ -112,14 +104,9 @@ class UpdateBudgetUI(QDialog):
         self.mode = self.cb_mode.currentText()
 
         self.cb_domain = QComboBox()
-        self.cb_domain.addItems(PARAMS[YEAR])
+        self.cb_domain.addItems(UPDATE_DOMAINS)
         self.cb_domain.currentIndexChanged.connect(partial(self.selection_change, self.cb_domain, DOMAIN))
         layout.addRow(QLabel(DOMAIN+':'), self.cb_domain)
-
-        self.cb_qtr = QComboBox()
-        self.cb_qtr.addItems(PARAMS[QTRS])
-        self.cb_qtr.currentIndexChanged.connect(partial(self.selection_change, self.cb_qtr, QTR))
-        # layout.addRow(QLabel(QTR+':'), self.cb_qtr)
 
         self.cb_dest = QComboBox()
         self.cb_dest.currentIndexChanged.connect(partial(self.selection_change, self.cb_dest, DEST))
@@ -157,43 +144,6 @@ class UpdateBudgetUI(QDialog):
             gnc_file_display = file_name.split('/')[-1]
             self.gnc_file_btn.setText(gnc_file_display)
 
-    def script_change(self):
-        """must adjust domain and possibly quarter"""
-        new_script = self.cb_script.currentText()
-        ui_lgr.info(F"Script changed to: {new_script}")
-        if new_script != self.script:
-            initial_domain = self.cb_domain.currentText()
-            ui_lgr.debug(F"previous domain = {initial_domain}")
-            if new_script == REV_EXPS:
-                self.cb_domain.clear()
-                self.cb_domain.addItems(PARAMS[REV_EXPS])
-                if self.script == BALANCE:
-                    self.cb_qtr.clear()
-                    self.cb_qtr.addItems(PARAMS[QTRS])
-            else:
-                if self.script == REV_EXPS:
-                    self.cb_domain.addItems(PARAMS[ASSETS])
-                if new_script == ASSETS:
-                    if self.script == BALANCE:
-                        self.cb_domain.clear()
-                        self.cb_domain.addItems(PARAMS[REV_EXPS] + PARAMS[ASSETS])
-                        self.cb_qtr.clear()
-                        self.cb_qtr.addItems(PARAMS[QTRS])
-                elif new_script == BALANCE:
-                    self.cb_domain.addItems(PARAMS[BALANCE])
-                    self.cb_qtr.clear()
-                    self.cb_qtr.addItem('NOT NEEDED')
-                else:
-                    raise Exception(F"INVALID SCRIPT!!?? '{new_script}'")
-
-            # does not seem to be any defined function to return list of current items
-            if self.cb_domain.currentText() != initial_domain \
-                    and initial_domain in [self.cb_domain.itemText(i) for i in range(self.cb_domain.count())]:
-                self.cb_domain.setCurrentText(initial_domain)
-
-            ui_lgr.info("domain changed to {}".format(self.cb_domain.currentText()))
-            self.script = new_script
-
     def mode_change(self):
         """need the destination sheet if mode is Send"""
         new_mode = self.cb_mode.currentText()
@@ -207,6 +157,27 @@ class UpdateBudgetUI(QDialog):
                 raise Exception(F"INVALID MODE!!?? '{new_mode}'")
 
             self.mode = new_mode
+
+    def get_log_level(self):
+        num, ok = QInputDialog.getInt(self, "Logging Level", "Enter a value (0-100)", value=self.log_level, min=0, max=100)
+        if ok:
+            self.log_level = num
+            ui_lgr.info(F"logging level changed to {num}.")
+
+    def selection_change(self, cb:QComboBox, label:str):
+        """info printing only"""
+        ui_lgr.info(F"ComboBox '{label}' selection changed to '{cb.currentText()}'.")
+
+    def thread_update(self, thread_fxn:object, p_params:list):
+        ui_lgr.info(F"starting thread: {str(thread_fxn)}")
+        if callable(thread_fxn):
+            response = thread_fxn(p_params)
+        else:
+            msg = F"thread fxn {str(thread_fxn)} NOT callable?!"
+            ui_lgr.warning(msg)
+            raise Exception(msg)
+        ui_lgr.info(F"finished thread: {str(thread_fxn)}\n")
+        return response
 
     def button_click(self):
         """assemble the necessary parameters"""
@@ -231,9 +202,6 @@ class UpdateBudgetUI(QDialog):
             if self.ch_rsp.isChecked(): cl_params.append('--resp_save')
         cl_params.append('-m' + send_mode)
 
-        # quarter = self.cb_qtr.currentText().replace('#','')
-        # if quarter != 'ALL' : cl_params.append('-q' + quarter)
-
         cl_params.append('-t' + self.cb_domain.currentText())
         cl_params.append('-l' + str(self.log_level))
 
@@ -242,33 +210,34 @@ class UpdateBudgetUI(QDialog):
 
         ui_lgr.info(str(cl_params))
 
-        main_fxn = MAIN_FXNS[exe]
+        main_fxn = CHOICE_FXNS[exe]
         if callable(main_fxn):
             ui_lgr.info('Calling main function...')
             response = main_fxn(cl_params)
             reply = {'response': response}
         elif main_fxn == ALL:
-            # TODO: call a separate thread for each script
-            msg = "'ALL' not implemented yet... Select another script."
-            self.response_box.append(msg)
-            ui_lgr.warning(msg)
-            return
+            ui_lgr.info('main_fxn == ALL')
+            # use 'with' to ensure threads are cleaned up properly
+            with confut.ThreadPoolExecutor(max_workers = len(UPDATE_FXNS)) as executor:
+                # send each script to a separate thread
+                future_to_update = {executor.submit(self.thread_update, upfxn, cl_params):upfxn for upfxn in UPDATE_FXNS}
+                for future in confut.as_completed(future_to_update):
+                    updater = future_to_update[future]
+                    try:
+                        data = future.result()
+                    except Exception as bcae:
+                        msg = repr(bcae)
+                        ui_lgr.warning(F"{updater} generated exception: {msg}")
+                        raise bcae
+                    else:
+                        reply = data
+                        ui_lgr.info(data)
         else:
             msg = F"Problem with main??!! '{main_fxn}'"
             ui_lgr.error(msg)
             reply = {'msg': msg, 'log': saved_log_info}
 
         self.response_box.append(json.dumps(reply, indent=4))
-
-    def get_log_level(self):
-        num, ok = QInputDialog.getInt(self, "Logging Level", "Enter a value (0-100)", value=self.log_level, min=0, max=100)
-        if ok:
-            self.log_level = num
-            ui_lgr.info(F"logging level changed to {num}.")
-
-    def selection_change(self, cb:QComboBox, label:str):
-        """info printing only"""
-        ui_lgr.info(F"ComboBox '{label}' selection changed to '{cb.currentText()}'.")
 
 # END class UpdateBudgetUI
 
