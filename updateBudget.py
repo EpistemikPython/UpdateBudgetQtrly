@@ -22,6 +22,8 @@ UPDATE_DOMAINS = copy(UPDATE_YEARS)
 UPDATE_DOMAINS.append(ALL_YRS)
 print(UPDATE_DOMAINS)
 
+SHEET_1:str   = SHEET + ' 1'
+SHEET_2:str   = SHEET + ' 2'
 BASE_YEAR:str = BASE + YR
 YEAR_SPAN:str = BASE_YEAR + SPAN
 QTR_SPAN:str  = QTR + SPAN
@@ -41,8 +43,8 @@ def process_args(base_year:int) -> ArgumentParser:
     # required arguments
     required = arg_parser.add_argument_group('REQUIRED')
     required.add_argument('-g', '--gnucash_file', required = True, help = 'path & filename of the Gnucash file to use')
-    required.add_argument('-m', '--mode', required = True, choices = [TEST, SEND + '1', SEND + '2'],
-                          help = 'SEND to Google sheet (1 or 2) OR just TEST')
+    required.add_argument('-m', '--mode', required = True, choices = [TEST, SHEET_1, SHEET_2],
+                          help = 'SEND to Google Sheet (1 or 2) OR just TEST')
     required.add_argument('-t', '--timeframe', required=True,
                           help=F"'today' | 'current year' | 'previous year' | {base_year}..{now_dt.year} | 'allyears'")
     # optional arguments
@@ -79,7 +81,7 @@ class UpdateBudget:
         self.response = None
 
         self._lgr.setLevel(self.level)
-        self._lgr.info(F"\n\t\tRuntime = {self.now}")
+        self._lgr.info(F"\n\t\t{self.__class__.__name__} Runtime = {self.now}")
 
     def get_logger(self) -> lg.Logger:
         return self._lgr
@@ -159,8 +161,6 @@ class UpdateBudget:
         for year in p_years:
             call_object.fill_google_data(year)
 
-        self.record_update(call_object)
-
         if self.save_ggl:
             fname = F"{call_object.__class__.__name__}_google-data-{str(self.domain)}"
             self._lgr.info(F"google data file = {save_to_json(fname, call_object.get_google_data())}")
@@ -191,7 +191,13 @@ class UpdateBudget:
         self._lgr.info("thread is started")
 
     def send_google_data(self, call_object:object):
+        call_object.get_google_updater().begin_session()
+
+        self.record_update(call_object)
         self.response = call_object.send_sheets_data()
+
+        call_object.get_google_updater().end_session()
+
         if self.save_resp:
             rf_name = F"{call_object.__class__.__name__}_response{self.target_name}"
             self._lgr.info(F"google response file = {save_to_json(rf_name, self.response, self.now)}")
@@ -206,7 +212,7 @@ class UpdateBudget:
             self.fill_google_data(update_subtype, years)
 
             # check if SENDING data
-            if SEND in self.mode:
+            if SHEET in self.mode:
                 self.start_google_thread(update_subtype)
             else:
                 self.response = {'Response':saved_log_info}
