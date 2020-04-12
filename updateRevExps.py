@@ -9,7 +9,7 @@
 __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __created__ = '2019-03-30'
-__updated__ = '2020-04-09'
+__updated__ = '2020-04-12'
 
 from sys import argv
 from updateBudget import *
@@ -66,11 +66,10 @@ class UpdateRevExps:
         self._gnucash_data = []
         self._gglu = GoogleUpdate(p_lgr)
 
-        self.mode = p_mode
         # Google sheet to update
         self.all_inc_dest = ALL_INC_2_SHEET
         self.nec_inc_dest = NEC_INC_2_SHEET
-        if '1' in self.mode:
+        if '1' in p_mode:
             self.all_inc_dest = ALL_INC_SHEET
             self.nec_inc_dest = NEC_INC_SHEET
         p_lgr.debug(F"all_inc_dest = {self.all_inc_dest}")

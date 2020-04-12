@@ -9,7 +9,7 @@
 __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __created__ = '2019-04-13'
-__updated__ = '2020-04-09'
+__updated__ = '2020-04-12'
 
 from sys import path, argv
 from updateAssets import ASSETS_DATA, ASSET_COLS
@@ -70,10 +70,9 @@ class UpdateBalance:
         p_lgr.info(F"{self.__class__.__name__}({p_mode})")
         self._lgr = p_lgr
 
-        self.mode = p_mode
         # Google sheet to update
         self.dest = BAL_2_SHEET
-        if '1' in self.mode:
+        if '1' in p_mode:
             self.dest = BAL_1_SHEET
         p_lgr.debug(F"dest = {self.dest}")
 

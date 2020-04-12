@@ -9,7 +9,7 @@
 __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __created__ = '2019-04-06'
-__updated__ = '2020-04-09'
+__updated__ = '2020-04-12'
 
 from sys import path, argv
 path.append("/home/marksa/dev/git/Python/Gnucash/createGncTxs")
@@ -71,10 +71,9 @@ class UpdateAssets:
         self._gnucash_data = []
         self._gglu = GoogleUpdate(p_lgr)
 
-        self.mode = p_mode
         # Google sheet to update
         self.dest = QTR_ASTS_2_SHEET
-        if '1' in self.mode:
+        if '1' in p_mode:
             self.dest = QTR_ASTS_SHEET
         p_lgr.debug(F"dest = {self.dest}")
 
