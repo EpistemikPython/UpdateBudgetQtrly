@@ -8,7 +8,7 @@
 __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __created__ = '2019-03-30'
-__updated__ = '2020-04-09'
+__updated__ = '2020-04-12'
 
 import concurrent.futures as confut
 from functools import partial
@@ -18,7 +18,7 @@ from PyQt5.QtWidgets import (QApplication, QComboBox, QVBoxLayout, QGroupBox, QD
 
 path.append('/home/marksa/dev/git/Python/Gnucash/createGncTxs/')
 from investment import *
-from updateBudget import UPDATE_DOMAINS
+from updateBudget import UPDATE_DOMAINS, SHEET_1, SHEET_2
 from updateRevExps import update_rev_exps_main
 from updateAssets import update_assets_main
 from updateBalance import update_balance_main
@@ -30,8 +30,6 @@ BALANCE:str  = 'Balance'
 DOMAIN:str   = 'Domain'
 DEST:str     = 'Destination'
 QTRS:str     = 'Quarters'
-SHEET_1:str  = 'Sheet 1'
-SHEET_2:str  = 'Sheet 2'
 
 UPDATE_FXNS = [update_rev_exps_main, update_assets_main, update_balance_main]
 CHOICE_FXNS = {
@@ -144,6 +142,7 @@ class UpdateBudgetUI(QDialog):
             gnc_file_display = file_name.split('/')[-1]
             self.gnc_file_btn.setText(gnc_file_display)
 
+    # TODO: just have mode as 'test' or 'Sheet 1' or 'Sheet 2' and don't need separate dest widget
     def mode_change(self):
         """need the destination sheet if mode is Send"""
         new_mode = self.cb_mode.currentText()
@@ -191,15 +190,13 @@ class UpdateBudgetUI(QDialog):
 
         cl_params = ['-g' + self.gnc_file]
 
-        # if sending, adjust the mode string to match the Sheet selected
-        send_mode = self.cb_mode.currentText()
-        if send_mode == SEND:
-            if self.cb_dest.currentText() == SHEET_1:
-                send_mode += '1'
-            elif self.cb_dest.currentText() == SHEET_2:
-                send_mode += '2'
+        # if sending, adjust to the Sheet selected
+        if self.cb_mode.currentText() == SEND:
+            send_mode = self.cb_dest.currentText()
             # save Google response
             if self.ch_rsp.isChecked(): cl_params.append('--resp_save')
+        else:
+            send_mode = TEST
         cl_params.append('-m' + send_mode)
 
         cl_params.append('-t' + self.cb_domain.currentText())
@@ -231,7 +228,7 @@ class UpdateBudgetUI(QDialog):
                         raise bcae
                     else:
                         reply = data
-                        ui_lgr.info(data)
+                        ui_lgr.info(F"Updater '{updater}' has finished.")
         else:
             msg = F"Problem with main??!! '{main_fxn}'"
             ui_lgr.error(msg)
