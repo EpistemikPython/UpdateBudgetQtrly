@@ -8,7 +8,7 @@
 __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __created__ = '2020-03-31'
-__updated__ = '2020-04-09'
+__updated__ = '2020-04-13'
 
 from sys import path, exc_info
 from argparse import ArgumentParser
@@ -20,7 +20,7 @@ from google_utilities import *
 UPDATE_YEARS   = ['2020', '2019', '2018', '2017', '2016', '2015', '2014', '2013', '2012', '2011', '2010', '2009', '2008']
 UPDATE_DOMAINS = copy(UPDATE_YEARS)
 UPDATE_DOMAINS.append(ALL_YRS)
-print(UPDATE_DOMAINS)
+print(F"Update Domains = {UPDATE_DOMAINS}")
 
 SHEET_1:str   = SHEET + ' 1'
 SHEET_2:str   = SHEET + ' 2'
@@ -61,7 +61,7 @@ class UpdateBudget:
     """update my 'Budget Quarterly' Google spreadsheet with information from a Gnucash file"""
     def __init__(self, args:list, p_log_name:str, p_sheet_data:dict):
         self._lgr = get_logger(p_log_name)
-        self._lgr.info(F"{self.__class__.__name__}({p_log_name})")
+        self._lgr.info(F"init: {self.__class__.__name__}({p_log_name})")
         self.base_log_name = p_log_name
 
         self.base_data = p_sheet_data
@@ -73,15 +73,13 @@ class UpdateBudget:
         self.target_name = F"-{self.domain}"
         self.log_name = get_logger_filename(p_log_name) + '_' + base_name + self.target_name
 
-        self.now = dt.now().strftime(FILE_DATE_FORMAT)
+        self._lgr.setLevel(self.level)
+        self._lgr.info(F"\n\t\t{self.__class__.__name__} for {self._gnucash_file}:\n\t\tRuntime = {get_current_time()}")
 
         self._gnucash_data = []
 
         self._gt = None
         self.response = None
-
-        self._lgr.setLevel(self.level)
-        self._lgr.info(F"\n\t\t{self.__class__.__name__} Runtime = {self.now}")
 
     def get_logger(self) -> lg.Logger:
         return self._lgr
@@ -95,26 +93,22 @@ class UpdateBudget:
     # noinspection PyAttributeOutsideInit
     def process_input_parameters(self, argl:list, p_year:int):
         args = process_args(p_year).parse_args(argl)
-        # self._lgr.info(F"\nargs = {args}")
-
-        self._lgr.info(F"logger level set to {args.level}")
 
         if not osp.isfile(args.gnucash_file):
             msg = F"File path '{args.gnucash_file}' DOES NOT exist! Exiting..."
             self._lgr.error(msg)
             raise Exception(msg)
         self._gnucash_file = args.gnucash_file
-        self._lgr.info(F"\n\t\tGnucash file = {self._gnucash_file}")
 
         self.domain = args.timeframe
+        self.level  = args.level
+        self.mode   = args.mode
 
-        self.save_gnc = args.gnc_save
-        self.save_ggl = args.ggl_save
+        self.save_gnc  = args.gnc_save
+        self.save_ggl  = args.ggl_save
         self.save_resp = args.resp_save
-        self.level = args.level
-        self.mode = args.mode
 
-        self._lgr.info(F"year = {self.domain} & mode = {self.mode}")
+        self._lgr.info(F"\n\t\tGnucash file = {self._gnucash_file}\n\t\tDomain = {self.domain} & Mode = {self.mode}")
 
     # noinspection PyAttributeOutsideInit
     def prepare_gnucash_data(self, call_object:object, p_years:list):
@@ -125,7 +119,7 @@ class UpdateBudget:
         :param call_object: instance with required functions
         :param p_years: year(s) to update
         """
-        self._lgr.info(F"call object = {str(call_object)}")
+        self._lgr.info(F"call object '{str(call_object)}' at {get_current_time()}")
         gnc_session = None
         try:
             gnc_session = GnucashSession(self.mode, self._gnucash_file, BOTH, self._lgr)
@@ -156,7 +150,7 @@ class UpdateBudget:
 
     def fill_google_data(self, call_object:object, p_years:list):
         """ Fill the Google data list """
-        self._lgr.info(get_current_time())
+        self._lgr.info(F"call object '{str(call_object)}' at {get_current_time()}")
 
         for year in p_years:
             call_object.fill_google_data(year)
@@ -188,7 +182,7 @@ class UpdateBudget:
         self._gt = threading.Thread(target = self.send_google_data, args = (call_object,))
         self._lgr.info("before running thread")
         self._gt.start()
-        self._lgr.info("thread is started")
+        self._lgr.info(F"thread '{str(call_object)}' started at {get_current_time()}")
 
     def send_google_data(self, call_object:object):
         call_object.get_google_updater().begin_session()
@@ -200,7 +194,8 @@ class UpdateBudget:
 
         if self.save_resp:
             rf_name = F"{call_object.__class__.__name__}_response{self.target_name}"
-            self._lgr.info(F"google response file = {save_to_json(rf_name, self.response, self.now)}")
+            self._lgr.info(F"google response file = "
+                           F"{save_to_json(rf_name, self.response, get_current_time(FILE_DATETIME_FORMAT))}")
 
     def go(self, update_subtype:object) -> dict:
         years = UPDATE_YEARS if self.domain == ALL_YRS else [self.domain]
@@ -227,7 +222,7 @@ class UpdateBudget:
             self._lgr.info("wait for the thread to finish")
             self._gt.join()
         self._lgr.info(" >>> PROGRAM ENDED.\n")
-        finish_logging(self.base_log_name, self.log_name, self.now)
+        finish_logging(self.base_log_name, self.log_name, get_current_time(FILE_DATETIME_FORMAT))
         return self.response
 
 # END class UpdateBudget

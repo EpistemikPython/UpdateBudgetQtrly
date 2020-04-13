@@ -11,7 +11,7 @@ __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __pygnucash_version__ = '0.1'
 __created__ = '2019-04-07'
-__updated__ = '2020-04-12'
+__updated__ = '2020-04-13'
 
 import threading
 from sys import stdout, path
@@ -169,7 +169,6 @@ class GnucashSession:
             trade txs
             price txs
     """
-
     # prevent multiple instances/threads from trying to use the same Gnucash file at the same time
     _lock = dict()
 
@@ -220,11 +219,9 @@ class GnucashSession:
             self._lgr.error(F"BAD currency '{str(p_curr)}' of type: {type(p_curr)}")
 
     def begin_session(self, p_new:bool=False):
-        self._lgr.info(get_current_time())
-
         # CANNOT have a separate Session on this Gnucash file
         self._lock[self._gnc_file].acquire()
-        self._lgr.info(F"acquired lock {self._gnc_file}")
+        self._lgr.info(F"acquired lock {self._gnc_file} at {get_current_time()}")
 
         self._session = Session(self._gnc_file, is_new=p_new)
         self._book = self._session.book
@@ -253,9 +250,9 @@ class GnucashSession:
 
         self._session.end()
 
-        # RELEASE the Session on this Gnucash file
+        # RELEASE the thread lock on this Gnucash file
         self._lock[self._gnc_file].release()
-        self._lgr.info(F"released lock {self._gnc_file}")
+        self._lgr.info(F"released lock {self._gnc_file} at {get_current_time()}")
 
     def check_end_session(self, p_locals:dict):
         if "gnucash_session" in p_locals and self._session is not None:
