@@ -8,7 +8,7 @@
 __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __created__ = '2019-03-30'
-__updated__ = '2020-04-12'
+__updated__ = '2020-04-13'
 
 import concurrent.futures as confut
 from functools import partial
@@ -27,8 +27,6 @@ from updateBalance import update_balance_main
 REV_EXPS:str = 'Rev & Exps'
 ASSETS:str   = 'Assets'
 BALANCE:str  = 'Balance'
-DOMAIN:str   = 'Domain'
-MODE:str     = 'Mode'
 DEST:str     = 'Destination'
 QTRS:str     = 'Quarters'
 
@@ -39,9 +37,10 @@ CHOICE_FXNS = {
     BALANCE  : UPDATE_FXNS[2] ,
     ALL      : ALL
 }
+TIMEFRAME:str = 'Time Frame'
 
 
-# noinspection PyCallByClass,PyTypeChecker,PyAttributeOutsideInit,PyArgumentList,PyMethodMayBeStatic
+# noinspection PyAttributeOutsideInit,PyMethodMayBeStatic
 class UpdateBudgetUI(QDialog):
     """update my 'Budget Quarterly' Google spreadsheet with information from a Gnucash file"""
     def __init__(self):
@@ -104,8 +103,8 @@ class UpdateBudgetUI(QDialog):
 
         self.cb_domain = QComboBox()
         self.cb_domain.addItems(UPDATE_DOMAINS)
-        self.cb_domain.currentIndexChanged.connect(partial(self.selection_change, self.cb_domain, DOMAIN))
-        layout.addRow(QLabel(DOMAIN+':'), self.cb_domain)
+        self.cb_domain.currentIndexChanged.connect(partial(self.selection_change, self.cb_domain, TIMEFRAME))
+        layout.addRow(QLabel(TIMEFRAME+':'), self.cb_domain)
 
         vert_box = QGroupBox('Check:')
         vert_layout = QVBoxLayout()
@@ -173,8 +172,8 @@ class UpdateBudgetUI(QDialog):
         cl_params = ['-g' + self.gnc_file, '-m' + self.cb_mode.currentText(),
                      '-t' + self.cb_domain.currentText(), '-l' + str(self.log_level)]
 
-        if self.ch_ggl.isChecked() : cl_params.append('--ggl_save')
-        if self.ch_gnc.isChecked() : cl_params.append('--gnc_save')
+        if self.ch_ggl.isChecked(): cl_params.append('--ggl_save')
+        if self.ch_gnc.isChecked(): cl_params.append('--gnc_save')
         if self.ch_rsp.isChecked(): cl_params.append('--resp_save')
 
         ui_lgr.info(str(cl_params))
