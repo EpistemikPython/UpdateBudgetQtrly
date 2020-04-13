@@ -28,6 +28,7 @@ REV_EXPS:str = 'Rev & Exps'
 ASSETS:str   = 'Assets'
 BALANCE:str  = 'Balance'
 DOMAIN:str   = 'Domain'
+MODE:str     = 'Mode'
 DEST:str     = 'Destination'
 QTRS:str     = 'Quarters'
 
@@ -96,19 +97,15 @@ class UpdateBudgetUI(QDialog):
         layout.addRow(QLabel('Gnucash File:'), self.gnc_file_btn)
 
         self.cb_mode = QComboBox()
-        self.cb_mode.addItems([TEST,SEND])
-        self.cb_mode.currentIndexChanged.connect(partial(self.mode_change))
-        layout.addRow(QLabel('Mode:'), self.cb_mode)
+        self.cb_mode.addItems([TEST,SHEET_1,SHEET_2])
+        self.cb_mode.currentIndexChanged.connect(partial(self.selection_change, self.cb_mode, MODE))
+        layout.addRow(QLabel(MODE+':'), self.cb_mode)
         self.mode = self.cb_mode.currentText()
 
         self.cb_domain = QComboBox()
         self.cb_domain.addItems(UPDATE_DOMAINS)
         self.cb_domain.currentIndexChanged.connect(partial(self.selection_change, self.cb_domain, DOMAIN))
         layout.addRow(QLabel(DOMAIN+':'), self.cb_domain)
-
-        self.cb_dest = QComboBox()
-        self.cb_dest.currentIndexChanged.connect(partial(self.selection_change, self.cb_dest, DEST))
-        layout.addRow(QLabel(DEST+':'), self.cb_dest)
 
         vert_box = QGroupBox('Check:')
         vert_layout = QVBoxLayout()
@@ -142,21 +139,6 @@ class UpdateBudgetUI(QDialog):
             gnc_file_display = file_name.split('/')[-1]
             self.gnc_file_btn.setText(gnc_file_display)
 
-    # TODO: just have mode as 'test' or 'Sheet 1' or 'Sheet 2' and don't need separate dest widget
-    def mode_change(self):
-        """need the destination sheet if mode is Send"""
-        new_mode = self.cb_mode.currentText()
-        ui_lgr.info(F"Mode changed to '{new_mode}'.")
-        if new_mode != self.mode:
-            if new_mode == TEST:
-                self.cb_dest.clear()
-            elif new_mode == SEND:
-                self.cb_dest.addItems([SHEET_1, SHEET_2])
-            else:
-                raise Exception(F"INVALID MODE!!?? '{new_mode}'")
-
-            self.mode = new_mode
-
     def get_log_level(self):
         num, ok = QInputDialog.getInt(self, "Logging Level", "Enter a value (0-100)", value=self.log_level, min=0, max=100)
         if ok:
@@ -188,22 +170,12 @@ class UpdateBudgetUI(QDialog):
             self.response_box.append('>>> MUST select a Gnucash File!')
             return
 
-        cl_params = ['-g' + self.gnc_file]
-
-        # if sending, adjust to the Sheet selected
-        if self.cb_mode.currentText() == SEND:
-            send_mode = self.cb_dest.currentText()
-            # save Google response
-            if self.ch_rsp.isChecked(): cl_params.append('--resp_save')
-        else:
-            send_mode = TEST
-        cl_params.append('-m' + send_mode)
-
-        cl_params.append('-t' + self.cb_domain.currentText())
-        cl_params.append('-l' + str(self.log_level))
+        cl_params = ['-g' + self.gnc_file, '-m' + self.cb_mode.currentText(),
+                     '-t' + self.cb_domain.currentText(), '-l' + str(self.log_level)]
 
         if self.ch_ggl.isChecked() : cl_params.append('--ggl_save')
         if self.ch_gnc.isChecked() : cl_params.append('--gnc_save')
+        if self.ch_rsp.isChecked(): cl_params.append('--resp_save')
 
         ui_lgr.info(str(cl_params))
 
