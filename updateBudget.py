@@ -148,8 +148,8 @@ class UpdateBudget:
                 gnc_session.check_end_session(locals())
             raise fgde.with_traceback(tb)
 
-    def fill_google_data(self, call_object:object, p_years:list):
-        """ Fill the Google data list """
+    def prepare_google_data(self, call_object:object, p_years:list):
+        """fill the Google data list"""
         self._lgr.info(F"call object '{str(call_object)}' at {get_current_time()}")
 
         for year in p_years:
@@ -204,7 +204,7 @@ class UpdateBudget:
             self.prepare_gnucash_data(update_subtype, years)
 
             # package the Gnucash data in the update format required by Google sheets
-            self.fill_google_data(update_subtype, years)
+            self.prepare_google_data(update_subtype, years)
 
             # check if SENDING data
             if SHEET in self.mode:

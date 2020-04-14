@@ -207,22 +207,22 @@ class UpdateRevExps:
     def fill_google_cell(self, p_dest:str, p_col:str, p_row:int, p_val:str):
         self._gglu.fill_cell(p_dest, p_col, p_row, p_val)
 
-    def fill_google_data(self, p_domain:str):
+    def fill_google_data(self, p_year:str):
         """
         Fill the data list:
-            for each item in results, either 1 for one quarter or 4 for four quarters:
-            create 5 cell_data's, one each for REV, BAL, CONT, NEC, DEDNS:
+        for each item in the gnucash data:
+            create 5 cells, one each for REV, BAL, CONT, NEC, DEDNS:
             fill in the range based on the year and quarter
             range = SHEET_NAME + '!' + calculated cell
-            fill in the values based on the sheet being updated and the type of cell_data
+            fill in the values based on the sheet being updated and the type of cell data
             REV string is '= ${INV} + ${OTH} + ${SAL}'
             DEDNS string is '= ${Mk-Dedns} + ${Lu-Dedns} + ${ML-Dedns}'
             others are just the string from the item
-        :param p_domain: timeframe for update
+        :param p_year: year to update
         """
         self._lgr.info(get_current_time())
         self._lgr.debug(json.dumps(self._gnucash_data, indent = 4))
-        target_year = get_int_year(p_domain, REVEXPS_DATA.get(BASE_YEAR))
+        target_year = get_int_year(p_year, REVEXPS_DATA.get(BASE_YEAR))
         year_row = BASE_ROW + year_span(target_year, REVEXPS_DATA.get(BASE_YEAR), REVEXPS_DATA.get(YEAR_SPAN),
                                         REVEXPS_DATA.get(HDR_SPAN), self._lgr)
         # get exact row from Quarter value in each item

@@ -204,16 +204,16 @@ class UpdateBalance:
     def fill_google_cell(self, p_col:str, p_row:int, p_val:str):
         self._gglu.fill_cell(self.dest, p_col, p_row, p_val)
 
-    def fill_google_data(self, p_domain:str):
+    def fill_google_data(self, p_year:str):
         """
         for the specified year:
             IF CURRENT YEAR: TODAY & LIABS for ALL completed months; FAMILY for ALL non-3 completed months in year
                 Balance data for TODAY: LIABS, House, FAMILY, XCHALET, TRUST
             IF PREVIOUS YEAR: LIABS for ALL NON-completed months; FAMILY for ALL non-3 NON-completed months in year
         """
-        self._lgr.info(F"domain = {p_domain}\n")
+        self._lgr.info(F"year = {p_year}\n")
 
-        year = get_int_year(p_domain, BALANCE_DATA.get(BASE_YEAR))
+        year = get_int_year(p_year, BALANCE_DATA.get(BASE_YEAR))
         if year == now_dt.year:
             self.fill_current_year()
         elif now_dt.year - year == 1:

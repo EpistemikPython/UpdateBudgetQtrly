@@ -108,13 +108,13 @@ class UpdateAssets:
     def fill_google_cell(self, p_col:str, p_row:int, p_val:str):
         self._gglu.fill_cell(self.dest, p_col, p_row, p_val)
 
-    def fill_google_data(self, p_domain:str):
+    def fill_google_data(self, p_year:str):
         """
         Fill the Google data list.
-        :param   p_domain: timeframe for update
+        :param p_year: year to update
         """
-        self._lgr.info(F"domain = {p_domain}\n")
-        target_year = get_int_year(p_domain, ASSETS_DATA.get(BASE_YEAR))
+        self._lgr.info(F"year = {p_year}\n")
+        target_year = get_int_year(p_year, ASSETS_DATA.get(BASE_YEAR))
         year_row = BASE_ROW + year_span(target_year, ASSETS_DATA.get(BASE_YEAR),
                                         ASSETS_DATA.get(YEAR_SPAN), ASSETS_DATA.get(HDR_SPAN))
         # get exact row from Quarter value in each item
