@@ -9,9 +9,9 @@
 
 __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
-__pygnucash_version__ = '0.1'
+__gnucash_version__ = '?3.5+'
 __created__ = '2019-04-07'
-__updated__ = '2020-04-13'
+__updated__ = '2020-04-15'
 
 import threading
 from sys import stdout, path
@@ -20,12 +20,12 @@ from math import log10
 from copy import copy
 import csv
 from gnucash import *
-from gnucash_core_c import CREC
+from gnucash.gnucash_core_c import CREC
 path.append('/newdata/dev/git/Python/Gnucash/createGncTxs/')
 # print(path)
 from investment import *
 
-BASE_GNUCASH_FOLDER = BASE_PYTHON_FOLDER + 'Gnucash/'
+BASE_GNUCASH_FOLDER = BASE_PYTHON_FOLDER + 'Gnucash' + osp.sep
 
 
 def gnc_numeric_to_python_decimal(numeric:GncNumeric, logger:lg.Logger=None) -> Decimal:
