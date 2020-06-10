@@ -11,7 +11,7 @@ __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __gnucash_version__ = '?3.5+'
 __created__ = '2019-04-07'
-__updated__ = '2020-04-15'
+__updated__ = '2020-06-07'
 
 import threading
 from sys import stdout, path
@@ -219,7 +219,7 @@ class GnucashSession:
             self._lgr.error(F"BAD currency '{str(p_curr)}' of type: {type(p_curr)}")
 
     def begin_session(self, p_new:bool=False):
-        # CANNOT have a separate Session on this Gnucash file
+        # PREVENT being able to start a separate Session with this Gnucash file
         self._lock[self._gnc_file].acquire()
         self._lgr.info(F"acquired lock {self._gnc_file} at {get_current_time()}")
 
@@ -287,8 +287,6 @@ class GnucashSession:
         :param p_currency: Gnucash commodity
         :return: Decimal with balance
         """
-        # self._lgr.debug(F"account = {acct.GetName()}")
-
         # CALLS ARE RETRIEVING ACCOUNT BALANCES FROM DAY BEFORE!!??
         p_date += ONE_DAY
 
@@ -444,9 +442,8 @@ class GnucashSession:
         """
         self._lgr.debug(get_current_time())
 
-        # create a gnucash Tx
+        # create a gnucash Tx -- gets a guid on construction
         gtx = Transaction(self._book)
-        # gets a guid on construction
 
         gtx.BeginEdit()
 

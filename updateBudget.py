@@ -4,11 +4,11 @@
 # updateBudget.py -- common functions used by the UpdateGoogleSheet project
 #
 # Copyright (c) 2020 Mark Sattolo <epistemik@gmail.com>
-#
+
 __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __created__ = '2020-03-31'
-__updated__ = '2020-04-13'
+__updated__ = '2020-06-07'
 
 from sys import path, exc_info
 from argparse import ArgumentParser
@@ -58,7 +58,10 @@ def process_args(base_year:int) -> ArgumentParser:
 
 
 class UpdateBudget:
-    """update my 'Budget Quarterly' Google spreadsheet with information from a Gnucash file"""
+    """
+    update my 'Budget Quarterly' Google spreadsheet with information from a Gnucash file
+    -- contains common code for the three options of updating rev&exps, assets, balances
+    """
     def __init__(self, args:list, p_log_name:str, p_sheet_data:dict):
         self._lgr = get_logger(p_log_name)
         self._lgr.info(F"init: {self.__class__.__name__}({p_log_name})")
@@ -198,6 +201,9 @@ class UpdateBudget:
                            F"{save_to_json(rf_name, self.response, get_current_time(FILE_DATETIME_FORMAT))}")
 
     def go(self, update_subtype:object) -> dict:
+        """
+        starting point for accessing UpdateBudget functions
+        """
         years = UPDATE_YEARS if self.domain == ALL_YRS else [self.domain]
         try:
             # READ the required Gnucash data

@@ -4,11 +4,11 @@
 # startUI.py -- run the UI for the update functions
 #
 # Copyright (c) 2020 Mark Sattolo <epistemik@gmail.com>
-#
+
 __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __created__ = '2019-03-30'
-__updated__ = '2020-04-13'
+__updated__ = '2020-06-07'
 
 import concurrent.futures as confut
 from functools import partial
@@ -40,12 +40,14 @@ CHOICE_FXNS = {
 TIMEFRAME:str = 'Time Frame'
 
 
-# noinspection PyAttributeOutsideInit,PyMethodMayBeStatic
+# noinspection PyAttributeOutsideInit,PyMethodMayBeStatic,PyCallByClass,PyArgumentList
 class UpdateBudgetUI(QDialog):
-    """update my 'Budget Quarterly' Google spreadsheet with information from a Gnucash file"""
+    """
+    UI for updating my 'Budget Quarterly' Google spreadsheet with information from a Gnucash file
+    """
     def __init__(self):
         super().__init__()
-        self.title = 'Update Budget Quarterly'
+        self.title = 'Update Budget Quarterly UI'
         self.left = 120
         self.top  = 160
         self.width  = 600
@@ -60,7 +62,7 @@ class UpdateBudgetUI(QDialog):
         self.setWindowTitle(self.title)
         self.setGeometry(self.left, self.top, self.width, self.height)
 
-        self.log_level = lg.INFO
+        self.log_level:int = lg.INFO
 
         self.create_group_box()
 
@@ -160,7 +162,9 @@ class UpdateBudgetUI(QDialog):
         return response
 
     def button_click(self):
-        """assemble the necessary parameters"""
+        """
+        assemble the necessary parameters and call each selected update choice in a separate thread
+        """
         ui_lgr.info(F"Clicked '{self.exe_btn.text()}'.")
         exe = self.cb_script.currentText()
         ui_lgr.info(F"Script is '{exe}'.")
@@ -219,7 +223,7 @@ def ui_main():
 
 if __name__ == '__main__':
     ui_lgr = get_logger(UpdateBudgetUI.__name__)
-    # ui_lgr.setLevel(13)
+    # ui_lgr.setLevel(9)
     ui_main()
     finish_logging(UpdateBudgetUI.__name__)
     exit()
