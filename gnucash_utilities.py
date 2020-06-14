@@ -11,7 +11,7 @@ __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __gnucash_version__ = '?3.5+'
 __created__ = '2019-04-07'
-__updated__ = '2020-06-07'
+__updated__ = '2020-06-14'
 
 import threading
 from sys import stdout, path
@@ -24,8 +24,6 @@ from gnucash.gnucash_core_c import CREC
 path.append('/newdata/dev/git/Python/Gnucash/createGncTxs/')
 # print(path)
 from investment import *
-
-BASE_GNUCASH_FOLDER = BASE_PYTHON_FOLDER + 'Gnucash' + osp.sep
 
 
 def gnc_numeric_to_python_decimal(numeric:GncNumeric, logger:lg.Logger=None) -> Decimal:
@@ -159,7 +157,6 @@ def csv_write_period_list(periods:list, logger:lg.Logger=None):
 class GnucashSession:
     """
     Create, manage and terminate a Gnucash session
-    init = prepare session for submitted Gnucash file
     fxns:
         get:
             account(s) of various types
@@ -169,7 +166,7 @@ class GnucashSession:
             trade txs
             price txs
     """
-    # prevent multiple instances/threads from trying to use the same Gnucash file at the same time
+    # PREVENT multiple instances/threads from trying to use the SAME Gnucash file AT THE SAME TIME
     _lock = dict()
 
     def __init__(self, p_mode:str, p_gncfile:str, p_domain:str, p_logger:lg.Logger, p_currency:GncCommodity=None):
@@ -368,7 +365,7 @@ class GnucashSession:
 
         return target_account
 
-    def get_asset_parent(self, plan_type:str, pl_owner:str) -> Account:
+    def get_asset_account(self, plan_type:str, pl_owner:str) -> Account:
         self._lgr.debug(get_current_time())
         return self._get_asset_or_revenue_account(ASSET, plan_type, pl_owner)
 
@@ -393,9 +390,9 @@ class GnucashSession:
             for item in descendants:
                 self._lgr.debug(F"account = {item.GetName()}")
 
-    def create_price_tx(self, mtx:dict, ast_parent:Account):
+    def create_price(self, mtx:dict, ast_parent:Account):
         """
-        Create a PRICE transaction for the current Gnucash session
+        Create a PRICE DB entry for the current Gnucash session
         :param        mtx: InvestmentRecord transaction
         :param ast_parent: Asset parent account
         """
@@ -413,24 +410,24 @@ class GnucashSession:
         val = GncNumeric(int_price, 10000)
         self._lgr.debug(F"Adding: {fund_name}[{datestring}] @ ${val}")
 
-        pr1 = GncPrice(self._book)
-        pr1.begin_edit()
-        pr1.set_time64(pr_date)
+        gnc_price = GncPrice(self._book)
+        gnc_price.begin_edit()
+        gnc_price.set_time64(pr_date)
 
         asset_acct = self.get_account(fund_name, ast_parent)
         comm = asset_acct.GetCommodity()
         self._lgr.debug(F"Commodity = {comm.get_namespace()}:{comm.get_printname()}")
-        pr1.set_commodity(comm)
+        gnc_price.set_commodity(comm)
 
-        pr1.set_currency(self._currency)
-        pr1.set_value(val)
-        pr1.set_source_string('user:price')
-        pr1.set_typestr('nav')
-        pr1.commit_edit()
+        gnc_price.set_currency(self._currency)
+        gnc_price.set_value(val)
+        gnc_price.set_source_string('user:price')
+        gnc_price.set_typestr('nav')
+        gnc_price.commit_edit()
 
         if self._mode == SEND:
             self._lgr.debug(F"Mode = {self._mode}: Add Price to DB.")
-            self.add_price(pr1)
+            self.add_price(gnc_price)
         else:
             self._lgr.warning(F"Mode = {self._mode}: ABANDON Prices!\n")
 
@@ -460,13 +457,13 @@ class GnucashSession:
         spl_ast.SetValue(GncNumeric(tx1[GROSS], 100))
         spl_ast.SetAmount(GncNumeric(tx1[UNITS], 10000))
 
-        # create a second split for the Tx
+        # create the second split for the Tx
         split_2 = Split(self._book)
         split_2.SetParent(gtx)
 
         if tx1[TYPE] in PAIRED_TYPES:
+            # the second split is also an ASSET
             self._lgr.debug(F"tx2[DESC] = {tx2[DESC]}")
-            # set the Account, Value, and Units for a second ASSET split
             split_2.SetAccount(tx2[ACCT])
             split_2.SetValue(GncNumeric(tx2[GROSS], 100))
             split_2.SetAmount(GncNumeric(tx2[UNITS], 10000))
@@ -481,8 +478,8 @@ class GnucashSession:
         elif tx1[TYPE] in (RDMPN,PURCH):
             # the second split is for the HOLD account
             split_2.SetAccount(self._root_acct.lookup_by_name(HOLD))
-            # MAY need a third split for Financial Services expense
-            # compare tx1[GROSS] and tx1[NET] to see if different
+            # MAY need a THIRD split for Financial Services expense e.g. fees, commissions
+            # compare tx1[GROSS] and tx1[NET]
             if tx1[NET] != tx1[GROSS]:
                 self._lgr.debug(F"Tx net '{tx1[NET]}' != gross '{tx1[GROSS]}'")
                 amount_diff = tx1[NET] - tx1[GROSS]
@@ -496,7 +493,7 @@ class GnucashSession:
             action = SELL if tx1[TYPE] == RDMPN else BUY
             spl_ast.SetAction(action)
         else:
-            # the second split is for a REVENUE account
+            # the second split is for a REVENUE account e.g. 'Investment Income'
             split_2.SetAccount(tx1[REVENUE])
             gross_revenue = tx1[GROSS] * -1
             split_2.SetValue(GncNumeric(gross_revenue, 100))

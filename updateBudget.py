@@ -228,7 +228,7 @@ class UpdateBudget:
             self._lgr.info("wait for the thread to finish")
             self._gt.join()
         self._lgr.info(" >>> PROGRAM ENDED.\n")
-        finish_logging(self.base_log_name, self.log_name, get_current_time(FILE_DATETIME_FORMAT))
+        finish_logging(self.base_log_name, self.log_name, get_current_time(FILE_DATETIME_FORMAT), sfx='gncout')
         return self.response
 
 # END class UpdateBudget

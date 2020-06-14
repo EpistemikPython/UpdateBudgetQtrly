@@ -15,7 +15,7 @@ from sys import path, argv
 from updateAssets import ASSETS_DATA, ASSET_COLS
 path.append('/newdata/dev/git/Python/Gnucash/createGncTxs')
 from gnucash_utilities import *
-path.append(BASE_PYTHON_FOLDER + 'Google/')
+path.append(osp.join(BASE_PYTHON_FOLDER, 'Google'))
 from updateBudget import *
 
 base_run_file = get_base_filename(__file__)
