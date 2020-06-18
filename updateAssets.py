@@ -9,7 +9,7 @@
 __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __created__ = '2019-04-06'
-__updated__ = '2020-04-12'
+__updated__ = '2020-06-14'
 
 from sys import path, argv
 path.append("/home/marksa/dev/git/Python/Gnucash/createGncTxs")
@@ -100,6 +100,7 @@ class UpdateAssets:
         end_date = current_quarter_end(int_year, start_month)
 
         p_session.get_account_assets(ASSET_ACCTS, end_date, p_data=data_qtr)
+        data_qtr[YR] = p_year
         data_qtr[QTR] = str(p_qtr)
 
         self._gnucash_data.append(data_qtr)
@@ -108,23 +109,22 @@ class UpdateAssets:
     def fill_google_cell(self, p_col:str, p_row:int, p_val:str):
         self._gglu.fill_cell(self.dest, p_col, p_row, p_val)
 
-    def fill_google_data(self, p_year:str):
+    def fill_google_data(self, p_years:list):
         """
         Fill the Google data list.
-        :param p_year: year to update
+        :param p_years: timespan to update
         """
-        self._lgr.info(F"year = {p_year}\n")
-        target_year = get_int_year(p_year, ASSETS_DATA.get(BASE_YEAR))
-        year_row = BASE_ROW + year_span(target_year, ASSETS_DATA.get(BASE_YEAR),
-                                        ASSETS_DATA.get(YEAR_SPAN), ASSETS_DATA.get(HDR_SPAN))
-        # get exact row from Quarter value in each item
+        self._lgr.info(F"timespan = {p_years}\n")
+        # get the row from Year and Quarter value in each item
         for item in self._gnucash_data:
-            self._lgr.info(F"{QTR} = {item[QTR]}")
+            target_year = get_int_year(item[YR], ASSETS_DATA.get(BASE_YEAR))
+            year_row = BASE_ROW + year_span(target_year, ASSETS_DATA.get(BASE_YEAR),
+                                            ASSETS_DATA.get(YEAR_SPAN), ASSETS_DATA.get(HDR_SPAN))
             int_qtr = int(item[QTR])
             dest_row = year_row + ((int_qtr - 1) * ASSETS_DATA.get(QTR_SPAN))
-            self._lgr.info(F"dest_row = {dest_row}\n")
+            self._lgr.info(F"{item[YR]}-Q{item[QTR]} dest row = {dest_row}\n")
             for key in item:
-                if key != QTR:
+                if key not in (QTR,YR):
                     # FOR YEAR 2015 OR EARLIER: GET RESP INSTEAD OF Rewards for COLUMN O
                     if key == RESP and target_year > 2015:
                         continue

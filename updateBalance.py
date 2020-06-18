@@ -9,7 +9,7 @@
 __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __created__ = '2019-04-13'
-__updated__ = '2020-04-12'
+__updated__ = '2020-06-14'
 
 from sys import path, argv
 from updateAssets import ASSETS_DATA, ASSET_COLS
@@ -114,7 +114,8 @@ class UpdateBalance:
 
     def fill_current_year(self):
         """
-        CURRENT YEAR: fill_today() AND: LIABS for ALL completed month_ends; FAMILY for ALL non-3 completed month_ends in year
+        CURRENT YEAR: fill_today() AND: LIABS for ALL completed month_ends;
+                                        FAMILY for ALL 'non-div-3' completed month_ends in year
         """
         self.fill_today()
         self._lgr.debug(get_current_time())
@@ -151,7 +152,8 @@ class UpdateBalance:
 
     def fill_previous_year(self):
         """
-        PREVIOUS YEAR: LIABS for ALL NON-completed months; FAMILY for ALL non-3 NON-completed months in year
+        PREVIOUS YEAR: LIABS for ALL NON-completed months;
+                       FAMILY assets for ALL 'non-div-3' NON-completed months in year
         """
         self._lgr.debug(get_current_time())
 
@@ -204,22 +206,23 @@ class UpdateBalance:
     def fill_google_cell(self, p_col:str, p_row:int, p_val:str):
         self._gglu.fill_cell(self.dest, p_col, p_row, p_val)
 
-    def fill_google_data(self, p_year:str):
+    def fill_google_data(self, p_years:list):
         """
-        for the specified year:
+        for each of the specified years:
             IF CURRENT YEAR: TODAY & LIABS for ALL completed months; FAMILY for ALL non-3 completed months in year
                 Balance data for TODAY: LIABS, House, FAMILY, XCHALET, TRUST
             IF PREVIOUS YEAR: LIABS for ALL NON-completed months; FAMILY for ALL non-3 NON-completed months in year
         """
-        self._lgr.info(F"year = {p_year}\n")
+        self._lgr.info(F"timespan = {p_years}\n")
 
-        year = get_int_year(p_year, BALANCE_DATA.get(BASE_YEAR))
-        if year == now_dt.year:
-            self.fill_current_year()
-        elif now_dt.year - year == 1:
-            self.fill_previous_year()
-        else:
-            self.fill_year_end_liabs(year)
+        for yr in p_years:
+            year = get_int_year(yr, BALANCE_DATA.get(BASE_YEAR))
+            if year == now_dt.year:
+                self.fill_current_year()
+            elif now_dt.year - 1 == year:
+                self.fill_previous_year()
+            else:
+                self.fill_year_end_liabs(year)
 
     def send_sheets_data(self) -> dict:
         return self._gglu.send_sheets_data()

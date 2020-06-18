@@ -8,7 +8,7 @@
 __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __created__ = '2019-03-30'
-__updated__ = '2020-06-07'
+__updated__ = '2020-06-14'
 
 import concurrent.futures as confut
 from functools import partial
@@ -18,10 +18,15 @@ from PyQt5.QtWidgets import (QApplication, QComboBox, QVBoxLayout, QGroupBox, QD
 
 path.append('/home/marksa/dev/git/Python/Gnucash/createGncTxs/')
 from investment import *
-from updateBudget import UPDATE_DOMAINS, SHEET_1, SHEET_2
+from updateBudget import copy, UPDATE_YEARS, SHEET_1, SHEET_2
 from updateRevExps import update_rev_exps_main
 from updateAssets import update_assets_main
 from updateBalance import update_balance_main
+
+UPDATE_DOMAINS = copy(UPDATE_YEARS)
+for it in [EARLY_YRS, MID_YRS, RECENT_YRS, CURRENT_YRS, ALL_YRS]:
+    UPDATE_DOMAINS.append(it)
+print(F"Update Domains = {UPDATE_DOMAINS}")
 
 # constant strings
 REV_EXPS:str = 'Rev & Exps'

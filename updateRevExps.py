@@ -9,7 +9,7 @@
 __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __created__ = '2019-03-30'
-__updated__ = '2020-04-12'
+__updated__ = '2020-06-14'
 
 from sys import argv
 from updateBudget import *
@@ -110,6 +110,7 @@ class UpdateRevExps:
         period_starts = [e[0] for e in period_list]
 
         self.get_revenue(root_acct, period_starts, period_list, data_qtr)
+        data_qtr[YR] = p_year
         data_qtr[QTR] = str(p_qtr)
         self._lgr.debug(F"\n\t\tTOTAL Revenue for {p_year}-Q{p_qtr} = ${period_list[0][4] * -1}")
 
@@ -207,7 +208,7 @@ class UpdateRevExps:
     def fill_google_cell(self, p_dest:str, p_col:str, p_row:int, p_val:str):
         self._gglu.fill_cell(p_dest, p_col, p_row, p_val)
 
-    def fill_google_data(self, p_year:str):
+    def fill_google_data(self, p_years:list):
         """
         Fill the data list:
         for each item in the gnucash data:
@@ -218,21 +219,19 @@ class UpdateRevExps:
             REV string is '= ${INV} + ${OTH} + ${SAL}'
             DEDNS string is '= ${Mk-Dedns} + ${Lu-Dedns} + ${ML-Dedns}'
             others are just the string from the item
-        :param p_year: year to update
+        :param p_years: timespan to update
         """
-        self._lgr.info(get_current_time())
-        self._lgr.debug(json.dumps(self._gnucash_data, indent = 4))
-        target_year = get_int_year(p_year, REVEXPS_DATA.get(BASE_YEAR))
-        year_row = BASE_ROW + year_span(target_year, REVEXPS_DATA.get(BASE_YEAR), REVEXPS_DATA.get(YEAR_SPAN),
-                                        REVEXPS_DATA.get(HDR_SPAN), self._lgr)
-        # get exact row from Quarter value in each item
+        self._lgr.info(F"timespan = {p_years}\n")
+        # get the row from Year and Quarter value in each item
         for item in self._gnucash_data:
-            self._lgr.info(F"item = {item}")
-            self._lgr.debug(F"{QTR} = {item[QTR]}")
+            self._lgr.debug(F"item = {item}")
+            target_year = get_int_year(item[YR], REVEXPS_DATA.get(BASE_YEAR))
+            year_row = BASE_ROW + year_span(target_year, REVEXPS_DATA.get(BASE_YEAR), REVEXPS_DATA.get(YEAR_SPAN),
+                                            REVEXPS_DATA.get(HDR_SPAN), self._lgr)
             dest_row = year_row + ((get_int_quarter(item[QTR]) - 1) * REVEXPS_DATA.get(QTR_SPAN))
-            self._lgr.debug(F"dest_row = {dest_row}\n")
+            self._lgr.info(F"{item[YR]}-Q{item[QTR]} dest row = {dest_row}\n")
             for key in item:
-                if key != QTR:
+                if key not in (YR,QTR):
                     dest = self.nec_inc_dest
                     if key in (REV, BAL, CONT):
                         dest = self.all_inc_dest
