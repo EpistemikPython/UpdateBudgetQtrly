@@ -9,7 +9,7 @@
 __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __created__ = '2019-04-13'
-__updated__ = '2020-06-14'
+__updated__ = '2020-07-01'
 
 from sys import path, argv
 from updateAssets import ASSETS_DATA, ASSET_COLS
@@ -22,18 +22,21 @@ base_run_file = get_base_filename(__file__)
 print(base_run_file)
 
 BALANCE_DATA = {
-    # first year in google sheet
+    # first data row in the sheet
+    BASE_ROW  : 4 ,
+    # first variable year in google sheet
     BASE_YEAR : 2008 ,
-    # number of rows between same quarter in adjacent years, not including header rows
+    # NO QUARTER DATA in BALANCE SHEET
+    # number of rows to same quarter in adjacent year, NOT INCLUDING header rows
     YEAR_SPAN : 1 ,
-    # number of rows between quarters in the same year
-    QTR_SPAN : 0 ,
+    # number of rows to adjacent quarter in the same year
+    QTR_SPAN  : 0 ,
     # number of years between header rows
-    HDR_SPAN : 9
+    HDR_SPAN  : 8
 }
 
-BASE_MTHLY_ROW:int = 24
-BASE_TOTAL_WORTH_ROW:int = 25
+BASE_MTHLY_ROW:int = 25
+BASE_TOTAL_WORTH_ROW:int = 26
 
 # path to the accounts in the Gnucash file
 BALANCE_ACCTS = {
@@ -138,8 +141,8 @@ class UpdateBalance:
             else:
                 self._lgr.debug('Update reference to Assets sheet for Mar, June, Sep or Dec')
                 # have to update the CELL REFERENCE to current year/qtr ASSETS
-                year_row = BASE_ROW + year_span(now_dt.year, ASSETS_DATA.get(BASE_YEAR),
-                                                ASSETS_DATA.get(YEAR_SPAN), ASSETS_DATA.get(HDR_SPAN), self._lgr)
+                year_row = BALANCE_DATA[BASE_ROW] \
+                           + year_span(now_dt.year, ASSETS_DATA[BASE_YEAR], ASSETS_DATA[YEAR_SPAN], ASSETS_DATA[HDR_SPAN], self._lgr)
                 int_qtr = (month_end.month // 3) - 1
                 self._lgr.debug(F"int_qtr = {int_qtr}")
                 dest_row = year_row + (int_qtr * ASSETS_DATA.get(QTR_SPAN))
@@ -195,8 +198,8 @@ class UpdateBalance:
 
         # fill LIABS
         liab_sum = self.get_balance(BALANCE_ACCTS[LIAB], year_end)
-        yr_span = year_span(year, BALANCE_DATA.get(BASE_YEAR), BALANCE_DATA.get(YEAR_SPAN), BALANCE_DATA.get(HDR_SPAN))
-        self.fill_google_cell(BAL_MTHLY_COLS[LIAB][YR], BASE_ROW + yr_span, str(liab_sum))
+        yr_span = year_span( year, BALANCE_DATA[BASE_YEAR], BALANCE_DATA[YEAR_SPAN], BALANCE_DATA[HDR_SPAN] )
+        self.fill_google_cell( BAL_MTHLY_COLS[LIAB][YR], BALANCE_DATA[BASE_ROW] + yr_span, str(liab_sum) )
 
     # noinspection PyUnusedLocal
     def fill_gnucash_data(self, p_session:GnucashSession, p_qtr:int, p_year:str, data_qtr:dict):
@@ -216,7 +219,7 @@ class UpdateBalance:
         self._lgr.info(F"timespan = {p_years}\n")
 
         for yr in p_years:
-            year = get_int_year(yr, BALANCE_DATA.get(BASE_YEAR))
+            year = get_int_year( yr, BALANCE_DATA[BASE_YEAR] )
             if year == now_dt.year:
                 self.fill_current_year()
             elif now_dt.year - 1 == year:

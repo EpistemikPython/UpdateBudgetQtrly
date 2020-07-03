@@ -9,7 +9,7 @@
 __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __created__ = '2019-04-06'
-__updated__ = '2020-06-14'
+__updated__ = '2020-07-01'
 
 from sys import path, argv
 path.append("/home/marksa/dev/git/Python/Gnucash/createGncTxs")
@@ -21,11 +21,13 @@ base_run_file = get_base_filename(__file__)
 print(base_run_file)
 
 ASSETS_DATA = {
-    # first year in google sheet
+    # first data row in the sheet
+    BASE_ROW  : 3 ,
+    # first data year in google sheet
     BASE_YEAR : 2007 ,
-    # number of rows between same quarter in adjacent years, not including header rows
+    # number of rows to same quarter in adjacent year, NOT INCLUDING header rows
     YEAR_SPAN : 4 ,
-    # number of rows between quarters in the same year
+    # number of rows to adjacent quarter in the same year
     QTR_SPAN : 1 ,
     # number of years between header rows
     HDR_SPAN : 3
@@ -96,7 +98,7 @@ class UpdateAssets:
         """
         self._lgr.info(F"find Assets in {p_session.get_file_name()} for {p_year}-Q{p_qtr}")
         start_month = (p_qtr * 3) - 2
-        int_year = get_int_year(p_year, ASSETS_DATA.get(BASE_YEAR))
+        int_year = get_int_year( p_year, ASSETS_DATA[BASE_YEAR] )
         end_date = current_quarter_end(int_year, start_month)
 
         p_session.get_account_assets(ASSET_ACCTS, end_date, p_data=data_qtr)
@@ -117,11 +119,11 @@ class UpdateAssets:
         self._lgr.info(F"timespan = {p_years}\n")
         # get the row from Year and Quarter value in each item
         for item in self._gnucash_data:
-            target_year = get_int_year(item[YR], ASSETS_DATA.get(BASE_YEAR))
-            year_row = BASE_ROW + year_span(target_year, ASSETS_DATA.get(BASE_YEAR),
-                                            ASSETS_DATA.get(YEAR_SPAN), ASSETS_DATA.get(HDR_SPAN))
+            target_year = get_int_year( item[YR], ASSETS_DATA[BASE_YEAR] )
+            year_row = ASSETS_DATA[BASE_ROW] \
+                       + year_span( target_year, ASSETS_DATA[BASE_YEAR], ASSETS_DATA[YEAR_SPAN], ASSETS_DATA[HDR_SPAN] )
             int_qtr = int(item[QTR])
-            dest_row = year_row + ((int_qtr - 1) * ASSETS_DATA.get(QTR_SPAN))
+            dest_row = year_row + ( (int_qtr - 1) * ASSETS_DATA[QTR_SPAN] )
             self._lgr.info(F"{item[YR]}-Q{item[QTR]} dest row = {dest_row}\n")
             for key in item:
                 if key not in (QTR,YR):
