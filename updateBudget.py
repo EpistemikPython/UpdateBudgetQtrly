@@ -8,7 +8,7 @@
 __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __created__ = '2020-03-31'
-__updated__ = '2020-06-16'
+__updated__ = '2020-07-01'
 
 from sys import path, exc_info
 from argparse import ArgumentParser
@@ -18,6 +18,7 @@ path.append("/home/marksa/dev/git/Python/Google")
 from google_utilities import *
 
 UPDATE_YEARS = ['2020', '2019', '2018', '2017', '2016', '2015', '2014', '2013', '2012', '2011', '2010', '2009', '2008']
+BASE_UPDATE_YEAR = UPDATE_YEARS[-1]
 
 SHEET_1:str   = SHEET + ' 1'
 SHEET_2:str   = SHEET + ' 2'
