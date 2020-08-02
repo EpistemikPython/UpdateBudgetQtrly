@@ -9,7 +9,7 @@
 __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __created__ = '2019-03-30'
-__updated__ = '2020-07-01'
+__updated__ = '2020-07-26'
 
 from sys import argv
 from updateBudget import *
@@ -60,7 +60,9 @@ REV_EXP_COLS = {
 
 
 class UpdateRevExps:
-    """Take data from a Gnucash file and update an Income tab of my Google Budget-Quarterly document"""
+    """
+    Take data from a Gnucash file and update an Income tab of my Google Budget-Quarterly document
+    """
     def __init__(self, p_mode:str, p_lgr:lg.Logger):
         p_lgr.info(F"{self.__class__.__name__}({p_mode})")
         self._lgr = p_lgr
@@ -246,7 +248,7 @@ class UpdateRevExps:
 
 
 def update_rev_exps_main(args:list) -> dict:
-    updater = UpdateBudget(args, base_run_file, REVEXPS_DATA)
+    updater = UpdateBudget(args, base_run_file, REVEXPS_DATA[BASE_YEAR])
 
     rev_exp = UpdateRevExps(updater.get_mode(), updater.get_logger())
 

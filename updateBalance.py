@@ -9,7 +9,7 @@
 __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __created__ = '2019-04-13'
-__updated__ = '2020-07-01'
+__updated__ = '2020-07-26'
 
 from sys import path, argv
 from updateAssets import ASSETS_DATA, ASSET_COLS
@@ -68,7 +68,9 @@ BAL_TODAY_RANGES = {
 
 
 class UpdateBalance:
-    """Take data from a Gnucash file and update a Balance tab of my Google Budget-Quarterly document"""
+    """
+    Take data from a Gnucash file and update a Balance tab of my Google Budget-Quarterly document
+    """
     def __init__(self, p_mode:str, p_lgr:lg.Logger):
         p_lgr.info(F"{self.__class__.__name__}({p_mode})")
         self._lgr = p_lgr
@@ -213,7 +215,7 @@ class UpdateBalance:
         """
         for each of the specified years:
             IF CURRENT YEAR: TODAY & LIABS for ALL completed months; FAMILY for ALL non-3 completed months in year
-                Balance data for TODAY: LIABS, House, FAMILY, XCHALET, TRUST
+                             Balance data for TODAY: LIABS, House, FAMILY, XCHALET, TRUST
             IF PREVIOUS YEAR: LIABS for ALL NON-completed months; FAMILY for ALL non-3 NON-completed months in year
         """
         self._lgr.info(F"timespan = {p_years}\n")
@@ -234,7 +236,7 @@ class UpdateBalance:
 
 
 def update_balance_main(args:list) -> dict:
-    updater = UpdateBudget(args, base_run_file, BALANCE_DATA)
+    updater = UpdateBudget(args, base_run_file, BALANCE_DATA[BASE_YEAR])
 
     balance = UpdateBalance(updater.get_mode(), updater.get_logger())
 
