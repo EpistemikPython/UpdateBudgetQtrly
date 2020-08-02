@@ -8,7 +8,7 @@
 __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __created__ = '2020-03-31'
-__updated__ = '2020-07-01'
+__updated__ = '2020-07-26'
 
 from sys import path, exc_info
 from argparse import ArgumentParser
@@ -44,7 +44,7 @@ def process_args(base_year:int) -> ArgumentParser:
     required.add_argument('-m', '--mode', required = True, choices = [TEST, SHEET_1, SHEET_2],
                           help = 'SEND to Google Sheet (1 or 2) OR just TEST')
     required.add_argument('-t', '--timespan', required=True,
-        help=F"choices = {base_year}..{now_dt.year} | {ALL_YRS} | {CURRENT_YRS} | {RECENT_YRS} | {MID_YRS} | {EARLY_YRS}")
+        help=F"choices = {CURRENT_YRS} | {RECENT_YRS} | {MID_YRS} | {EARLY_YRS}| {ALL_YRS} | {base_year}..{now_dt.year}")
     # optional arguments
     arg_parser.add_argument('-q', '--quarter', choices = ['1', '2', '3', '4'], help = "quarter to update: 1..4")
     arg_parser.add_argument('-l', '--level', type = int, default = lg.INFO, help = 'set LEVEL of logging output')
@@ -77,11 +77,10 @@ class UpdateBudget:
     update my 'Budget Quarterly' Google spreadsheet with information from a Gnucash file
     -- contains common code for the three options of updating rev&exps, assets, balances
     """
-    def __init__(self, args:list, p_log_name:str, p_sheet_data:dict):
+    def __init__(self, args:list, p_log_name:str, p_base_year:int):
         self._lgr = get_logger(p_log_name)
 
-        self.base_data = p_sheet_data
-        self.process_input_parameters(args, p_sheet_data.get(BASE_YEAR))
+        self.process_input_parameters(args, p_base_year)
 
         # get info for log names
         self.base_log_name = p_log_name
@@ -91,8 +90,8 @@ class UpdateBudget:
         self.log_name = get_logger_filename(p_log_name) + '_' + base_name + self.target_name
 
         self._lgr.setLevel(self.level)
-        self.inf(F"\n\t\t{self.__class__.__name__}({p_log_name}) for {self._gnucash_file}:"
-                 F"\n\t\tRuntime = {get_current_time()}")
+        self.info(F"\n\t\t{self.__class__.__name__}({p_log_name}) for {self._gnucash_file}:"
+                  F"\n\t\tRuntime = {get_current_time()}")
 
         self._gnucash_data = []
 
@@ -100,7 +99,7 @@ class UpdateBudget:
         self.response = None
 
     def dbg(self, msg:str): self._lgr.debug(msg)
-    def inf(self, msg:str): self._lgr.info(msg)
+    def info(self, msg:str): self._lgr.info(msg)
     def err(self, msg:str, traceback=None): self._lgr.error(msg, traceback)
 
     def get_logger(self) -> lg.Logger:
@@ -130,7 +129,7 @@ class UpdateBudget:
         self.save_ggl  = args.ggl_save
         self.save_resp = args.resp_save
 
-        self.inf(F"\n\t\tGnucash file = {self._gnucash_file}\n\t\tDomain = {self.timespan} & Mode = {self.mode}")
+        self.info(F"\n\t\tGnucash file = {self._gnucash_file}\n\t\tDomain = {self.timespan} & Mode = {self.mode}")
 
     # noinspection PyAttributeOutsideInit
     def prepare_gnucash_data(self, call_object:object, p_years:list):
@@ -141,7 +140,7 @@ class UpdateBudget:
         :param call_object: instance with required functions
         :param p_years: year(s) to update
         """
-        self.inf(F"call object = {str(call_object)} for {p_years} at {get_current_time()}")
+        self.info(F"call object = {str(call_object)} for {p_years} at {get_current_time()}")
         gnc_session = None
         try:
             gnc_session = GnucashSession(self.mode, self._gnucash_file, BOTH, self._lgr)
@@ -160,7 +159,7 @@ class UpdateBudget:
 
             if self.save_gnc:
                 fname = F"{call_object.__class__.__name__}_gnc-data-{self.timespan}"
-                self.inf(F"gnucash data file = {save_to_json(fname, self._gnucash_data)}")
+                self.info(F"gnucash data file = {save_to_json(fname, self._gnucash_data)}")
 
         except Exception as fgde:
             fgde_msg = F"prepare_gnucash_data() EXCEPTION: {repr(fgde)}!"
@@ -172,22 +171,22 @@ class UpdateBudget:
 
     def prepare_google_data(self, call_object:object, p_years:list):
         """fill the Google data list"""
-        self.inf(F"call object '{str(call_object)}' at {get_current_time()}")
+        self.info(F"call object '{str(call_object)}' at {get_current_time()}")
 
         call_object.fill_google_data(p_years)
 
         if self.save_ggl:
             fname = F"{call_object.__class__.__name__}_google-data-{str(self.timespan)}"
-            self.inf(F"google data file = {save_to_json(fname, call_object.get_google_data())}")
+            self.info(F"google data file = {save_to_json(fname, call_object.get_google_data())}")
 
     def record_update(self, call_object:object):
         ggl_updater = call_object.get_google_updater()
         ru_result = ggl_updater.read_sheets_data(RECORD_RANGE)
         current_row = int(ru_result[0][0])
-        self.inf(F"current row = {current_row}\n")
+        self.info(F"current row = {current_row}\n")
 
         update_info = call_object.__class__.__name__ + ' - ' + self.timespan + ' - ' + self.get_mode()
-        self.inf(F"update info = {update_info}\n")
+        self.info(F"update info = {update_info}\n")
 
         # keep record of this update
         ggl_updater.fill_cell(RECORD_SHEET, RECORD_DATE_COL, current_row, now_dt.strftime(CELL_DATE_STR))
@@ -199,11 +198,11 @@ class UpdateBudget:
         ggl_updater.fill_cell(RECORD_SHEET, RECORD_DATE_COL, 1, str(current_row+1))
 
     def start_google_thread(self, call_object:object):
-        self.inf("before creating thread")
+        self.info("before creating thread")
         self._gth = threading.Thread(target = self.send_google_data, args = (call_object,))
-        self.inf("before running thread")
+        self.info("before running thread")
         self._gth.start()
-        self.inf(F"thread '{str(call_object)}' started at {get_current_time()}")
+        self.info(F"thread '{str(call_object)}' started at {get_current_time()}")
 
     def send_google_data(self, call_object:object):
         call_object.get_google_updater().begin_session()
@@ -215,15 +214,15 @@ class UpdateBudget:
 
         if self.save_resp:
             rf_name = F"{call_object.__class__.__name__}_response{self.target_name}"
-            self.inf(F"google response file = "
+            self.info(F"google response file = "
                            F"{save_to_json(rf_name, self.response, get_current_time(FILE_DATETIME_FORMAT))}")
 
     def go(self, update_subtype:object) -> dict:
         """
-        starting point for accessing UpdateBudget functions
+        ENTRY POINT for accessing UpdateBudget functions
         """
         years = get_timespan(self.timespan, self.get_logger())
-        self.inf(F"timespan to find = {years}")
+        self.info(F"timespan to find = {years}")
         try:
             # READ the required Gnucash data
             self.prepare_gnucash_data(update_subtype, years)
@@ -235,18 +234,18 @@ class UpdateBudget:
             if SHEET in self.mode:
                 self.start_google_thread(update_subtype)
             else:
-                self.response = {'Response':saved_log_info}
+                self.response = {'Response' : saved_log_info}
 
         except Exception as goe:
             goe_msg = repr(goe)
             self.err(goe_msg)
-            self.response = {'go() EXCEPTION':F"{goe_msg}"}
+            self.response = {'go() EXCEPTION' : F"{goe_msg}"}
 
         # check if we started the google thread and wait if necessary
         if self._gth and self._gth.is_alive():
-            self.inf("wait for the thread to finish")
+            self.info("wait for the thread to finish")
             self._gth.join()
-        self.inf(" >>> PROGRAM ENDED.\n")
+        self.info(" >>> PROGRAM ENDED.\n")
         finish_logging(self.base_log_name, self.log_name, get_current_time(FILE_DATETIME_FORMAT), sfx='gncout')
         return self.response
 

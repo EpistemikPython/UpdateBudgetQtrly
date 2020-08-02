@@ -8,7 +8,7 @@
 __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __created__ = '2019-03-30'
-__updated__ = '2020-06-14'
+__updated__ = '2020-07-25'
 
 import concurrent.futures as confut
 from functools import partial
@@ -18,28 +18,26 @@ from PyQt5.QtWidgets import (QApplication, QComboBox, QVBoxLayout, QGroupBox, QD
 
 path.append('/home/marksa/dev/git/Python/Gnucash/createGncTxs/')
 from investment import *
-from updateBudget import copy, UPDATE_YEARS, SHEET_1, SHEET_2
+from updateBudget import UPDATE_YEARS, SHEET_1, SHEET_2
 from updateRevExps import update_rev_exps_main
 from updateAssets import update_assets_main
 from updateBalance import update_balance_main
 
-UPDATE_DOMAINS = copy(UPDATE_YEARS)
-for it in [EARLY_YRS, MID_YRS, RECENT_YRS, CURRENT_YRS, ALL_YRS]:
-    UPDATE_DOMAINS.append(it)
+UPDATE_DOMAINS = [CURRENT_YRS, RECENT_YRS, MID_YRS, EARLY_YRS, ALL_YRS] + [year for year in UPDATE_YEARS]
 print(F"Update Domains = {UPDATE_DOMAINS}")
 
 # constant strings
-REV_EXPS:str = 'Rev & Exps'
-ASSETS:str   = 'Assets'
 BALANCE:str  = 'Balance'
+ASSETS:str   = 'Assets'
+REV_EXPS:str = 'Rev & Exps'
 DEST:str     = 'Destination'
 QTRS:str     = 'Quarters'
 
 UPDATE_FXNS = [update_rev_exps_main, update_assets_main, update_balance_main]
 CHOICE_FXNS = {
-    REV_EXPS : UPDATE_FXNS[0] ,
-    ASSETS   : UPDATE_FXNS[1] ,
     BALANCE  : UPDATE_FXNS[2] ,
+    ASSETS   : UPDATE_FXNS[1] ,
+    REV_EXPS : UPDATE_FXNS[0] ,
     ALL      : ALL
 }
 TIMEFRAME:str = 'Time Frame'
@@ -67,7 +65,7 @@ class UpdateBudgetUI(QDialog):
         self.setWindowTitle(self.title)
         self.setGeometry(self.left, self.top, self.width, self.height)
 
-        self.log_level:int = lg.INFO
+        self.log_level:int = lg.DEBUG
 
         self.create_group_box()
 
@@ -197,7 +195,7 @@ class UpdateBudgetUI(QDialog):
             # use 'with' to ensure threads are cleaned up properly
             with confut.ThreadPoolExecutor(max_workers = len(UPDATE_FXNS)) as executor:
                 # send each script to a separate thread
-                future_to_update = {executor.submit(self.thread_update, upfxn, cl_params):upfxn for upfxn in UPDATE_FXNS}
+                future_to_update = {executor.submit(self.thread_update, fxn, cl_params):fxn for fxn in UPDATE_FXNS}
                 for future in confut.as_completed(future_to_update):
                     updater = future_to_update[future]
                     try:
@@ -228,7 +226,6 @@ def ui_main():
 
 if __name__ == '__main__':
     ui_lgr = get_logger(UpdateBudgetUI.__name__)
-    # ui_lgr.setLevel(9)
     ui_main()
-    finish_logging(UpdateBudgetUI.__name__)
+    finish_logging(UpdateBudgetUI.__name__, sfx='gncout')
     exit()
