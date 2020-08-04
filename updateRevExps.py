@@ -9,7 +9,7 @@
 __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __created__ = '2019-03-30'
-__updated__ = '2020-07-26'
+__updated__ = '2020-08-03'
 
 from sys import argv
 from updateBudget import *
@@ -59,41 +59,28 @@ REV_EXP_COLS = {
 }
 
 
-class UpdateRevExps:
+class UpdateRevExps(UpdateBudget):
     """
     Take data from a Gnucash file and update an Income tab of my Google Budget-Quarterly document
     """
-    def __init__(self, p_mode:str, p_lgr:lg.Logger):
-        p_lgr.info(F"{self.__class__.__name__}({p_mode})")
-        self._lgr = p_lgr
-
-        self._gnucash_data = []
-        self._gglu = GoogleUpdate(p_lgr)
+    def __init__(self, args:list, p_log_name:str, p_base_year:int):
+        super().__init__(args, p_log_name, p_base_year)
 
         # Google sheet to update
         self.all_inc_dest = ALL_INC_2_SHEET
         self.nec_inc_dest = NEC_INC_2_SHEET
-        if '1' in p_mode:
+        if '1' in self.mode:
             self.all_inc_dest = ALL_INC_SHEET
             self.nec_inc_dest = NEC_INC_SHEET
-        p_lgr.debug(F"all_inc_dest = {self.all_inc_dest}")
-        p_lgr.debug(F"nec_inc_dest = {self.nec_inc_dest}\n")
-
-    def get_gnucash_data(self) -> list:
-        return self._gnucash_data
-
-    def get_google_updater(self) -> object:
-        return self._gglu
-
-    def get_google_data(self) -> list:
-        return self._gglu.get_data()
+        self._lgr.debug(F"all_inc_dest = {self.all_inc_dest}")
+        self._lgr.debug(F"nec_inc_dest = {self.nec_inc_dest}\n")
 
     def fill_splits(self, root_acct:Account, account_path:list, period_starts:list, periods:list) -> str:
         self._lgr.debug(get_current_time())
         if root_acct:
             return fill_splits(root_acct, account_path, period_starts, periods, self._lgr)
         self._lgr.error("NO root account!")
-        return ''
+        return ""
 
     def fill_gnucash_data(self, p_session:GnucashSession, p_qtr:int, p_year:str, data_qtr:dict) -> dict:
         root_acct = p_session.get_root_acct()
@@ -137,7 +124,7 @@ class UpdateRevExps:
         :return: revenue for period
         """
         self._lgr.debug(get_current_time())
-        str_rev = '= '
+        str_rev = "= "
         for item in REV_ACCTS:
             # reset the debit and credit totals for each individual account
             periods[0][2] = ZERO
@@ -165,7 +152,7 @@ class UpdateRevExps:
         :return: deductions for period
         """
         self._lgr.debug(get_current_time())
-        str_dedns = '= '
+        str_dedns = "= "
         for item in DEDN_ACCTS:
             # reset the debit and credit totals for each individual account
             periods[0][2] = ZERO
@@ -192,7 +179,7 @@ class UpdateRevExps:
         :return: total expenses for period
         """
         self._lgr.debug(get_current_time())
-        str_total = ''
+        str_total = ""
         for item in EXP_ACCTS:
             # reset the debit and credit totals for each individual account
             periods[0][2] = ZERO
@@ -208,9 +195,6 @@ class UpdateRevExps:
             str_total += str_expenses + ' + '
 
         return str_total
-
-    def fill_google_cell(self, p_dest:str, p_col:str, p_row:int, p_val:str):
-        self._gglu.fill_cell(p_dest, p_col, p_row, p_val)
 
     def fill_google_data(self, p_years:list):
         """
@@ -239,20 +223,14 @@ class UpdateRevExps:
                     dest = self.nec_inc_dest
                     if key in (REV, BAL, CONT):
                         dest = self.all_inc_dest
-                    self.fill_google_cell(dest, REV_EXP_COLS[key], dest_row, item[key])
-
-    def send_sheets_data(self) -> dict:
-        return self._gglu.send_sheets_data()
+                    self._ggl_update.fill_cell(dest, REV_EXP_COLS[key], dest_row, item[key])
 
 # END class UpdateRevExps
 
 
 def update_rev_exps_main(args:list) -> dict:
-    updater = UpdateBudget(args, base_run_file, REVEXPS_DATA[BASE_YEAR])
-
-    rev_exp = UpdateRevExps(updater.get_mode(), updater.get_logger())
-
-    return updater.go(rev_exp)
+    rev_exp = UpdateRevExps(args, base_run_file, REVEXPS_DATA[BASE_YEAR])
+    return rev_exp.go()
 
 
 if __name__ == "__main__":
