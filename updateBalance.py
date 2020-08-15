@@ -67,30 +67,22 @@ BAL_TODAY_RANGES = {
 }
 
 
-class UpdateBalance:
+class UpdateBalance(UpdateBudget):
     """
     Take data from a Gnucash file and update a Balance tab of my Google Budget-Quarterly document
     """
-    def __init__(self, p_mode:str, p_lgr:lg.Logger):
-        p_lgr.info(F"{self.__class__.__name__}({p_mode})")
-        self._lgr = p_lgr
+    def __init__(self, args:list, p_log_name:str, p_base_year:int):
+        super().__init__(args, p_log_name, p_base_year)
 
         # Google sheet to update
         self.dest = BAL_2_SHEET
-        if '1' in p_mode:
+        if '1' in self.mode:
             self.dest = BAL_1_SHEET
-        p_lgr.debug(F"dest = {self.dest}")
+        self._lgr.debug(F"dest = {self.dest}")
 
         self._gnc_session = None
-        self._gglu = GoogleUpdate(p_lgr)
 
-    def get_google_updater(self) -> object:
-        return self._gglu
-
-    def get_google_data(self) -> list:
-        return self._gglu.get_data()
-
-    def get_balance(self, bal_path, p_date):
+    def get_balance(self, bal_path:list, p_date:date) -> Decimal:
         return self._gnc_session.get_total_balance(bal_path, p_date)
 
     def fill_today(self):
@@ -205,11 +197,10 @@ class UpdateBalance:
 
     # noinspection PyUnusedLocal
     def fill_gnucash_data(self, p_session:GnucashSession, p_qtr:int, p_year:str, data_qtr:dict):
-        if self._gnc_session is None:
-            self._gnc_session = p_session
+        self._gnc_session = p_session
 
-    def fill_google_cell(self, p_col:str, p_row:int, p_val:str):
-        self._gglu.fill_cell(self.dest, p_col, p_row, p_val)
+    def fill_google_cell(self, p_col:str, p_row:int, p_val:FILL_CELL_VAL):
+        self._ggl_update.fill_cell(self.dest, p_col, p_row, p_val)
 
     def fill_google_data(self, p_years:list):
         """
@@ -229,18 +220,12 @@ class UpdateBalance:
             else:
                 self.fill_year_end_liabs(year)
 
-    def send_sheets_data(self) -> dict:
-        return self._gglu.send_sheets_data()
-
 # END class UpdateBalance
 
 
 def update_balance_main(args:list) -> dict:
-    updater = UpdateBudget(args, base_run_file, BALANCE_DATA[BASE_YEAR])
-
-    balance = UpdateBalance(updater.get_mode(), updater.get_logger())
-
-    return updater.go(balance)
+    balance = UpdateBalance(args, base_run_file, BALANCE_DATA[BASE_YEAR])
+    return balance.go()
 
 
 if __name__ == "__main__":

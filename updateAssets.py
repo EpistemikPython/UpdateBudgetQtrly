@@ -9,7 +9,7 @@
 __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __created__ = '2019-04-06'
-__updated__ = '2020-07-26'
+__updated__ = '2020-08-05'
 
 from sys import path, argv
 path.append("/home/marksa/dev/git/Python/Gnucash/createGncTxs")
@@ -64,31 +64,18 @@ ASSET_COLS = {
 }
 
 
-class UpdateAssets:
+class UpdateAssets(UpdateBudget):
     """
     Take data from a Gnucash file and update an Assets tab of my Google Budget-Quarterly document
     """
-    def __init__(self, p_mode:str, p_lgr:lg.Logger):
-        p_lgr.info(F"{self.__class__.__name__}({p_mode})")
-        self._lgr = p_lgr
-
-        self._gnucash_data = []
-        self._gglu = GoogleUpdate(p_lgr)
+    def __init__(self, args:list, p_log_name:str, p_base_year:int):
+        super().__init__(args, p_log_name, p_base_year)
 
         # Google sheet to update
         self.dest = QTR_ASTS_2_SHEET
-        if '1' in p_mode:
+        if '1' in self.mode:
             self.dest = QTR_ASTS_SHEET
-        p_lgr.debug(F"dest = {self.dest}")
-
-    def get_gnucash_data(self) -> list:
-        return self._gnucash_data
-
-    def get_google_updater(self) -> object:
-        return self._gglu
-
-    def get_google_data(self) -> list:
-        return self._gglu.get_data()
+        self._lgr.debug(F"dest = {self.dest}")
 
     def fill_gnucash_data(self, p_session:GnucashSession, p_qtr:int, p_year:str, data_qtr:dict) -> dict:
         """
@@ -109,9 +96,6 @@ class UpdateAssets:
 
         self._gnucash_data.append(data_qtr)
         return data_qtr
-
-    def fill_google_cell(self, p_col:str, p_row:int, p_val:str):
-        self._gglu.fill_cell(self.dest, p_col, p_row, p_val)
 
     def fill_google_data(self, p_years:list):
         """
@@ -134,20 +118,14 @@ class UpdateAssets:
                         continue
                     if key == RWRDS and target_year < 2016:
                         continue
-                    self.fill_google_cell(ASSET_COLS[key], dest_row, item[key])
-
-    def send_sheets_data(self) -> dict:
-        return self._gglu.send_sheets_data()
+                    self._ggl_update.fill_cell(ASSET_COLS[key], dest_row, item[key])
 
 # END class UpdateAssets
 
 
 def update_assets_main(args:list) -> dict:
-    updater = UpdateBudget(args, base_run_file, ASSETS_DATA[BASE_YEAR])
-
-    assets = UpdateAssets(updater.get_mode(), updater.get_logger())
-
-    return updater.go(assets)
+    assets = UpdateAssets(args, base_run_file, ASSETS_DATA[BASE_YEAR])
+    return assets.go()
 
 
 if __name__ == "__main__":
