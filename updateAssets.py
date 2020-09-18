@@ -9,7 +9,7 @@
 __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __created__ = '2019-04-06'
-__updated__ = '2020-08-05'
+__updated__ = '2020-08-15'
 
 from sys import path, argv
 path.append("/home/marksa/dev/git/Python/Gnucash/createGncTxs")
@@ -118,7 +118,7 @@ class UpdateAssets(UpdateBudget):
                         continue
                     if key == RWRDS and target_year < 2016:
                         continue
-                    self._ggl_update.fill_cell(ASSET_COLS[key], dest_row, item[key])
+                    self._ggl_update.fill_cell(self.dest, ASSET_COLS[key], dest_row, item[key])
 
 # END class UpdateAssets
 
