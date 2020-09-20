@@ -8,7 +8,7 @@
 __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __created__ = '2019-03-30'
-__updated__ = '2020-07-25'
+__updated__ = '2020-09-20'
 
 import concurrent.futures as confut
 from functools import partial
@@ -153,15 +153,16 @@ class UpdateBudgetUI(QDialog):
         """info printing only"""
         ui_lgr.info(F"ComboBox '{label}' selection changed to '{cb.currentText()}'.")
 
-    def thread_update(self, thread_fxn:object, p_params:list):
-        ui_lgr.info(F"starting thread: {str(thread_fxn)}")
+    def run_function(self, thread_fxn:object, p_params:list):
+        fxn_param = repr(thread_fxn)
+        ui_lgr.info(F"starting thread: {fxn_param}")
         if callable(thread_fxn):
             response = thread_fxn(p_params)
         else:
-            msg = F"thread fxn {str(thread_fxn)} NOT callable?!"
+            msg = F"requested function '{fxn_param}' NOT callable?!"
             ui_lgr.warning(msg)
             raise Exception(msg)
-        ui_lgr.info(F"finished thread: {str(thread_fxn)}\n")
+        ui_lgr.info(F"finished thread: {fxn_param}\n")
         return response
 
     def button_click(self):
@@ -183,7 +184,7 @@ class UpdateBudgetUI(QDialog):
         if self.ch_gnc.isChecked(): cl_params.append('--gnc_save')
         if self.ch_rsp.isChecked(): cl_params.append('--resp_save')
 
-        ui_lgr.info(str(cl_params))
+        ui_lgr.info(repr(cl_params))
 
         main_fxn = CHOICE_FXNS[exe]
         if callable(main_fxn):
@@ -194,19 +195,20 @@ class UpdateBudgetUI(QDialog):
             ui_lgr.info('main_fxn == ALL')
             # use 'with' to ensure threads are cleaned up properly
             with confut.ThreadPoolExecutor(max_workers = len(UPDATE_FXNS)) as executor:
-                # send each script to a separate thread
-                future_to_update = {executor.submit(self.thread_update, fxn, cl_params):fxn for fxn in UPDATE_FXNS}
-                for future in confut.as_completed(future_to_update):
-                    updater = future_to_update[future]
+                # send each update function to a separate thread
+                running_threads = {executor.submit(self.run_function, fxn, cl_params):fxn for fxn in UPDATE_FXNS}
+                ui_lgr.info(F"running threads = {repr(running_threads)}")
+                for completed_thread in confut.as_completed(running_threads):
+                    submitted_fxn = repr(running_threads[completed_thread])
                     try:
-                        data = future.result()
-                    except Exception as bcae:
-                        msg = repr(bcae)
-                        ui_lgr.warning(F"{updater} generated exception: {msg}")
-                        raise bcae
+                        data = completed_thread.result()
+                    except Exception as thr_ex:
+                        msg = repr(thr_ex)
+                        ui_lgr.warning(F"{submitted_fxn} generated exception: {msg}")
+                        raise thr_ex
                     else:
                         reply = data
-                        ui_lgr.info(F"Updater '{updater}' has finished.")
+                        ui_lgr.info(F"Update function '{submitted_fxn}' has finished.")
         else:
             msg = F"Problem with main??!! '{main_fxn}'"
             ui_lgr.error(msg)
