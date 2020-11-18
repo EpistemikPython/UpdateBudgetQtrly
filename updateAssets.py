@@ -9,7 +9,7 @@
 __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __created__ = '2019-04-06'
-__updated__ = '2020-08-15'
+__updated__ = '2020-11-18'
 
 from sys import path, argv
 path.append("/home/marksa/dev/git/Python/Gnucash/createGncTxs")
@@ -95,6 +95,8 @@ class UpdateAssets(UpdateBudget):
         data_qtr[QTR] = str(p_qtr)
 
         self._gnucash_data.append(data_qtr)
+        self._lgr.debug(json.dumps(data_qtr, indent = 4))
+
         return data_qtr
 
     def fill_google_data(self, p_years:list):

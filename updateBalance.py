@@ -9,7 +9,7 @@
 __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __created__ = '2019-04-13'
-__updated__ = '2020-07-26'
+__updated__ = '2020-11-18'
 
 from sys import path, argv
 from updateAssets import ASSETS_DATA, ASSET_COLS
@@ -81,6 +81,9 @@ class UpdateBalance(UpdateBudget):
         self._lgr.debug(F"dest = {self.dest}")
 
         self._gnc_session = None
+
+        # NO saved gnc data for Balance
+        self.save_gnc = False
 
     def get_balance(self, bal_path:list, p_date:date) -> Decimal:
         return self._gnc_session.get_total_balance(bal_path, p_date)

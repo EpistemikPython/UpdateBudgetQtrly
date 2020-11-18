@@ -9,7 +9,7 @@
 __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __created__ = '2019-03-30'
-__updated__ = '2020-08-03'
+__updated__ = '2020-11-18'
 
 from sys import argv
 from updateBudget import *
@@ -112,6 +112,8 @@ class UpdateRevExps(UpdateBudget):
         self.get_deductions(root_acct, period_starts, period_list, int_year, data_qtr)
 
         self._gnucash_data.append(data_qtr)
+        self._lgr.debug(json.dumps(data_qtr, indent = 4))
+
         return data_qtr
 
     def get_revenue(self, root_acct:Account, period_starts:list, periods:list, data_qtr:dict) -> str:

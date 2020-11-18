@@ -8,7 +8,7 @@
 __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __created__ = '2020-03-31'
-__updated__ = '2020-08-03'
+__updated__ = '2020-11-18'
 
 from sys import path, exc_info
 from abc import ABC, abstractmethod
@@ -136,11 +136,9 @@ class UpdateBudget(ABC):
 
             for year in p_years:
                 for i in range(4): # ALL quarters since updating an entire year
+                    self._lgr.info(F"filling {year}-Q{i}")
                     data_quarter = {}
                     self.fill_gnucash_data(gnc_session, i+1, year, data_quarter)
-
-                    self._gnucash_data.append(data_quarter)
-                    self._lgr.debug(json.dumps(data_quarter, indent=4))
 
             # no save needed, we're just reading...
             gnc_session.end_session(False)
