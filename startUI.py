@@ -8,7 +8,7 @@
 __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __created__ = '2019-03-30'
-__updated__ = '2020-09-20'
+__updated__ = '2020-10-04'
 
 import concurrent.futures as confut
 from functools import partial
@@ -35,10 +35,10 @@ QTRS:str     = 'Quarters'
 
 UPDATE_FXNS = [update_rev_exps_main, update_assets_main, update_balance_main]
 CHOICE_FXNS = {
+    ALL      : ALL ,
     BALANCE  : UPDATE_FXNS[2] ,
     ASSETS   : UPDATE_FXNS[1] ,
-    REV_EXPS : UPDATE_FXNS[0] ,
-    ALL      : ALL
+    REV_EXPS : UPDATE_FXNS[0]
 }
 TIMEFRAME:str = 'Time Frame'
 
