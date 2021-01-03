@@ -5,13 +5,13 @@
 #
 # some code from account_analysis.py by Mark Jenkins, ParIT Worker Co-operative <mark@parit.ca>
 #
-# Copyright (c) 2020 Mark Sattolo <epistemik@gmail.com>
+# Copyright (c) 2021 Mark Sattolo <epistemik@gmail.com>
 
 __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __gnucash_version__ = '?3.5+'
 __created__ = '2019-04-07'
-__updated__ = '2020-06-14'
+__updated__ = '2021-01-01'
 
 import threading
 from sys import stdout, path
@@ -19,7 +19,7 @@ from bisect import bisect_right
 from math import log10
 from copy import copy
 import csv
-from gnucash import *
+from gnucash import GncNumeric, GncCommodity, GncPrice, Account, Session, Split, Transaction
 from gnucash.gnucash_core_c import CREC
 path.append('/newdata/dev/git/Python/Gnucash/createGncTxs/')
 # print(path)
