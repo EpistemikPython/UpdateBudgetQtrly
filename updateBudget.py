@@ -3,12 +3,12 @@
 #
 # updateBudget.py -- common functions used by the UpdateGoogleSheet project
 #
-# Copyright (c) 2020 Mark Sattolo <epistemik@gmail.com>
+# Copyright (c) 2021 Mark Sattolo <epistemik@gmail.com>
 
 __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __created__ = '2020-03-31'
-__updated__ = '2020-11-18'
+__updated__ = '2021-01-01'
 
 from sys import path, exc_info
 from abc import ABC, abstractmethod
@@ -18,7 +18,7 @@ from gnucash_utilities import *
 path.append("/home/marksa/dev/git/Python/Google")
 from google_utilities import *
 
-UPDATE_YEARS = ['2020', '2019', '2018', '2017', '2016', '2015', '2014', '2013', '2012', '2011', '2010', '2009', '2008']
+UPDATE_YEARS = ['2021','2020','2019','2018','2017','2016','2015','2014','2013','2012','2011','2010','2009','2008']
 BASE_UPDATE_YEAR = UPDATE_YEARS[-1]
 
 SHEET_1:str   = SHEET + " 1"
@@ -60,13 +60,13 @@ def get_timespan(timespan:str, lgr:lg.Logger) -> list:
     if timespan == ALL_YRS:
         return UPDATE_YEARS
     elif timespan == EARLY_YRS:
-        return UPDATE_YEARS[10:13]
+        return UPDATE_YEARS[11:14]
     elif timespan == MID_YRS:
-        return UPDATE_YEARS[6:10]
+        return UPDATE_YEARS[7:11]
     elif timespan == RECENT_YRS:
-        return UPDATE_YEARS[2:6]
+        return UPDATE_YEARS[3:7]
     elif timespan == CURRENT_YRS:
-        return UPDATE_YEARS[0:2]
+        return UPDATE_YEARS[0:3]
     elif timespan in UPDATE_YEARS:
         return [timespan]
     lgr.warning(F"INVALID YEAR: {timespan}")
