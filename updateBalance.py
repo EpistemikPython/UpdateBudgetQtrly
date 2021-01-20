@@ -4,12 +4,12 @@
 # updateBalance.py -- use the Gnucash and Google APIs to update the 'Balance' sheet
 #                     in my BudgetQtrly document for today or for a specified year or years
 #
-# Copyright (c) 2020 Mark Sattolo <epistemik@gmail.com>
+# Copyright (c) 2021 Mark Sattolo <epistemik@gmail.com>
 #
 __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __created__ = '2019-04-13'
-__updated__ = '2020-11-18'
+__updated__ = '2021-01-20'
 
 from sys import path, argv
 from updateAssets import ASSETS_DATA, ASSET_COLS
@@ -40,21 +40,25 @@ BASE_TOTAL_WORTH_ROW:int = 26
 
 # path to the accounts in the Gnucash file
 BALANCE_ACCTS = {
-    HOUSE : [ASTS, HOUSE] ,
-    LIAB  : [LIAB]  ,
-    TRUST : [TRUST] ,
-    CHAL  : [CHAL]  ,
-    ASTS  : [ASTS]
+    HOUSE   : [FAM, HOUSE] ,
+    LIAB    : [FAM, LIAB]  ,
+    TRUST   : [TRUST] ,
+    CHAL    : [CHAL]  ,
+    FAM     : [FAM]   ,
+    INVEST  : [FAM, INVEST] ,
+    LIQ     : [FAM, LIQ] ,
+    PM      : [FAM, PM]  ,
+    REW     : [FAM, REW]
 }
 
 # column index in the Google sheets
 BAL_MTHLY_COLS = {
-    LIAB  : {YR: 'U', MTH: 'L'},
-    DATE  : 'E' ,
-    TIME  : 'F' ,
-    TODAY : 'C' ,
-    ASTS  : 'K' ,
-    MTH   : 'I'
+    LIAB : {YR: 'U', MTH: 'L'},
+    DATE : 'E' ,
+    TIME : 'F' ,
+    TODAY: 'C' ,
+    FAM  : 'K' ,
+    MTH  : 'I'
 }
 
 # cell locations in the Google file
@@ -63,7 +67,7 @@ BAL_TODAY_RANGES = {
     LIAB  : BASE_TOTAL_WORTH_ROW + 8 ,
     TRUST : BASE_TOTAL_WORTH_ROW + 1 ,
     CHAL  : BASE_TOTAL_WORTH_ROW + 2 ,
-    ASTS  : BASE_TOTAL_WORTH_ROW + 7
+    FAM   : BASE_TOTAL_WORTH_ROW + 7
 }
 
 
@@ -95,22 +99,22 @@ class UpdateBalance(UpdateBudget):
         self._lgr.debug(get_current_time())
         # calls using 'today' ARE NOT off by one day??
         tdate = now_dt - ONE_DAY
-        house_sum = liab_sum = ZERO
+        asset_sums = {}
         for item in BALANCE_ACCTS:
             acct_sum = self.get_balance(BALANCE_ACCTS[item], tdate)
-            # need assets NOT INCLUDING house and liabilities, which are reported separately
             if item == HOUSE:
-                house_sum = acct_sum
+                self.fill_google_cell(BAL_MTHLY_COLS[TODAY], BAL_TODAY_RANGES[item], acct_sum)
             elif item == LIAB:
-                liab_sum = acct_sum
-            elif item == ASTS:
-                if house_sum is not None and liab_sum is not None:
-                    acct_sum = acct_sum - house_sum - liab_sum
-                    self._lgr.info(F"Adjusted assets on {now_dt} = ${acct_sum.to_eng_string()}")
-                else:
-                    self._lgr.info('Do NOT have house sum and liab sum!')
+                self.fill_google_cell(BAL_MTHLY_COLS[TODAY], BAL_TODAY_RANGES[item], acct_sum)
+            # need family assets EXCLUDING house and liabilities, which are reported separately
+            else:
+                asset_sums[item] = acct_sum
 
-            self.fill_google_cell(BAL_MTHLY_COLS[TODAY], BAL_TODAY_RANGES[item], acct_sum)
+        # report the family amount as the sum of the individual accounts
+        family_sum = "= " + str(asset_sums[INVEST]) + " + " + str(asset_sums[LIQ]) + " + " \
+                     + str(asset_sums[PM]) + " + " + str(asset_sums[REW])
+        self._lgr.info(F"Adjusted assets on {now_dt} = '{family_sum}'")
+        self.fill_google_cell(BAL_MTHLY_COLS[TODAY], BAL_TODAY_RANGES[FAM], family_sum)
 
     def fill_current_year(self):
         """
@@ -131,10 +135,10 @@ class UpdateBalance(UpdateBudget):
 
             # fill ASSETS for months NOT covered by the Assets sheet
             if month_end.month % 3 != 0:
-                acct_sum = self.get_balance(BALANCE_ACCTS[ASTS], month_end)
+                acct_sum = self.get_balance(BALANCE_ACCTS[FAM], month_end)
                 adjusted_assets = acct_sum - liab_sum
                 self._lgr.debug(F"Adjusted assets on {month_end} = {adjusted_assets.to_eng_string()}")
-                self.fill_google_cell(BAL_MTHLY_COLS[ASTS], row, adjusted_assets)
+                self.fill_google_cell(BAL_MTHLY_COLS[FAM], row, adjusted_assets)
             else:
                 self._lgr.debug('Update reference to Assets sheet for Mar, June, Sep or Dec')
                 # have to update the CELL REFERENCE to current year/qtr ASSETS
@@ -145,7 +149,7 @@ class UpdateBalance(UpdateBudget):
                 dest_row = year_row + (int_qtr * ASSETS_DATA.get(QTR_SPAN))
                 val_num = '1' if '1' in self.dest else '2'
                 value = "='Assets " + val_num + "'!" + ASSET_COLS[TOTAL] + str(dest_row)
-                self.fill_google_cell(BAL_MTHLY_COLS[ASTS], row, value)
+                self.fill_google_cell(BAL_MTHLY_COLS[FAM], row, value)
 
             # fill DATE for month column
             self.fill_google_cell(BAL_MTHLY_COLS[MTH], row, str(month_end))
@@ -169,10 +173,10 @@ class UpdateBalance(UpdateBudget):
 
             # fill ASSETS for months NOT covered by the Assets sheet
             if dte.month % 3 != 0:
-                acct_sum = self.get_balance(BALANCE_ACCTS[ASTS], dte)
+                acct_sum = self.get_balance(BALANCE_ACCTS[FAM], dte)
                 adjusted_assets = acct_sum - liab_sum
                 self._lgr.info(F"Adjusted assets on {dte} = ${adjusted_assets.to_eng_string()}")
-                self.fill_google_cell(BAL_MTHLY_COLS[ASTS], row, adjusted_assets)
+                self.fill_google_cell(BAL_MTHLY_COLS[FAM], row, adjusted_assets)
 
             # fill the date in Month column
             self.fill_google_cell(BAL_MTHLY_COLS[MTH], row, str(dte))
