@@ -35,16 +35,16 @@ ASSETS_DATA = {
 
 # path to the account in the Gnucash file
 ASSET_ACCTS = {
-    AU    : ["FAMILY", "Prec Metals", "Au"],
-    AG    : ["FAMILY", "Prec Metals", "Ag"],
-    CASH  : ["FAMILY", "LIQUID", "$&"],
-    BANK  : ["FAMILY", "LIQUID", BANK],
-    RWRDS : ["FAMILY", RWRDS],
-    RESP  : ["FAMILY", "INVEST", "xRESP"],
-    OPEN  : ["FAMILY", "INVEST", OPEN],
-    RRSP  : ["FAMILY", "INVEST", RRSP],
-    TFSA  : ["FAMILY", "INVEST", TFSA],
-    HOUSE : ["FAMILY", HOUSE]
+    AU    : [FAM, PM, "Au"],
+    AG    : [FAM, PM, "Ag"],
+    CASH  : [FAM, LIQ, "$&"],
+    BANK  : [FAM, LIQ, BANK],
+    REW   : [FAM, REW],
+    RESP  : [FAM, INVEST, "xRESP"],
+    OPEN  : [FAM, INVEST, OPEN],
+    RRSP  : [FAM, INVEST, RRSP],
+    TFSA  : [FAM, INVEST, TFSA],
+    HOUSE : [FAM, HOUSE]
 }
 
 # column index in the Google sheets
@@ -54,7 +54,7 @@ ASSET_COLS = {
     AG    : 'T',
     CASH  : 'R',
     BANK  : 'Q',
-    RWRDS : 'O',
+    REW   : 'O',
     RESP  : 'O',
     OPEN  : 'L',
     RRSP  : 'M',
@@ -118,7 +118,7 @@ class UpdateAssets(UpdateBudget):
                     # FOR YEAR 2015 OR EARLIER: GET RESP INSTEAD OF Rewards for COLUMN O
                     if key == RESP and target_year > 2015:
                         continue
-                    if key == RWRDS and target_year < 2016:
+                    if key == REW and target_year < 2016:
                         continue
                     self._ggl_update.fill_cell(self.dest, ASSET_COLS[key], dest_row, item[key])
 

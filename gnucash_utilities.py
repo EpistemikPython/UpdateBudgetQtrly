@@ -347,7 +347,7 @@ class GnucashSession:
         """
         self._lgr.debug(F"account type = {acct_type}; plan type = {plan_type}; plan owner = {pl_owner}")
 
-        if acct_type not in (ASSET,REVENUE):
+        if acct_type not in (ASSET,REV):
             raise Exception(F"GnucashSession._get_asset_or_revenue_account(): BAD Account type: {acct_type}!")
         account_path = copy(ACCT_PATHS[acct_type])
 
@@ -371,7 +371,7 @@ class GnucashSession:
 
     def get_revenue_account(self, plan_type:str, pl_owner:str) -> Account:
         self._lgr.debug(get_current_time())
-        return self._get_asset_or_revenue_account(REVENUE, plan_type, pl_owner)
+        return self._get_asset_or_revenue_account(REV, plan_type, pl_owner)
 
     def show_account(self, p_path:list):
         """
@@ -494,7 +494,7 @@ class GnucashSession:
             spl_ast.SetAction(action)
         else:
             # the second split is for a REVENUE account e.g. 'Investment Income'
-            split_2.SetAccount(tx1[REVENUE])
+            split_2.SetAccount(tx1[REV])
             gross_revenue = tx1[GROSS] * -1
             split_2.SetValue(GncNumeric(gross_revenue, 100))
             split_2.SetReconcile(CREC)
