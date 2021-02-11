@@ -6,16 +6,16 @@
 #
 # Copyright (c) 2021 Mark Sattolo <epistemik@gmail.com>
 #
-__author__       = 'Mark Sattolo'
-__author_email__ = 'epistemik@gmail.com'
-__created__ = '2019-04-13'
-__updated__ = '2021-01-20'
+__author__       = "Mark Sattolo"
+__author_email__ = "epistemik@gmail.com"
+__created__ = "2019-04-13"
+__updated__ = "2021-02-11"
 
 from sys import path, argv
 from updateAssets import ASSETS_DATA, ASSET_COLS
-path.append('/newdata/dev/git/Python/Gnucash/createGncTxs')
+path.append("/newdata/dev/git/Python/Gnucash/createGncTxs")
 from gnucash_utilities import *
-path.append(osp.join(BASE_PYTHON_FOLDER, 'Google'))
+path.append(osp.join(BASE_PYTHON_FOLDER, "Google"))
 from updateBudget import *
 
 base_run_file = get_base_filename(__file__)
@@ -140,10 +140,11 @@ class UpdateBalance(UpdateBudget):
                 self._lgr.debug(F"Adjusted assets on {month_end} = {adjusted_assets.to_eng_string()}")
                 self.fill_google_cell(BAL_MTHLY_COLS[FAM], row, adjusted_assets)
             else:
-                self._lgr.debug('Update reference to Assets sheet for Mar, June, Sep or Dec')
+                self._lgr.debug("Update reference to Assets sheet for Mar, June, Sep or Dec")
                 # have to update the CELL REFERENCE to current year/qtr ASSETS
                 year_row = BALANCE_DATA[BASE_ROW] \
-                           + year_span(now_dt.year, ASSETS_DATA[BASE_YEAR], ASSETS_DATA[YEAR_SPAN], ASSETS_DATA[HDR_SPAN], self._lgr)
+                           + year_span( now_dt.year, ASSETS_DATA[BASE_YEAR], ASSETS_DATA[YEAR_SPAN], ASSETS_DATA[HDR_SPAN],
+                                        self._lgr )
                 int_qtr = (month_end.month // 3) - 1
                 self._lgr.debug(F"int_qtr = {int_qtr}")
                 dest_row = year_row + (int_qtr * ASSETS_DATA.get(QTR_SPAN))

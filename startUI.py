@@ -5,10 +5,10 @@
 #
 # Copyright (c) 2020 Mark Sattolo <epistemik@gmail.com>
 
-__author__       = 'Mark Sattolo'
-__author_email__ = 'epistemik@gmail.com'
-__created__ = '2019-03-30'
-__updated__ = '2020-10-04'
+__author__       = "Mark Sattolo"
+__author_email__ = "epistemik@gmail.com"
+__created__ = "2019-03-30"
+__updated__ = "2021-02-11"
 
 import concurrent.futures as confut
 from functools import partial
@@ -16,7 +16,7 @@ from sys import argv, path
 from PyQt5.QtWidgets import (QApplication, QComboBox, QVBoxLayout, QGroupBox, QDialog, QFileDialog,
                              QPushButton, QFormLayout, QDialogButtonBox, QLabel, QTextEdit, QCheckBox, QInputDialog)
 
-path.append('/home/marksa/dev/git/Python/Gnucash/createGncTxs/')
+path.append("/home/marksa/dev/git/Python/Gnucash/createGncTxs/")
 from investment import *
 from updateBudget import UPDATE_YEARS, SHEET_1, SHEET_2
 from updateRevExps import update_rev_exps_main
@@ -26,21 +26,15 @@ from updateBalance import update_balance_main
 UPDATE_DOMAINS = [CURRENT_YRS, RECENT_YRS, MID_YRS, EARLY_YRS, ALL_YRS] + [year for year in UPDATE_YEARS]
 print(F"Update Domains = {UPDATE_DOMAINS}")
 
-# constant strings
-BALANCE:str  = 'Balance'
-ASSETS:str   = 'Assets'
-REV_EXPS:str = 'Rev & Exps'
-DEST:str     = 'Destination'
-QTRS:str     = 'Quarters'
+TIMEFRAME:str = "Time Frame"
 
 UPDATE_FXNS = [update_rev_exps_main, update_assets_main, update_balance_main]
 CHOICE_FXNS = {
-    ALL      : ALL ,
-    BALANCE  : UPDATE_FXNS[2] ,
-    ASSETS   : UPDATE_FXNS[1] ,
-    REV_EXPS : UPDATE_FXNS[0]
+    ALL          : ALL ,
+    BAL          : UPDATE_FXNS[2] ,
+    ASSET+'s'    : UPDATE_FXNS[1] ,
+    "Rev & Exps" : UPDATE_FXNS[0]
 }
-TIMEFRAME:str = 'Time Frame'
 
 
 # noinspection PyAttributeOutsideInit,PyMethodMayBeStatic,PyCallByClass,PyArgumentList
@@ -50,14 +44,14 @@ class UpdateBudgetUI(QDialog):
     """
     def __init__(self):
         super().__init__()
-        self.title = 'Update Budget Quarterly UI'
+        self.title = "Update Budget Quarterly UI"
         self.left = 120
         self.top  = 160
         self.width  = 600
         self.height = 800
-        self.gnc_file = ''
-        self.script = ''
-        self.mode = ''
+        self.gnc_file = ""
+        self.script = ""
+        self.mode = ""
         self.init_ui()
         ui_lgr.info(get_current_time())
 
@@ -72,7 +66,7 @@ class UpdateBudgetUI(QDialog):
         self.response_box = QTextEdit()
         self.response_box.setReadOnly(True)
         self.response_box.acceptRichText()
-        self.response_box.setText('Hello there!')
+        self.response_box.setText("Hello there!")
 
         button_box = QDialogButtonBox(QDialogButtonBox.Close)
         button_box.accepted.connect(self.accept)
@@ -87,18 +81,18 @@ class UpdateBudgetUI(QDialog):
         self.show()
 
     def create_group_box(self):
-        self.gb_main = QGroupBox('Parameters:')
+        self.gb_main = QGroupBox("Parameters:")
         layout = QFormLayout()
 
         self.cb_script = QComboBox()
         self.cb_script.addItems([x for x in CHOICE_FXNS])
         # self.cb_script.currentIndexChanged.connect(partial(self.script_change))
-        layout.addRow(QLabel('Script:'), self.cb_script)
+        layout.addRow(QLabel("Script:"), self.cb_script)
         self.script = self.cb_script.currentText()
 
-        self.gnc_file_btn = QPushButton('Get Gnucash file')
+        self.gnc_file_btn = QPushButton("Get Gnucash file")
         self.gnc_file_btn.clicked.connect(partial(self.open_file_name_dialog))
-        layout.addRow(QLabel('Gnucash File:'), self.gnc_file_btn)
+        layout.addRow(QLabel("Gnucash File:"), self.gnc_file_btn)
 
         self.cb_mode = QComboBox()
         self.cb_mode.addItems([TEST,SHEET_1,SHEET_2])
@@ -111,33 +105,33 @@ class UpdateBudgetUI(QDialog):
         self.cb_domain.currentIndexChanged.connect(partial(self.selection_change, self.cb_domain, TIMEFRAME))
         layout.addRow(QLabel(TIMEFRAME+':'), self.cb_domain)
 
-        vert_box = QGroupBox('Check:')
+        vert_box = QGroupBox("Check:")
         vert_layout = QVBoxLayout()
-        self.ch_gnc = QCheckBox('Save Gnucash info to JSON file?')
-        self.ch_ggl = QCheckBox('Save Google info to JSON file?')
-        self.ch_rsp = QCheckBox('Save Google RESPONSE to JSON file?')
+        self.ch_gnc = QCheckBox("Save Gnucash info to JSON file?")
+        self.ch_ggl = QCheckBox("Save Google info to JSON file?")
+        self.ch_rsp = QCheckBox("Save Google RESPONSE to JSON file?")
 
         vert_layout.addWidget(self.ch_gnc)
         vert_layout.addWidget(self.ch_ggl)
         vert_layout.addWidget(self.ch_rsp)
         vert_box.setLayout(vert_layout)
-        layout.addRow(QLabel('Options'), vert_box)
+        layout.addRow(QLabel("Options"), vert_box)
 
         self.pb_logging = QPushButton("Change the logging level?")
         self.pb_logging.clicked.connect(self.get_log_level)
-        layout.addRow(QLabel('Logging'), self.pb_logging)
+        layout.addRow(QLabel("Logging"), self.pb_logging)
 
-        self.exe_btn = QPushButton('Go!')
+        self.exe_btn = QPushButton("Go!")
         self.exe_btn.clicked.connect(partial(self.button_click))
-        layout.addRow(QLabel('EXECUTE:'), self.exe_btn)
+        layout.addRow(QLabel("EXECUTE:"), self.exe_btn)
 
         self.gb_main.setLayout(layout)
 
     def open_file_name_dialog(self):
         options = QFileDialog.Options()
         options |= QFileDialog.DontUseNativeDialog
-        file_name, _ = QFileDialog.getOpenFileName(self, 'Get Gnucash Files', '/newdata/dev/git/Python/Gnucash/app-files',
-                                                   "Gnucash Files (*.gnc *.gnucash);;All Files (*)", options=options)
+        file_name, _ = QFileDialog.getOpenFileName( self, 'Get Gnucash Files', '/newdata/dev/git/Python/Gnucash/app-files',
+                                                    "Gnucash Files (*.gnc *.gnucash);;All Files (*)", options=options )
         if file_name:
             self.gnc_file = file_name
             gnc_file_display = file_name.split('/')[-1]
@@ -153,7 +147,7 @@ class UpdateBudgetUI(QDialog):
         """info printing only"""
         ui_lgr.info(F"ComboBox '{label}' selection changed to '{cb.currentText()}'.")
 
-    def run_function(self, thread_fxn:object, p_params:list):
+    def run_function(self, thread_fxn, p_params:list):
         fxn_param = repr(thread_fxn)
         ui_lgr.info(F"starting thread: {fxn_param}")
         if callable(thread_fxn):
@@ -174,25 +168,24 @@ class UpdateBudgetUI(QDialog):
         ui_lgr.info(F"Script is '{exe}'.")
 
         if not self.gnc_file:
-            self.response_box.append('>>> MUST select a Gnucash File!')
+            self.response_box.append(">>> MUST select a Gnucash File!")
             return
 
         cl_params = ['-g' + self.gnc_file, '-m' + self.cb_mode.currentText(),
                      '-t' + self.cb_domain.currentText(), '-l' + str(self.log_level)]
 
-        if self.ch_ggl.isChecked(): cl_params.append('--ggl_save')
-        if self.ch_gnc.isChecked(): cl_params.append('--gnc_save')
-        if self.ch_rsp.isChecked(): cl_params.append('--resp_save')
-
-        ui_lgr.info(repr(cl_params))
+        if self.ch_ggl.isChecked(): cl_params.append("--ggl_save")
+        if self.ch_gnc.isChecked(): cl_params.append("--gnc_save")
+        if self.ch_rsp.isChecked(): cl_params.append("--resp_save")
+        ui_lgr.info( repr(cl_params) )
 
         main_fxn = CHOICE_FXNS[exe]
         if callable(main_fxn):
-            ui_lgr.info('Calling main function...')
+            ui_lgr.info("Calling main function...")
             response = main_fxn(cl_params)
-            reply = {'response': response}
+            reply = {"response": response}
         elif main_fxn == ALL:
-            ui_lgr.info('main_fxn == ALL')
+            ui_lgr.info("main_fxn == ALL")
             # use 'with' to ensure threads are cleaned up properly
             with confut.ThreadPoolExecutor(max_workers = len(UPDATE_FXNS)) as executor:
                 # send each update function to a separate thread
@@ -226,8 +219,8 @@ def ui_main():
     app.exec_()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     ui_lgr = get_logger(UpdateBudgetUI.__name__)
     ui_main()
-    finish_logging(UpdateBudgetUI.__name__, sfx='gncout')
+    finish_logging(UpdateBudgetUI.__name__, sfx="gncout")
     exit()
