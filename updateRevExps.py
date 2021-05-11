@@ -4,14 +4,14 @@
 # updateRevExps.py -- use the Gnucash and Google APIs to update the Revenue and Expenses
 #                     in my BudgetQtrly document for a specified year or quarter
 #
-# Copyright (c) 2020 Mark Sattolo <epistemik@gmail.com>
+# Copyright (c) 2019-21 Mark Sattolo <epistemik@gmail.com>
 #
 __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __created__ = '2019-03-30'
-__updated__ = '2020-11-18'
+__updated__ = '2021-05-11'
 
-from sys import argv
+import sys
 from updateBudget import *
 
 base_run_file = get_base_filename(__file__)
@@ -63,8 +63,8 @@ class UpdateRevExps(UpdateBudget):
     """
     Take data from a Gnucash file and update an Income tab of my Google Budget-Quarterly document
     """
-    def __init__(self, args:list, p_log_name:str, p_base_year:int):
-        super().__init__(args, p_log_name, p_base_year)
+    def __init__(self, args:list, p_logname:str, p_baseyear:int):
+        super().__init__(args, p_logname, p_baseyear)
 
         # Google sheet to update
         self.all_inc_dest = ALL_INC_2_SHEET
@@ -219,7 +219,7 @@ class UpdateRevExps(UpdateBudget):
             year_row = REVEXPS_DATA[BASE_ROW]\
                        + year_span(target_year, REVEXPS_DATA[BASE_YEAR], REVEXPS_DATA[YEAR_SPAN], REVEXPS_DATA[HDR_SPAN], self._lgr)
             dest_row = year_row + ( (get_int_quarter(item[QTR]) - 1) * REVEXPS_DATA[QTR_SPAN] )
-            self._lgr.info(F"{item[YR]}-Q{item[QTR]} dest row = {dest_row}\n")
+            self._lgr.debug(F"{item[YR]}-Q{item[QTR]} dest row = {dest_row}\n")
             for key in item:
                 if key not in (YR,QTR):
                     dest = self.nec_inc_dest
@@ -236,5 +236,5 @@ def update_rev_exps_main(args:list) -> dict:
 
 
 if __name__ == "__main__":
-    update_rev_exps_main(argv[1:])
+    update_rev_exps_main(sys.argv[1:])
     exit()

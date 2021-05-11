@@ -3,21 +3,23 @@
 #
 # startUI.py -- run the UI for the update functions
 #
-# Copyright (c) 2020 Mark Sattolo <epistemik@gmail.com>
+# Copyright (c) 2019-21 Mark Sattolo <epistemik@gmail.com>
 
 __author__       = "Mark Sattolo"
 __author_email__ = "epistemik@gmail.com"
 __created__ = "2019-03-30"
-__updated__ = "2021-02-11"
+__updated__ = "2021-05-11"
 
-import concurrent.futures as confut
-from functools import partial
 from sys import argv, path
+path.append("/newdata/dev/git/Python/utils")
+from mhsLogging import *
+path.append("/newdata/dev/git/Python/Gnucash/common")
+from investment import *
 from PyQt5.QtWidgets import (QApplication, QComboBox, QVBoxLayout, QGroupBox, QDialog, QFileDialog,
                              QPushButton, QFormLayout, QDialogButtonBox, QLabel, QTextEdit, QCheckBox, QInputDialog)
-
-path.append("/home/marksa/dev/git/Python/Gnucash/createGncTxs/")
-from investment import *
+import concurrent.futures as confut
+import json
+from functools import partial
 from updateBudget import UPDATE_YEARS, SHEET_1, SHEET_2
 from updateRevExps import update_rev_exps_main
 from updateAssets import update_assets_main
@@ -39,9 +41,7 @@ CHOICE_FXNS = {
 
 # noinspection PyAttributeOutsideInit,PyMethodMayBeStatic,PyCallByClass,PyArgumentList
 class UpdateBudgetUI(QDialog):
-    """
-    UI for updating my 'Budget Quarterly' Google spreadsheet with information from a Gnucash file
-    """
+    """UI for updating my 'Budget Quarterly' Google spreadsheet with information from a Gnucash file."""
     def __init__(self):
         super().__init__()
         self.title = "Update Budget Quarterly UI"
@@ -59,7 +59,7 @@ class UpdateBudgetUI(QDialog):
         self.setWindowTitle(self.title)
         self.setGeometry(self.left, self.top, self.width, self.height)
 
-        self.log_level:int = lg.DEBUG
+        self.log_level:int = lg.INFO
 
         self.create_group_box()
 
@@ -141,11 +141,11 @@ class UpdateBudgetUI(QDialog):
         num, ok = QInputDialog.getInt(self, "Logging Level", "Enter a value (0-100)", value=self.log_level, min=0, max=100)
         if ok:
             self.log_level = num
-            ui_lgr.info(F"logging level changed to {num}.")
+            ui_lgr.debug(F"logging level changed to {num}.")
 
     def selection_change(self, cb:QComboBox, label:str):
         """info printing only"""
-        ui_lgr.info(F"ComboBox '{label}' selection changed to '{cb.currentText()}'.")
+        ui_lgr.debug(F"ComboBox '{label}' selection changed to '{cb.currentText()}'.")
 
     def run_function(self, thread_fxn, p_params:list):
         fxn_param = repr(thread_fxn)
@@ -183,7 +183,6 @@ class UpdateBudgetUI(QDialog):
         if callable(main_fxn):
             ui_lgr.info("Calling main function...")
             response = main_fxn(cl_params)
-            reply = {"response": response}
         elif main_fxn == ALL:
             ui_lgr.info("main_fxn == ALL")
             # use 'with' to ensure threads are cleaned up properly
@@ -196,18 +195,18 @@ class UpdateBudgetUI(QDialog):
                     try:
                         data = completed_thread.result()
                     except Exception as thr_ex:
-                        msg = repr(thr_ex)
-                        ui_lgr.warning(F"{submitted_fxn} generated exception: {msg}")
+                        ui_lgr.warning(F"{submitted_fxn} generated exception: {repr(thr_ex)}")
                         raise thr_ex
                     else:
-                        reply = data
-                        ui_lgr.info(F"Update function '{submitted_fxn}' has finished.")
+                        ui_lgr.debug(F"Update function '{submitted_fxn}' has finished with result: {data}")
+            response = lg_ctrl.get_saved_info()
         else:
             msg = F"Problem with main??!! '{main_fxn}'"
             ui_lgr.error(msg)
-            reply = {'msg': msg, 'log': saved_log_info}
+            response = msg
 
-        self.response_box.append(json.dumps(reply, indent=4))
+        reply = {"response":response}
+        self.response_box.append( json.dumps(reply, indent=4) )
 
 # END class UpdateBudgetUI
 
@@ -220,7 +219,7 @@ def ui_main():
 
 
 if __name__ == "__main__":
-    ui_lgr = get_logger(UpdateBudgetUI.__name__)
+    lg_ctrl = MhsLogger(UpdateBudgetUI.__name__, suffix = "gncout")
+    ui_lgr = lg_ctrl.get_logger()
     ui_main()
-    finish_logging(UpdateBudgetUI.__name__, sfx="gncout")
     exit()

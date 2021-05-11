@@ -3,20 +3,26 @@
 #
 # updateBudget.py -- common functions used by the UpdateGoogleSheet project
 #
-# Copyright (c) 2021 Mark Sattolo <epistemik@gmail.com>
+# Copyright (c) 2020-21 Mark Sattolo <epistemik@gmail.com>
 
 __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __created__ = '2020-03-31'
-__updated__ = '2021-01-01'
+__updated__ = '2021-05-11'
 
-from sys import path, exc_info
+from sys import exc_info, path
 from abc import ABC, abstractmethod
 from argparse import ArgumentParser
-path.append("/home/marksa/dev/git/Python/Gnucash/createGncTxs")
-from gnucash_utilities import *
+
+import mhsLogging
+
+path.append("/newdata/dev/git/Python/utils")
+from mhsUtils import *
+from mhsLogging import *
+path.append("/newdata/dev/git/Python/Gnucash/common")
+from gncUtils import *
 path.append("/home/marksa/dev/git/Python/Google")
-from google_utilities import *
+from googleUtils import *
 
 UPDATE_YEARS = ['2021','2020','2019','2018','2017','2016','2015','2014','2013','2012','2011','2010','2009','2008']
 BASE_UPDATE_YEAR = UPDATE_YEARS[-1]
@@ -76,23 +82,21 @@ def get_timespan(timespan:str, lgr:lg.Logger) -> list:
 class UpdateBudget(ABC):
     """
     update my 'Budget Quarterly' Google spreadsheet with information from a Gnucash file
-    -- contains common code for the three options of updating rev&exps, assets, balances
+    -- contains common code for the three options of updating Rev&Exps, Assets, Balances
     """
-    def __init__(self, args:list, p_log_name:str, p_base_year:int):
-        self._lgr = get_logger(p_log_name)
+    def __init__(self, args:list, p_logname:str, p_baseyear:int):
 
-        self.process_input_parameters(args, p_base_year)
+        self.process_input_parameters(args, p_baseyear)
 
         # get info for log names
-        self.base_log_name = p_log_name
-        _, fname = osp.split(self._gnucash_file)
-        base_name, _ = osp.splitext(fname)
+        base_name = get_base_filename(self._gnucash_file)
         self.target_name = F"-{self.timespan}"
-        self.log_name = get_logger_filename(p_log_name) + '_' + base_name + self.target_name
+        log_name = p_logname + '_' + base_name + self.target_name
 
-        self._lgr.setLevel(self.level)
-        self._lgr.info(F"\n\t\t{self.__class__.__name__}({p_log_name}) for {self._gnucash_file}:"
-                       F"\n\t\tRuntime = {get_current_time()}")
+        lg_ctrl = mhsLogging.MhsLogger(log_name, con_level = self.level)
+        self._lgr = lg_ctrl.get_logger()
+        self._lgr.debug(F"Gnucash file = {self._gnucash_file}; Domain = {self.timespan} & Mode = {self.mode}")
+        self._lgr.info(F"Runtime = {get_current_time()}")
 
         self._gnucash_data = []
         self._ggl_update   = GoogleUpdate(self._lgr)
@@ -106,7 +110,6 @@ class UpdateBudget(ABC):
 
         if not osp.isfile(args.gnucash_file):
             msg = F"File path '{args.gnucash_file}' DOES NOT exist! Exiting..."
-            self._lgr.error(msg)
             raise Exception(msg)
         self._gnucash_file = args.gnucash_file
 
@@ -117,8 +120,6 @@ class UpdateBudget(ABC):
         self.save_gnc  = args.gnc_save
         self.save_ggl  = args.ggl_save
         self.save_resp = args.resp_save
-
-        self._lgr.info(F"\n\t\tGnucash file = {self._gnucash_file}\n\t\tDomain = {self.timespan} & Mode = {self.mode}")
 
     # noinspection PyAttributeOutsideInit
     def prepare_gnucash_data(self, p_years:list):
@@ -136,7 +137,7 @@ class UpdateBudget(ABC):
 
             for year in p_years:
                 for i in range(4): # ALL quarters since updating an entire year
-                    self._lgr.info(F"filling {year}-Q{i}")
+                    self._lgr.debug(F"filling {year}-Q{i+1}")
                     data_quarter = {}
                     self.fill_gnucash_data(gnc_session, i+1, year, data_quarter)
 
@@ -168,7 +169,7 @@ class UpdateBudget(ABC):
     def record_update(self):
         ru_result = self._ggl_update.read_sheets_data(RECORD_RANGE)
         current_row = int(ru_result[0][0])
-        self._lgr.info(F"current row = {current_row}\n")
+        self._lgr.debug(F"current row = {current_row}\n")
 
         update_info = self.__class__.__name__ + ' - ' + self.timespan + ' - ' + self.mode
         self._lgr.info(F"update info = {update_info}\n")
@@ -183,9 +184,9 @@ class UpdateBudget(ABC):
         self._ggl_update.fill_cell(RECORD_SHEET, RECORD_DATE_COL, 1, str(current_row + 1))
 
     def start_google_thread(self):
-        self._lgr.info("before creating thread")
+        self._lgr.debug("before creating thread")
         self._ggl_thrd = threading.Thread(target = self.send_google_data)
-        self._lgr.info("before running thread")
+        self._lgr.debug("before running thread")
         self._ggl_thrd.start()
         self._lgr.info(F"thread '{str(self)}' started at {get_current_time()}")
 
@@ -231,7 +232,7 @@ class UpdateBudget(ABC):
             self._lgr.info("wait for the thread to finish")
             self._ggl_thrd.join()
         self._lgr.info(" >>> PROGRAM ENDED.\n")
-        finish_logging(self.base_log_name, self.log_name, get_current_time(FILE_DATETIME_FORMAT), sfx='gncout')
+        # finish_logging(self.base_log_name, self.log_name, get_current_time(FILE_DATETIME_FORMAT), sfx='gncout')
         return self.response
 
     @abstractmethod
@@ -246,7 +247,7 @@ class UpdateBudget(ABC):
 
 
 def test_google_read():
-    logger = get_logger(UpdateBudget.__name__)
+    logger = get_simple_logger(UpdateBudget.__name__)
     ggl_updater = GoogleUpdate(logger)
     result = ggl_updater.test_read(RECORD_RANGE)
     print(result)

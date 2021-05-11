@@ -4,17 +4,14 @@
 # updateAssets.py -- use the Gnucash and Google APIs to update the Assets
 #                    in my BudgetQtrly document for a specified year or quarter
 #
-# Copyright (c) 2020 Mark Sattolo <epistemik@gmail.com>
+# Copyright (c) 2019-21 Mark Sattolo <epistemik@gmail.com>
 #
-__author__       = 'Mark Sattolo'
-__author_email__ = 'epistemik@gmail.com'
-__created__ = '2019-04-06'
-__updated__ = '2020-11-18'
+__author__       = "Mark Sattolo"
+__author_email__ = "epistemik@gmail.com"
+__created__ = "2019-04-06"
+__updated__ = "2021-05-11"
 
-from sys import path, argv
-path.append("/home/marksa/dev/git/Python/Gnucash/createGncTxs")
-from gnucash_utilities import *
-path.append("/home/marksa/dev/git/Python/Google")
+import sys
 from updateBudget import *
 
 base_run_file = get_base_filename(__file__)
@@ -68,8 +65,8 @@ class UpdateAssets(UpdateBudget):
     """
     Take data from a Gnucash file and update an Assets tab of my Google Budget-Quarterly document
     """
-    def __init__(self, args:list, p_log_name:str, p_base_year:int):
-        super().__init__(args, p_log_name, p_base_year)
+    def __init__(self, args:list, p_logname:str, p_baseyear:int):
+        super().__init__(args, p_logname, p_baseyear)
 
         # Google sheet to update
         self.dest = QTR_ASTS_2_SHEET
@@ -131,5 +128,5 @@ def update_assets_main(args:list) -> dict:
 
 
 if __name__ == "__main__":
-    update_assets_main(argv[1:])
+    update_assets_main(sys.argv[1:])
     exit()
