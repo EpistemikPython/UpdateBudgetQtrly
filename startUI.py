@@ -8,25 +8,25 @@
 __author__       = "Mark Sattolo"
 __author_email__ = "epistemik@gmail.com"
 __created__ = "2019-03-30"
-__updated__ = "2021-05-11"
+__updated__ = "2021-05-12"
 
+import json
 from sys import argv, path
+from PyQt5.QtWidgets import (QApplication, QComboBox, QVBoxLayout, QGroupBox, QDialog, QFileDialog,
+                             QPushButton, QFormLayout, QDialogButtonBox, QLabel, QTextEdit, QCheckBox, QInputDialog)
+from functools import partial
+import concurrent.futures as confut
 path.append("/newdata/dev/git/Python/utils")
 from mhsLogging import *
 path.append("/newdata/dev/git/Python/Gnucash/common")
 from investment import *
-from PyQt5.QtWidgets import (QApplication, QComboBox, QVBoxLayout, QGroupBox, QDialog, QFileDialog,
-                             QPushButton, QFormLayout, QDialogButtonBox, QLabel, QTextEdit, QCheckBox, QInputDialog)
-import concurrent.futures as confut
-import json
-from functools import partial
-from updateBudget import UPDATE_YEARS, SHEET_1, SHEET_2
+from updateBudget import UPDATE_YEARS, SHEET_1, SHEET_2, DEFAULT_LOG_SUFFIX
 from updateRevExps import update_rev_exps_main
 from updateAssets import update_assets_main
 from updateBalance import update_balance_main
 
 UPDATE_DOMAINS = [CURRENT_YRS, RECENT_YRS, MID_YRS, EARLY_YRS, ALL_YRS] + [year for year in UPDATE_YEARS]
-print(F"Update Domains = {UPDATE_DOMAINS}")
+# print(F"Update Domains = {UPDATE_DOMAINS}")
 
 TIMEFRAME:str = "Time Frame"
 
@@ -38,13 +38,14 @@ CHOICE_FXNS = {
     "Rev & Exps" : UPDATE_FXNS[0]
 }
 
+UI_DEFAULT_LOG_LEVEL = logging.INFO
 
 # noinspection PyAttributeOutsideInit,PyMethodMayBeStatic,PyCallByClass,PyArgumentList
 class UpdateBudgetUI(QDialog):
     """UI for updating my 'Budget Quarterly' Google spreadsheet with information from a Gnucash file."""
     def __init__(self):
         super().__init__()
-        self.title = "Update Budget Quarterly UI"
+        self.title = "Update Budget UI"
         self.left = 120
         self.top  = 160
         self.width  = 600
@@ -53,13 +54,13 @@ class UpdateBudgetUI(QDialog):
         self.script = ""
         self.mode = ""
         self.init_ui()
-        ui_lgr.info(get_current_time())
+        lg_ctrl.show( get_current_time() )
 
     def init_ui(self):
         self.setWindowTitle(self.title)
         self.setGeometry(self.left, self.top, self.width, self.height)
 
-        self.log_level:int = lg.INFO
+        self.log_level:int = UI_DEFAULT_LOG_LEVEL
 
         self.create_group_box()
 
@@ -138,13 +139,12 @@ class UpdateBudgetUI(QDialog):
             self.gnc_file_btn.setText(gnc_file_display)
 
     def get_log_level(self):
-        num, ok = QInputDialog.getInt(self, "Logging Level", "Enter a value (0-100)", value=self.log_level, min=0, max=100)
+        num, ok = QInputDialog.getInt(self, "Logging Level", "Enter a value (0-60)", value=self.log_level, min=0, max=60)
         if ok:
             self.log_level = num
             ui_lgr.debug(F"logging level changed to {num}.")
 
     def selection_change(self, cb:QComboBox, label:str):
-        """info printing only"""
         ui_lgr.debug(F"ComboBox '{label}' selection changed to '{cb.currentText()}'.")
 
     def run_function(self, thread_fxn, p_params:list):
@@ -156,13 +156,11 @@ class UpdateBudgetUI(QDialog):
             msg = F"requested function '{fxn_param}' NOT callable?!"
             ui_lgr.warning(msg)
             raise Exception(msg)
-        ui_lgr.info(F"finished thread: {fxn_param}\n")
+        ui_lgr.info(F"finished thread: {fxn_param}")
         return response
 
     def button_click(self):
-        """
-        assemble the necessary parameters and call each selected update choice in a separate thread
-        """
+        """Assemble the necessary parameters and call each selected update choice in a separate thread."""
         ui_lgr.info(F"Clicked '{self.exe_btn.text()}'.")
         exe = self.cb_script.currentText()
         ui_lgr.info(F"Script is '{exe}'.")
@@ -198,7 +196,7 @@ class UpdateBudgetUI(QDialog):
                         ui_lgr.warning(F"{submitted_fxn} generated exception: {repr(thr_ex)}")
                         raise thr_ex
                     else:
-                        ui_lgr.debug(F"Update function '{submitted_fxn}' has finished with result: {data}")
+                        ui_lgr.debug(F"Update function '{submitted_fxn}' has finished with {type(data)} data")
             response = lg_ctrl.get_saved_info()
         else:
             msg = F"Problem with main??!! '{main_fxn}'"
@@ -219,7 +217,7 @@ def ui_main():
 
 
 if __name__ == "__main__":
-    lg_ctrl = MhsLogger(UpdateBudgetUI.__name__, suffix = "gncout")
+    lg_ctrl = MhsLogger(UpdateBudgetUI.__name__, con_level = UI_DEFAULT_LOG_LEVEL, suffix = DEFAULT_LOG_SUFFIX)
     ui_lgr = lg_ctrl.get_logger()
     ui_main()
     exit()
