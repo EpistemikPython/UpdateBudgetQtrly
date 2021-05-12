@@ -8,14 +8,11 @@
 __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __created__ = '2020-03-31'
-__updated__ = '2021-05-11'
+__updated__ = '2021-05-12'
 
 from sys import exc_info, path
 from abc import ABC, abstractmethod
 from argparse import ArgumentParser
-
-import mhsLogging
-
 path.append("/newdata/dev/git/Python/utils")
 from mhsUtils import *
 from mhsLogging import *
@@ -32,7 +29,7 @@ SHEET_2:str   = SHEET + " 2"
 BASE_YEAR:str = BASE + YR
 YEAR_SPAN:str = BASE_YEAR + SPAN
 QTR_SPAN:str  = QTR + SPAN
-HDR_SPAN:str  = 'Header' + SPAN
+HDR_SPAN:str  = "Header" + SPAN
 
 RECORD_RANGE    = "'Record'!A1"
 RECORD_SHEET    = "Record"
@@ -41,23 +38,24 @@ RECORD_TIME_COL = 'B'
 RECORD_GNC_COL  = 'C'
 RECORD_INFO_COL = 'D'
 
+DEFAULT_LOG_SUFFIX = "gncout"
 
 def process_args(base_year:int) -> ArgumentParser:
-    arg_parser = ArgumentParser(description = 'Update the Revenues & Expenses section of my Google Sheet',
-                                prog = 'updateRevExps.py')
+    arg_parser = ArgumentParser(description = "Update various tabs of my 'Budget-qtrly' Google Sheet",
+                                prog = "updateBudget.py")
     # required arguments
-    required = arg_parser.add_argument_group('REQUIRED')
-    required.add_argument('-g', '--gnucash_file', required = True, help = 'path & filename of the Gnucash file to use')
+    required = arg_parser.add_argument_group("REQUIRED")
+    required.add_argument('-g', '--gnucash_file', required = True, help = "path & filename of the Gnucash file to use")
     required.add_argument('-m', '--mode', required = True, choices = [TEST, SHEET_1, SHEET_2],
-                          help = 'SEND to Google Sheet (1 or 2) OR just TEST')
+                          help = "SEND to Google Sheet (1 or 2) OR just TEST")
     required.add_argument('-t', '--timespan', required=True,
         help=F"choices = {CURRENT_YRS} | {RECENT_YRS} | {MID_YRS} | {EARLY_YRS}| {ALL_YRS} | {base_year}..{now_dt.year}")
     # optional arguments
-    arg_parser.add_argument('-q', '--quarter', choices = ['1', '2', '3', '4'], help = "quarter to update: 1..4")
-    arg_parser.add_argument('-l', '--level', type = int, default = lg.INFO, help = 'set LEVEL of logging output')
-    arg_parser.add_argument('--gnc_save', action = 'store_true', help = 'Write the Gnucash data to a JSON file')
-    arg_parser.add_argument('--ggl_save', action = 'store_true', help = 'Write the Google data to a JSON file')
-    arg_parser.add_argument('--resp_save', action = 'store_true', help = 'Write the Google RESPONSE to a JSON file')
+    arg_parser.add_argument('-q', '--quarter', choices = ["1", "2", "3", "4"], help = "quarter to update: 1..4")
+    arg_parser.add_argument('-l', '--level', type = int, default = lg.INFO, help = "set LEVEL of logging output")
+    arg_parser.add_argument('--gnc_save', action = "store_true", help = "Write the Gnucash data to a JSON file")
+    arg_parser.add_argument('--ggl_save', action = "store_true", help = "Write the Google data to a JSON file")
+    arg_parser.add_argument('--resp_save', action = "store_true", help = "Write the Google RESPONSE to a JSON file")
 
     return arg_parser
 
@@ -93,16 +91,15 @@ class UpdateBudget(ABC):
         self.target_name = F"-{self.timespan}"
         log_name = p_logname + '_' + base_name + self.target_name
 
-        lg_ctrl = mhsLogging.MhsLogger(log_name, con_level = self.level)
+        lg_ctrl = MhsLogger(log_name, con_level = self.level, suffix = DEFAULT_LOG_SUFFIX)
         self._lgr = lg_ctrl.get_logger()
-        self._lgr.debug(F"Gnucash file = {self._gnucash_file}; Domain = {self.timespan} & Mode = {self.mode}")
         self._lgr.info(F"Runtime = {get_current_time()}")
 
         self._gnucash_data = []
         self._ggl_update   = GoogleUpdate(self._lgr)
-
         self._ggl_thrd = None
         self.response  = None
+        self._lgr.debug(F"Gnucash file = {self._gnucash_file}; Domain = {self.timespan} & Mode = {self.mode}")
 
     # noinspection PyAttributeOutsideInit
     def process_input_parameters(self, argl:list, p_year:int):
@@ -121,7 +118,6 @@ class UpdateBudget(ABC):
         self.save_ggl  = args.ggl_save
         self.save_resp = args.resp_save
 
-    # noinspection PyAttributeOutsideInit
     def prepare_gnucash_data(self, p_years:list):
         """
         Get data for the specified year, or group of years
@@ -148,16 +144,16 @@ class UpdateBudget(ABC):
                 fname = F"{self.__class__.__name__}_gnc-data-{self.timespan}"
                 self._lgr.info(F"gnucash data file = {save_to_json(fname, self._gnucash_data)}")
 
-        except Exception as fgde:
-            fgde_msg = F"prepare_gnucash_data() EXCEPTION: {repr(fgde)}!"
+        except Exception as ex:
+            ex_msg = F"prepare_gnucash_data() EXCEPTION: {repr(ex)}!"
             tb = exc_info()[2]
-            self._lgr.error(fgde_msg, tb)
+            self._lgr.error(ex_msg, tb)
             if gnc_session:
                 gnc_session.check_end_session(locals())
-            raise fgde.with_traceback(tb)
+            raise ex.with_traceback(tb)
 
     def prepare_google_data(self, p_years:list):
-        """fill the Google data list"""
+        """Fill the Google data list."""
         self._lgr.info(F"prepare_google_data({p_years}) at {get_current_time()}")
 
         self.fill_google_data(p_years)
@@ -171,7 +167,7 @@ class UpdateBudget(ABC):
         current_row = int(ru_result[0][0])
         self._lgr.debug(F"current row = {current_row}\n")
 
-        update_info = self.__class__.__name__ + ' - ' + self.timespan + ' - ' + self.mode
+        update_info = self.__class__.__name__ + " - " + self.timespan + " - " + self.mode
         self._lgr.info(F"update info = {update_info}\n")
 
         # keep record of this update
@@ -204,9 +200,7 @@ class UpdateBudget(ABC):
                            F"{save_to_json(rf_name, self.response, get_current_time(FILE_DATETIME_FORMAT))}")
 
     def go(self) -> dict:
-        """
-        ENTRY POINT for accessing UpdateBudget functions
-        """
+        """ENTRY POINT for accessing UpdateBudget functions."""
         years = get_timespan(self.timespan, self._lgr)
         self._lgr.info(F"timespan to find = {years}")
         try:
@@ -220,19 +214,18 @@ class UpdateBudget(ABC):
             if SHEET in self.mode:
                 self.start_google_thread()
             else:
-                self.response = {'Response' : saved_log_info}
+                self.response = {"Response" : saved_log_info}
 
         except Exception as goe:
             goe_msg = repr(goe)
             self._lgr.error(goe_msg)
-            self.response = {'go() EXCEPTION' : F"{goe_msg}"}
+            self.response = {F"go() EXCEPTION = {goe_msg}"}
 
         # check if we started the google thread and wait if necessary
         if self._ggl_thrd and self._ggl_thrd.is_alive():
             self._lgr.info("wait for the thread to finish")
             self._ggl_thrd.join()
-        self._lgr.info(" >>> PROGRAM ENDED.\n")
-        # finish_logging(self.base_log_name, self.log_name, get_current_time(FILE_DATETIME_FORMAT), sfx='gncout')
+        self._lgr.info(">>> PROGRAM ENDED.\n")
         return self.response
 
     @abstractmethod
