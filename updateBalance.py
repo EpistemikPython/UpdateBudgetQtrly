@@ -16,7 +16,7 @@ from updateAssets import ASSETS_DATA, ASSET_COLS
 from updateBudget import *
 
 base_run_file = get_base_filename(__file__)
-print(base_run_file)
+# print(base_run_file)
 
 BALANCE_DATA = {
     # first data row in the sheet
@@ -69,9 +69,7 @@ BAL_TODAY_RANGES = {
 
 
 class UpdateBalance(UpdateBudget):
-    """
-    Take data from a Gnucash file and update a Balance tab of my Google Budget-Quarterly document
-    """
+    """Take data from a Gnucash file and update a Balance tab of my Google Budget-Quarterly document."""
     def __init__(self, args:list, p_logname:str, p_baseyear:int):
         super().__init__(args, p_logname, p_baseyear)
 
@@ -90,9 +88,7 @@ class UpdateBalance(UpdateBudget):
         return self._gnc_session.get_total_balance(bal_path, p_date)
 
     def fill_today(self):
-        """
-        Get Balance data for TODAY: LIABS, House, FAMILY, XCHALET, TRUST
-        """
+        """Get Balance data for TODAY: LIABS, House, FAMILY, XCHALET, TRUST."""
         self._lgr.debug(get_current_time())
         # calls using 'today' ARE NOT off by one day??
         tdate = now_dt - ONE_DAY

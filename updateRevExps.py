@@ -15,7 +15,7 @@ import sys
 from updateBudget import *
 
 base_run_file = get_base_filename(__file__)
-print(base_run_file)
+# print(base_run_file)
 
 REVEXPS_DATA = {
     # first data row in the sheet
@@ -60,9 +60,7 @@ REV_EXP_COLS = {
 
 
 class UpdateRevExps(UpdateBudget):
-    """
-    Take data from a Gnucash file and update an Income tab of my Google Budget-Quarterly document
-    """
+    """Take data from a Gnucash file and update an Income tab of my Google Budget-Quarterly document."""
     def __init__(self, args:list, p_logname:str, p_baseyear:int):
         super().__init__(args, p_logname, p_baseyear)
 
@@ -87,7 +85,7 @@ class UpdateRevExps(UpdateBudget):
         start_month = (p_qtr * 3) - 2
         int_year = get_int_year( p_year, REVEXPS_DATA[BASE_YEAR] )
 
-        # for each period keep the start date, end date, debits and credits sums and overall total
+        # for each period keep the start date, end date, debit and credit sums & overall total
         period_list = [
             [
                 start_date, end_date,

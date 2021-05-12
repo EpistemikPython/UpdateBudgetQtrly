@@ -15,7 +15,7 @@ import sys
 from updateBudget import *
 
 base_run_file = get_base_filename(__file__)
-print(base_run_file)
+# print(base_run_file)
 
 ASSETS_DATA = {
     # first data row in the sheet
@@ -62,9 +62,7 @@ ASSET_COLS = {
 
 
 class UpdateAssets(UpdateBudget):
-    """
-    Take data from a Gnucash file and update an Assets tab of my Google Budget-Quarterly document
-    """
+    """Take data from a Gnucash file and update an Assets tab of my Google Budget-Quarterly document."""
     def __init__(self, args:list, p_logname:str, p_baseyear:int):
         super().__init__(args, p_logname, p_baseyear)
 
@@ -82,7 +80,7 @@ class UpdateAssets(UpdateBudget):
         :param      p_year: year to update
         :param    data_qtr: dict for data
         """
-        self._lgr.info(F"find Assets in {p_session.get_file_name()} for {p_year}-Q{p_qtr}")
+        self._lgr.debug(F"find Assets in {p_session.get_file_name()} for {p_year}-Q{p_qtr}")
         start_month = (p_qtr * 3) - 2
         int_year = get_int_year( p_year, ASSETS_DATA[BASE_YEAR] )
         end_date = current_quarter_end(int_year, start_month)
