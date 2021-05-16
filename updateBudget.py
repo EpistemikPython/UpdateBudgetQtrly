@@ -8,7 +8,7 @@
 __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __created__ = '2020-03-31'
-__updated__ = '2021-05-12'
+__updated__ = '2021-05-16'
 
 from sys import exc_info, path
 from abc import ABC, abstractmethod
@@ -18,8 +18,8 @@ from mhsUtils import *
 from mhsLogging import *
 path.append("/newdata/dev/git/Python/Gnucash/common")
 from gncUtils import *
-path.append("/home/marksa/dev/git/Python/Google")
-from googleUtils import *
+path.append("/home/marksa/dev/git/Python/Google/Sheets")
+from sheetAccess import *
 
 UPDATE_YEARS = ['2021','2020','2019','2018','2017','2016','2015','2014','2013','2012','2011','2010','2009','2008']
 BASE_UPDATE_YEAR = UPDATE_YEARS[-1]
@@ -96,7 +96,7 @@ class UpdateBudget(ABC):
         self._lgr.info(F"Runtime = {get_current_time()}")
 
         self._gnucash_data = []
-        self._ggl_update   = GoogleUpdate(self._lgr)
+        self._ggl_update   = MhsSheetAccess(self._lgr)
         self._ggl_thrd = None
         self.response  = None
         self._lgr.debug(F"Gnucash file = {self._gnucash_file}; Domain = {self.timespan} & Mode = {self.mode}")
@@ -241,7 +241,7 @@ class UpdateBudget(ABC):
 
 def test_google_read():
     logger = get_simple_logger(UpdateBudget.__name__)
-    ggl_updater = GoogleUpdate(logger)
+    ggl_updater = MhsSheetAccess(logger)
     result = ggl_updater.test_read(RECORD_RANGE)
     print(result)
     print(result[0][0])
