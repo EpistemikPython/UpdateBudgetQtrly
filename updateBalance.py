@@ -9,7 +9,7 @@
 __author__       = "Mark Sattolo"
 __author_email__ = "epistemik@gmail.com"
 __created__ = "2019-04-13"
-__updated__ = "2021-05-11"
+__updated__ = "2021-06-02"
 
 import sys
 from updateAssets import ASSETS_DATA, ASSET_COLS
@@ -135,7 +135,7 @@ class UpdateBalance(UpdateBudget):
             else:
                 self._lgr.debug("Update reference to Assets sheet for Mar, June, Sep or Dec")
                 # have to update the CELL REFERENCE to current year/qtr ASSETS
-                year_row = BALANCE_DATA[BASE_ROW] \
+                year_row = ASSETS_DATA[BASE_ROW] \
                            + year_span( now_dt.year, ASSETS_DATA[BASE_YEAR], ASSETS_DATA[YEAR_SPAN], ASSETS_DATA[HDR_SPAN],
                                         self._lgr )
                 int_qtr = (month_end.month // 3) - 1
