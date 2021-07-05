@@ -8,7 +8,7 @@
 __author__       = "Mark Sattolo"
 __author_email__ = "epistemik@gmail.com"
 __created__ = "2019-03-30"
-__updated__ = "2021-05-12"
+__updated__ = "2021-07-01"
 
 import json
 from sys import argv, path
@@ -131,7 +131,7 @@ class UpdateBudgetUI(QDialog):
     def open_file_name_dialog(self):
         options = QFileDialog.Options()
         options |= QFileDialog.DontUseNativeDialog
-        file_name, _ = QFileDialog.getOpenFileName( self, 'Get Gnucash Files', '/newdata/dev/git/Python/Gnucash/app-files',
+        file_name, _ = QFileDialog.getOpenFileName( self, 'Get Gnucash Files', '/newdata/dev/Gnucash/app-files/',
                                                     "Gnucash Files (*.gnc *.gnucash);;All Files (*)", options=options )
         if file_name:
             self.gnc_file = file_name
