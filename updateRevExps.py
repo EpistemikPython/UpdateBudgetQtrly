@@ -9,9 +9,8 @@
 __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __created__ = '2019-03-30'
-__updated__ = '2021-05-11'
+__updated__ = '2021-07-10'
 
-import sys
 from updateBudget import *
 
 base_run_file = get_base_filename(__file__)
@@ -61,8 +60,8 @@ REV_EXP_COLS = {
 
 class UpdateRevExps(UpdateBudget):
     """Take data from a Gnucash file and update an Income tab of my Google Budget-Quarterly document."""
-    def __init__(self, args:list, p_logname:str, p_baseyear:int):
-        super().__init__(args, p_logname, p_baseyear)
+    def __init__(self, args:list, p_logname:str):
+        super().__init__(args, p_logname)
 
         # Google sheet to update
         self.all_inc_dest = ALL_INC_2_SHEET
@@ -229,10 +228,10 @@ class UpdateRevExps(UpdateBudget):
 
 
 def update_rev_exps_main(args:list) -> dict:
-    rev_exp = UpdateRevExps(args, base_run_file, REVEXPS_DATA[BASE_YEAR])
+    rev_exp = UpdateRevExps(args, base_run_file)
     return rev_exp.go()
 
 
 if __name__ == "__main__":
-    update_rev_exps_main(sys.argv[1:])
+    update_rev_exps_main(argv[1:])
     exit()

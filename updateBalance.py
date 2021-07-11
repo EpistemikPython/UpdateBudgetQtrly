@@ -9,9 +9,8 @@
 __author__       = "Mark Sattolo"
 __author_email__ = "epistemik@gmail.com"
 __created__ = "2019-04-13"
-__updated__ = "2021-06-02"
+__updated__ = "2021-07-10"
 
-import sys
 from updateAssets import ASSETS_DATA, ASSET_COLS
 from updateBudget import *
 
@@ -70,8 +69,8 @@ BAL_TODAY_RANGES = {
 
 class UpdateBalance(UpdateBudget):
     """Take data from a Gnucash file and update a Balance tab of my Google Budget-Quarterly document."""
-    def __init__(self, args:list, p_logname:str, p_baseyear:int):
-        super().__init__(args, p_logname, p_baseyear)
+    def __init__(self, args:list, p_logname:str):
+        super().__init__(args, p_logname)
 
         # Google sheet to update
         self.dest = BAL_2_SHEET
@@ -225,10 +224,10 @@ class UpdateBalance(UpdateBudget):
 
 
 def update_balance_main(args:list) -> dict:
-    balance = UpdateBalance(args, base_run_file, BALANCE_DATA[BASE_YEAR])
+    balance = UpdateBalance(args, base_run_file)
     return balance.go()
 
 
 if __name__ == "__main__":
-    update_balance_main(sys.argv[1:])
+    update_balance_main(argv[1:])
     exit()

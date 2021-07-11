@@ -8,9 +8,9 @@
 __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __created__ = '2020-03-31'
-__updated__ = '2021-05-16'
+__updated__ = '2021-07-10'
 
-from sys import exc_info, path
+from sys import exc_info, path, argv
 from abc import ABC, abstractmethod
 from argparse import ArgumentParser
 path.append("/newdata/dev/git/Python/utils")
@@ -23,6 +23,17 @@ from sheetAccess import *
 
 UPDATE_YEARS = ['2021','2020','2019','2018','2017','2016','2015','2014','2013','2012','2011','2010','2009','2008']
 BASE_UPDATE_YEAR = UPDATE_YEARS[-1]
+CURRENT_YRS:str  = F"{UPDATE_YEARS[0]}-{UPDATE_YEARS[1]}"
+RECENT_YRS:str   = F"{UPDATE_YEARS[2]}-{UPDATE_YEARS[4]}"
+MID_YRS:str      = F"{UPDATE_YEARS[5]}-{UPDATE_YEARS[7]}"
+EARLY_YRS:str    = F"{UPDATE_YEARS[8]}-{BASE_UPDATE_YEAR}"
+UPDATE_INTERVAL = {
+    ALL_YEARS   : UPDATE_YEARS,
+    EARLY_YRS   : UPDATE_YEARS[8:],
+    MID_YRS     : UPDATE_YEARS[5:8],
+    RECENT_YRS  : UPDATE_YEARS[2:5],
+    CURRENT_YRS : UPDATE_YEARS[:2]
+}
 
 SHEET_1:str   = SHEET + " 1"
 SHEET_2:str   = SHEET + " 2"
@@ -31,8 +42,8 @@ YEAR_SPAN:str = BASE_YEAR + SPAN
 QTR_SPAN:str  = QTR + SPAN
 HDR_SPAN:str  = "Header" + SPAN
 
-RECORD_RANGE    = "'Record'!A1"
 RECORD_SHEET    = "Record"
+RECORD_RANGE    = F"'{RECORD_SHEET}'!A1"
 RECORD_DATE_COL = 'A'
 RECORD_TIME_COL = 'B'
 RECORD_GNC_COL  = 'C'
@@ -40,41 +51,13 @@ RECORD_INFO_COL = 'D'
 
 DEFAULT_LOG_SUFFIX = "gncout"
 
-def process_args(base_year:int) -> ArgumentParser:
-    arg_parser = ArgumentParser(description = "Update various tabs of my 'Budget-qtrly' Google Sheet",
-                                prog = "updateBudget.py")
-    # required arguments
-    required = arg_parser.add_argument_group("REQUIRED")
-    required.add_argument('-g', '--gnucash_file', required = True, help = "path & filename of the Gnucash file to use")
-    required.add_argument('-m', '--mode', required = True, choices = [TEST, SHEET_1, SHEET_2],
-                          help = "SEND to Google Sheet (1 or 2) OR just TEST")
-    required.add_argument('-t', '--timespan', required=True,
-        help=F"choices = {CURRENT_YRS} | {RECENT_YRS} | {MID_YRS} | {EARLY_YRS}| {ALL_YRS} | {base_year}..{now_dt.year}")
-    # optional arguments
-    arg_parser.add_argument('-q', '--quarter', choices = ["1", "2", "3", "4"], help = "quarter to update: 1..4")
-    arg_parser.add_argument('-l', '--level', type = int, default = lg.INFO, help = "set LEVEL of logging output")
-    arg_parser.add_argument('--gnc_save', action = "store_true", help = "Write the Gnucash data to a JSON file")
-    arg_parser.add_argument('--ggl_save', action = "store_true", help = "Write the Google data to a JSON file")
-    arg_parser.add_argument('--resp_save', action = "store_true", help = "Write the Google RESPONSE to a JSON file")
-
-    return arg_parser
-
-
 def get_timespan(timespan:str, lgr:lg.Logger) -> list:
-    if timespan == ALL_YRS:
-        return UPDATE_YEARS
-    elif timespan == EARLY_YRS:
-        return UPDATE_YEARS[11:14]
-    elif timespan == MID_YRS:
-        return UPDATE_YEARS[7:11]
-    elif timespan == RECENT_YRS:
-        return UPDATE_YEARS[3:7]
-    elif timespan == CURRENT_YRS:
-        return UPDATE_YEARS[0:3]
-    elif timespan in UPDATE_YEARS:
+    if timespan in UPDATE_INTERVAL.keys():
+        return UPDATE_INTERVAL[timespan]
+    if timespan in UPDATE_YEARS:
         return [timespan]
     lgr.warning(F"INVALID YEAR: {timespan}")
-    return UPDATE_YEARS[0:1]
+    return UPDATE_YEARS[0]
 
 
 class UpdateBudget(ABC):
@@ -82,9 +65,9 @@ class UpdateBudget(ABC):
     update my 'Budget Quarterly' Google spreadsheet with information from a Gnucash file
     -- contains common code for the three options of updating Rev&Exps, Assets, Balances
     """
-    def __init__(self, args:list, p_logname:str, p_baseyear:int):
+    def __init__(self, args:list, p_logname:str):
 
-        self.process_input_parameters(args, p_baseyear)
+        self.process_input_parameters(args)
 
         # get info for log names
         base_name = get_base_filename(self._gnucash_file)
@@ -102,8 +85,8 @@ class UpdateBudget(ABC):
         self._lgr.debug(F"Gnucash file = {self._gnucash_file}; Domain = {self.timespan} & Mode = {self.mode}")
 
     # noinspection PyAttributeOutsideInit
-    def process_input_parameters(self, argl:list, p_year:int):
-        args = process_args(p_year).parse_args(argl)
+    def process_input_parameters(self, argl:list):
+        args = process_args().parse_args(argl)
 
         if not osp.isfile(args.gnucash_file):
             msg = F"File path '{args.gnucash_file}' DOES NOT exist! Exiting..."
@@ -239,6 +222,26 @@ class UpdateBudget(ABC):
 # END class UpdateBudget
 
 
+def process_args() -> ArgumentParser:
+    arg_parser = ArgumentParser(description = "Update various tabs of my 'Budget-qtrly' Google Sheet",
+                                prog = "updateBudget.py")
+    # required arguments
+    required = arg_parser.add_argument_group("REQUIRED")
+    required.add_argument('-g', '--gnucash_file', required = True, help = "path & filename of the Gnucash file to use")
+    required.add_argument('-m', '--mode', required = True, choices = [TEST, SHEET_1, SHEET_2],
+                          help = "SEND to Google Sheet (1 or 2) OR just TEST")
+    required.add_argument('-t', '--timespan', required = True,
+                          help = F"update a year or years in the range {BASE_UPDATE_YEAR}..{now_dt.year}")
+    # optional arguments
+    arg_parser.add_argument('-q', '--quarter', choices = ["1", "2", "3", "4"], help = "quarter to update: 1..4")
+    arg_parser.add_argument('-l', '--level', type = int, default = lg.INFO, help = "set LEVEL of logging output")
+    arg_parser.add_argument('--gnc_save', action = "store_true", help = "Write the Gnucash data to a JSON file")
+    arg_parser.add_argument('--ggl_save', action = "store_true", help = "Write the Google data to a JSON file")
+    arg_parser.add_argument('--resp_save', action = "store_true", help = "Write the Google RESPONSE to a JSON file")
+
+    return arg_parser
+
+
 def test_google_read():
     logger = get_simple_logger(UpdateBudget.__name__)
     ggl_updater = MhsSheetAccess(logger)
@@ -248,6 +251,8 @@ def test_google_read():
 
 
 if __name__ == "__main__":
-    process_args(BASE_UPDATE_YEAR)
-    test_google_read()
+    if len(argv) > 1:
+        process_args().parse_args(argv[1:])
+    else:
+        test_google_read()
     exit()

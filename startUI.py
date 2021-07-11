@@ -8,24 +8,21 @@
 __author__       = "Mark Sattolo"
 __author_email__ = "epistemik@gmail.com"
 __created__ = "2019-03-30"
-__updated__ = "2021-07-01"
+__updated__ = "2021-07-10"
 
 import json
-from sys import argv, path
+from sys import path
 from PyQt5.QtWidgets import (QApplication, QComboBox, QVBoxLayout, QGroupBox, QDialog, QFileDialog,
                              QPushButton, QFormLayout, QDialogButtonBox, QLabel, QTextEdit, QCheckBox, QInputDialog)
 from functools import partial
 import concurrent.futures as confut
 path.append("/newdata/dev/git/Python/utils")
-from mhsLogging import *
-path.append("/newdata/dev/git/Python/Gnucash/common")
-from investment import *
-from updateBudget import UPDATE_YEARS, SHEET_1, SHEET_2, DEFAULT_LOG_SUFFIX
+from updateBudget import *
 from updateRevExps import update_rev_exps_main
 from updateAssets import update_assets_main
 from updateBalance import update_balance_main
 
-UPDATE_DOMAINS = [CURRENT_YRS, RECENT_YRS, MID_YRS, EARLY_YRS, ALL_YRS] + [year for year in UPDATE_YEARS]
+UPDATE_DOMAINS = [CURRENT_YRS, RECENT_YRS, MID_YRS, EARLY_YRS, ALL_YEARS] + [year for year in UPDATE_YEARS]
 # print(F"Update Domains = {UPDATE_DOMAINS}")
 
 TIMEFRAME:str = "Time Frame"
