@@ -8,17 +8,17 @@
 __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __created__ = '2020-03-31'
-__updated__ = '2021-07-10'
+__updated__ = '2021-07-26'
 
 from sys import exc_info, path, argv
 from abc import ABC, abstractmethod
 from argparse import ArgumentParser
-path.append("/newdata/dev/git/Python/utils")
+path.append("/home/marksa/git/Python/utils")
 from mhsUtils import *
 from mhsLogging import *
-path.append("/newdata/dev/git/Python/Gnucash/common")
+path.append("/home/marksa/git/Python/gnucash/common")
 from gncUtils import *
-path.append("/home/marksa/dev/git/Python/Google/Sheets")
+path.append("/home/marksa/git/Python/google/sheets")
 from sheetAccess import *
 
 UPDATE_YEARS = ['2021','2020','2019','2018','2017','2016','2015','2014','2013','2012','2011','2010','2009','2008']

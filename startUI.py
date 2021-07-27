@@ -8,15 +8,14 @@
 __author__       = "Mark Sattolo"
 __author_email__ = "epistemik@gmail.com"
 __created__ = "2019-03-30"
-__updated__ = "2021-07-10"
+__updated__ = "2021-07-26"
 
-import json
 from sys import path
 from PyQt5.QtWidgets import (QApplication, QComboBox, QVBoxLayout, QGroupBox, QDialog, QFileDialog,
                              QPushButton, QFormLayout, QDialogButtonBox, QLabel, QTextEdit, QCheckBox, QInputDialog)
 from functools import partial
 import concurrent.futures as confut
-path.append("/newdata/dev/git/Python/utils")
+path.append("/home/marksa/git/Python/utils")
 from updateBudget import *
 from updateRevExps import update_rev_exps_main
 from updateAssets import update_assets_main
@@ -37,7 +36,8 @@ CHOICE_FXNS = {
 
 UI_DEFAULT_LOG_LEVEL = logging.INFO
 
-# noinspection PyAttributeOutsideInit,PyMethodMayBeStatic,PyCallByClass,PyArgumentList
+
+# noinspection PyAttributeOutsideInit
 class UpdateBudgetUI(QDialog):
     """UI for updating my 'Budget Quarterly' Google spreadsheet with information from a Gnucash file."""
     def __init__(self):
@@ -128,8 +128,8 @@ class UpdateBudgetUI(QDialog):
     def open_file_name_dialog(self):
         options = QFileDialog.Options()
         options |= QFileDialog.DontUseNativeDialog
-        file_name, _ = QFileDialog.getOpenFileName( self, 'Get Gnucash Files', '/newdata/dev/Gnucash/app-files/',
-                                                    "Gnucash Files (*.gnc *.gnucash);;All Files (*)", options=options )
+        file_name, _ = QFileDialog.getOpenFileName( self, "Get Gnucash Files", osp.join(BASE_GNUCASH_FOLDER, "app-files" + osp.sep),
+                                                    "Gnucash Files (*.gnc *.gnucash);;All Files (*)", options = options )
         if file_name:
             self.gnc_file = file_name
             gnc_file_display = file_name.split('/')[-1]
@@ -141,10 +141,12 @@ class UpdateBudgetUI(QDialog):
             self.log_level = num
             ui_lgr.debug(F"logging level changed to {num}.")
 
-    def selection_change(self, cb:QComboBox, label:str):
+    @staticmethod
+    def selection_change(cb:QComboBox, label:str):
         ui_lgr.debug(F"ComboBox '{label}' selection changed to '{cb.currentText()}'.")
 
-    def run_function(self, thread_fxn, p_params:list):
+    @staticmethod
+    def run_function(thread_fxn, p_params:list):
         fxn_param = repr(thread_fxn)
         ui_lgr.info(F"starting thread: {fxn_param}")
         if callable(thread_fxn):
