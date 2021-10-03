@@ -73,8 +73,9 @@ class UpdateBudget(ABC):
         base_name = get_base_filename(self._gnucash_file)
         self.target_name = F"-{self.timespan}"
         log_name = p_logname + '_' + base_name + self.target_name
+        self.filetime = dt.now().strftime(FILE_DATETIME_FORMAT)
 
-        lg_ctrl = MhsLogger(log_name, con_level = self.level, suffix = DEFAULT_LOG_SUFFIX)
+        lg_ctrl = MhsLogger(log_name, con_level = self.level, file_time = self.filetime, suffix = DEFAULT_LOG_SUFFIX)
         self._lgr = lg_ctrl.get_logger()
         self._lgr.info(F"Runtime = {get_current_time()}")
 
@@ -125,7 +126,7 @@ class UpdateBudget(ABC):
 
             if self.save_gnc:
                 fname = F"{self.__class__.__name__}_gnc-data-{self.timespan}"
-                self._lgr.info(F"gnucash data file = {save_to_json(fname, self._gnucash_data)}")
+                self._lgr.info(F"gnucash data file = {save_to_json(fname, self._gnucash_data, ts = self.filetime)}")
 
         except Exception as ex:
             ex_msg = F"prepare_gnucash_data() EXCEPTION: {repr(ex)}!"
@@ -143,7 +144,7 @@ class UpdateBudget(ABC):
 
         if self.save_ggl:
             fname = F"{self.__class__.__name__}_google-data-{str(self.timespan)}"
-            self._lgr.info(F"google data file = {save_to_json(fname, self._ggl_update.get_data())}")
+            self._lgr.info(F"google data file = {save_to_json(fname, self._ggl_update.get_data(), ts = self.filetime)}")
 
     def record_update(self):
         ru_result = self._ggl_update.read_sheets_data(RECORD_RANGE)
@@ -179,8 +180,7 @@ class UpdateBudget(ABC):
 
         if self.save_resp:
             rf_name = F"{self.__class__.__name__}_response{self.target_name}"
-            self._lgr.info(F"google response file = "
-                           F"{save_to_json(rf_name, self.response, get_current_time(FILE_DATETIME_FORMAT))}")
+            self._lgr.info(F"google response file = {save_to_json(rf_name, self.response, ts = self.filetime)}")
 
     def go(self) -> dict:
         """ENTRY POINT for accessing UpdateBudget functions."""
