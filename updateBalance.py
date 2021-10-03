@@ -15,7 +15,6 @@ from updateAssets import ASSETS_DATA, ASSET_COLS
 from updateBudget import *
 
 base_run_file = get_base_filename(__file__)
-# print(base_run_file)
 
 BALANCE_DATA = {
     # first data row in the sheet
@@ -87,7 +86,7 @@ class UpdateBalance(UpdateBudget):
         return self._gnc_session.get_total_balance(bal_path, p_date)
 
     def fill_today(self):
-        """Get Balance data for TODAY: LIABS, House, FAMILY, XCHALET, TRUST."""
+        """Get Balance data for TODAY: LIABS, House, FAMILY, CHALET, TRUST."""
         self._lgr.debug(get_current_time())
         # calls using 'today' ARE NOT off by one day??
         tdate = now_dt - ONE_DAY
@@ -102,8 +101,8 @@ class UpdateBalance(UpdateBudget):
                 self.fill_google_cell(BAL_MTHLY_COLS[TODAY], BAL_TODAY_RANGES[item], acct_sum)
             elif item == LIAB:
                 self.fill_google_cell(BAL_MTHLY_COLS[TODAY], BAL_TODAY_RANGES[item], acct_sum)
-            # need family assets EXCLUDING house and liabilities, which are reported separately
             else:
+                # need family assets EXCLUDING the previous items, which are reported separately
                 asset_sums[item] = acct_sum
 
         # report the family amount as the sum of the individual accounts
@@ -198,7 +197,6 @@ class UpdateBalance(UpdateBudget):
         yr_span = year_span( year, BALANCE_DATA[BASE_YEAR], BALANCE_DATA[YEAR_SPAN], BALANCE_DATA[HDR_SPAN] )
         self.fill_google_cell( BAL_MTHLY_COLS[LIAB][YR], BALANCE_DATA[BASE_ROW] + yr_span, str(liab_sum) )
 
-    # noinspection PyUnusedLocal
     def fill_gnucash_data(self, p_session:GnucashSession, p_qtr:int, p_year:str, data_qtr:dict):
         self._gnc_session = p_session
 

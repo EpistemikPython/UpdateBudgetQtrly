@@ -8,7 +8,7 @@
 __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __created__ = '2020-03-31'
-__updated__ = '2021-07-26'
+__updated__ = '2021-10-03'
 
 from sys import exc_info, path, argv
 from abc import ABC, abstractmethod
@@ -66,7 +66,6 @@ class UpdateBudget(ABC):
     -- contains common code for the three options of updating Rev&Exps, Assets, Balances
     """
     def __init__(self, args:list, p_logname:str):
-
         self.process_input_parameters(args)
 
         # get info for log names
@@ -80,7 +79,7 @@ class UpdateBudget(ABC):
         self._lgr.info(F"Runtime = {get_current_time()}")
 
         self._gnucash_data = []
-        self._ggl_update   = MhsSheetAccess(self._lgr)
+        self._ggl_update = MhsSheetAccess(self._lgr)
         self._ggl_thrd = None
         self.response  = None
         self._lgr.debug(F"Gnucash file = {self._gnucash_file}; Domain = {self.timespan} & Mode = {self.mode}")
@@ -121,7 +120,7 @@ class UpdateBudget(ABC):
                     data_quarter = {}
                     self.fill_gnucash_data(gnc_session, i+1, year, data_quarter)
 
-            # no save needed, we're just reading...
+            # no save needed as just reading
             gnc_session.end_session(False)
 
             if self.save_gnc:
@@ -204,7 +203,7 @@ class UpdateBudget(ABC):
             self._lgr.error(goe_msg)
             self.response = {F"go() EXCEPTION = {goe_msg}"}
 
-        # check if we started the google thread and wait if necessary
+        # check if the google thread is active and wait if necessary
         if self._ggl_thrd and self._ggl_thrd.is_alive():
             self._lgr.info("wait for the thread to finish")
             self._ggl_thrd.join()
