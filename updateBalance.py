@@ -9,7 +9,7 @@
 __author__       = "Mark Sattolo"
 __author_email__ = "epistemik@gmail.com"
 __created__ = "2019-04-13"
-__updated__ = "2021-07-10"
+__updated__ = "2021-10-03"
 
 from updateAssets import ASSETS_DATA, ASSET_COLS
 from updateBudget import *
@@ -94,7 +94,11 @@ class UpdateBalance(UpdateBudget):
         asset_sums = {}
         for item in BALANCE_ACCTS:
             acct_sum = self.get_balance(BALANCE_ACCTS[item], tdate)
-            if item == HOUSE:
+            if item == TRUST:
+                self.fill_google_cell(BAL_MTHLY_COLS[TODAY], BAL_TODAY_RANGES[item], acct_sum)
+            elif item == CHAL:
+                self.fill_google_cell(BAL_MTHLY_COLS[TODAY], BAL_TODAY_RANGES[item], acct_sum)
+            elif item == HOUSE:
                 self.fill_google_cell(BAL_MTHLY_COLS[TODAY], BAL_TODAY_RANGES[item], acct_sum)
             elif item == LIAB:
                 self.fill_google_cell(BAL_MTHLY_COLS[TODAY], BAL_TODAY_RANGES[item], acct_sum)
@@ -103,8 +107,7 @@ class UpdateBalance(UpdateBudget):
                 asset_sums[item] = acct_sum
 
         # report the family amount as the sum of the individual accounts
-        family_sum = "= " + str(asset_sums[INVEST]) + " + " + str(asset_sums[LIQ]) + " + " \
-                     + str(asset_sums[PM]) + " + " + str(asset_sums[REW])
+        family_sum = "= " + str(asset_sums[INVEST]) + " + " + str(asset_sums[LIQ]) + " + " + str(asset_sums[PM]) + " + " + str(asset_sums[REW])
         self._lgr.debug(F"Adjusted assets on {now_dt} = '{family_sum}'")
         self.fill_google_cell(BAL_MTHLY_COLS[TODAY], BAL_TODAY_RANGES[FAM], family_sum)
 
