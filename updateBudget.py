@@ -8,7 +8,7 @@
 __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __created__ = '2020-03-31'
-__updated__ = '2021-10-03'
+__updated__ = '2021-10-04'
 
 from sys import exc_info, path, argv
 from abc import ABC, abstractmethod
@@ -74,8 +74,8 @@ class UpdateBudget(ABC):
         log_name = p_logname + '_' + base_name + self.target_name
         self.filetime = dt.now().strftime(FILE_DATETIME_FORMAT)
 
-        lg_ctrl = MhsLogger(log_name, con_level = self.level, file_time = self.filetime, suffix = DEFAULT_LOG_SUFFIX)
-        self._lgr = lg_ctrl.get_logger()
+        self._lg_ctrl = MhsLogger(log_name, con_level = self.level, file_time = self.filetime, suffix = DEFAULT_LOG_SUFFIX)
+        self._lgr = self._lg_ctrl.get_logger()
         self._lgr.info(F"Runtime = {get_current_time()}")
 
         self._gnucash_data = []
@@ -196,7 +196,7 @@ class UpdateBudget(ABC):
             if SHEET in self.mode:
                 self.start_google_thread()
             else:
-                self.response = {"Response" : saved_log_info}
+                self.response = {"Response" : self._lg_ctrl.get_saved_info()}
 
         except Exception as goe:
             goe_msg = repr(goe)
