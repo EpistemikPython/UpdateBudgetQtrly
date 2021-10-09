@@ -8,7 +8,7 @@
 __author__       = "Mark Sattolo"
 __author_email__ = "epistemik@gmail.com"
 __created__ = "2019-03-30"
-__updated__ = "2021-07-26"
+__updated__ = "2021-10-04"
 
 from sys import path
 from PyQt5.QtWidgets import (QApplication, QComboBox, QVBoxLayout, QGroupBox, QDialog, QFileDialog,
@@ -21,11 +21,8 @@ from updateRevExps import update_rev_exps_main
 from updateAssets import update_assets_main
 from updateBalance import update_balance_main
 
-UPDATE_DOMAINS = [CURRENT_YRS, RECENT_YRS, MID_YRS, EARLY_YRS, ALL_YEARS] + [year for year in UPDATE_YEARS]
-# print(F"Update Domains = {UPDATE_DOMAINS}")
-
 TIMEFRAME:str = "Time Frame"
-
+UPDATE_DOMAINS = [CURRENT_YRS, RECENT_YRS, MID_YRS, EARLY_YRS, ALL_YEARS] + [year for year in UPDATE_YEARS]
 UPDATE_FXNS = [update_rev_exps_main, update_assets_main, update_balance_main]
 CHOICE_FXNS = {
     ALL          : ALL ,
@@ -33,7 +30,6 @@ CHOICE_FXNS = {
     ASSET+'s'    : UPDATE_FXNS[1] ,
     "Rev & Exps" : UPDATE_FXNS[0]
 }
-
 UI_DEFAULT_LOG_LEVEL = logging.INFO
 
 
@@ -51,14 +47,12 @@ class UpdateBudgetUI(QDialog):
         self.script = ""
         self.mode = ""
         self.init_ui()
-        lg_ctrl.show( get_current_time() )
+        lg_ctrl.show( F"{self.title} runtime = {get_current_time()}" )
 
     def init_ui(self):
         self.setWindowTitle(self.title)
         self.setGeometry(self.left, self.top, self.width, self.height)
-
         self.log_level:int = UI_DEFAULT_LOG_LEVEL
-
         self.create_group_box()
 
         self.response_box = QTextEdit()
