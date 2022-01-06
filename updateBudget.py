@@ -8,7 +8,7 @@
 __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __created__ = '2020-03-31'
-__updated__ = '2021-10-04'
+__updated__ = '2022-01-03'
 
 from sys import exc_info, path, argv
 from abc import ABC, abstractmethod
@@ -21,7 +21,7 @@ from gncUtils import *
 path.append("/home/marksa/git/Python/google/sheets")
 from sheetAccess import *
 
-UPDATE_YEARS = ['2021','2020','2019','2018','2017','2016','2015','2014','2013','2012','2011','2010','2009','2008']
+UPDATE_YEARS = ['2022','2021','2020','2019','2018','2017','2016','2015','2014','2013','2012','2011','2010','2009','2008']
 BASE_UPDATE_YEAR = UPDATE_YEARS[-1]
 CURRENT_YRS:str  = F"{UPDATE_YEARS[0]}-{UPDATE_YEARS[1]}"
 RECENT_YRS:str   = F"{UPDATE_YEARS[2]}-{UPDATE_YEARS[4]}"
