@@ -9,7 +9,7 @@
 __author__       = "Mark Sattolo"
 __author_email__ = "epistemik@gmail.com"
 __created__ = "2019-04-13"
-__updated__ = "2021-10-03"
+__updated__ = "2022-01-04"
 
 from updateAssets import ASSETS_DATA, ASSET_COLS
 from updateBudget import *
@@ -30,8 +30,8 @@ BALANCE_DATA = {
     HDR_SPAN  : 8
 }
 
-BASE_MTHLY_ROW:int = 25
-BASE_TOTAL_WORTH_ROW:int = 26
+BASE_TOTAL_WORTH_ROW:int = 33
+BASE_MTHLY_ROW:int = BASE_TOTAL_WORTH_ROW - 1
 
 # path to the accounts in the Gnucash file
 BALANCE_ACCTS = {
@@ -110,6 +110,7 @@ class UpdateBalance(UpdateBudget):
         self._lgr.debug(F"Adjusted assets on {now_dt} = '{family_sum}'")
         self.fill_google_cell(BAL_MTHLY_COLS[TODAY], BAL_TODAY_RANGES[FAM], family_sum)
 
+    # TODO: fill in reference for Assets for div-3 months in K row
     def fill_current_year(self):
         """
         CURRENT YEAR: fill_today() AND: LIABS for ALL completed month_ends;
