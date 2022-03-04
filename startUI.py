@@ -3,12 +3,12 @@
 #
 # startUI.py -- run the UI for the update functions
 #
-# Copyright (c) 2019-21 Mark Sattolo <epistemik@gmail.com>
+# Copyright (c) 2019-22 Mark Sattolo <epistemik@gmail.com>
 
 __author__       = "Mark Sattolo"
 __author_email__ = "epistemik@gmail.com"
 __created__ = "2019-03-30"
-__updated__ = "2021-10-04"
+__updated__ = "2022-02-09"
 
 from sys import path
 from PyQt5.QtWidgets import (QApplication, QComboBox, QVBoxLayout, QGroupBox, QDialog, QFileDialog,
@@ -44,8 +44,6 @@ class UpdateBudgetUI(QDialog):
         self.width  = 600
         self.height = 800
         self.gnc_file = ""
-        self.script = ""
-        self.mode = ""
         self.init_ui()
         lg_ctrl.show( F"{self.title} runtime = {get_current_time()}" )
 
@@ -80,7 +78,6 @@ class UpdateBudgetUI(QDialog):
         self.cb_script.addItems([x for x in CHOICE_FXNS])
         # self.cb_script.currentIndexChanged.connect(partial(self.script_change))
         layout.addRow(QLabel("Script:"), self.cb_script)
-        self.script = self.cb_script.currentText()
 
         self.gnc_file_btn = QPushButton("Get Gnucash file")
         self.gnc_file_btn.clicked.connect(partial(self.open_file_name_dialog))
@@ -90,7 +87,6 @@ class UpdateBudgetUI(QDialog):
         self.cb_mode.addItems([TEST,SHEET_1,SHEET_2])
         self.cb_mode.currentIndexChanged.connect(partial(self.selection_change, self.cb_mode, MODE))
         layout.addRow(QLabel(MODE+':'), self.cb_mode)
-        self.mode = self.cb_mode.currentText()
 
         self.cb_domain = QComboBox()
         self.cb_domain.addItems(UPDATE_DOMAINS)
