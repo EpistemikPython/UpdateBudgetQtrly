@@ -8,7 +8,7 @@
 __author__       = "Mark Sattolo"
 __author_email__ = "epistemik@gmail.com"
 __created__ = "2019-03-30"
-__updated__ = "2022-02-09"
+__updated__ = "2022-06-05"
 
 from sys import path
 from PyQt5.QtWidgets import (QApplication, QComboBox, QVBoxLayout, QGroupBox, QDialog, QFileDialog,
@@ -118,7 +118,7 @@ class UpdateBudgetUI(QDialog):
     def open_file_name_dialog(self):
         options = QFileDialog.Options()
         options |= QFileDialog.DontUseNativeDialog
-        file_name, _ = QFileDialog.getOpenFileName( self, "Get Gnucash Files", osp.join(BASE_GNUCASH_FOLDER, "app-files" + osp.sep),
+        file_name, _ = QFileDialog.getOpenFileName( self, "Get Gnucash Files", osp.join(BASE_GNUCASH_FOLDER, "bak-files" + osp.sep),
                                                     "Gnucash Files (*.gnc *.gnucash);;All Files (*)", options = options )
         if file_name:
             self.gnc_file = file_name
