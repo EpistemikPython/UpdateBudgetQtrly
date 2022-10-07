@@ -49,12 +49,12 @@ DEDN_ACCTS = {
 
 # column index in the Google sheets
 REV_EXP_COLS = {
-    DATE  : 'B',
-    REV   : 'D',
-    BAL   : 'P',
-    CONT  : 'O',
-    NEC   : 'G',
-    DEDNS : 'D'
+    DATE  : 'B', # both
+    REV   : 'D', # All Inc
+    BAL   : 'P', # All Inc
+    CONT  : 'O', # All Inc
+    NEC   : 'G', # Nec Inc
+    DEDNS : 'D'  # Nec Inc
 }
 
 
