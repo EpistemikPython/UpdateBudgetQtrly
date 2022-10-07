@@ -38,12 +38,13 @@ BALANCE_ACCTS = {
     HOUSE   : [FAM, HOUSE] ,
     LIAB    : [FAM, LIAB]  ,
     TRUST   : [TRUST] ,
-    CHAL    : [CHAL]  ,
-    FAM     : [FAM]   ,
+    CHAL    : [CHAL]  , # chalet
+    FAM     : [FAM]   , # family
     INVEST  : [FAM, INVEST] ,
-    LIQ     : [FAM, LIQ] ,
-    PM      : [FAM, PM]  ,
-    REW     : [FAM, REW]
+    LIQ     : [FAM, LIQ] , # Liquid
+    PM      : [FAM, PM]  , # Precious Metals
+    REW     : [FAM, REW] , # Rewards
+    LOAN    : [FAM, LOAN]
 }
 
 # column index in the Google sheets
@@ -106,7 +107,8 @@ class UpdateBalance(UpdateBudget):
                 asset_sums[item] = acct_sum
 
         # report the family amount as the sum of the individual accounts
-        family_sum = "= " + str(asset_sums[INVEST]) + " + " + str(asset_sums[LIQ]) + " + " + str(asset_sums[PM]) + " + " + str(asset_sums[REW])
+        family_sum = "= " + str(asset_sums[INVEST]) + " + " + str(asset_sums[LIQ]) + " + " + str(asset_sums[LOAN]) + " + " + str(asset_sums[REW]) \
+                     + " + " + str(asset_sums[PM])
         self._lgr.debug(F"Adjusted assets on {now_dt} = '{family_sum}'")
         self.fill_google_cell(BAL_MTHLY_COLS[TODAY], BAL_TODAY_RANGES[FAM], family_sum)
 

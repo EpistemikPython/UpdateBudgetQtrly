@@ -43,13 +43,29 @@ ASSET_ACCTS = {
     HOUSE : [FAM, HOUSE]
 }
 
+# moved the Loans account to a new position in Gnucash right under Family
+# and also ignore some of the not very useful sub-accounts in the list of assets, from 2019 onwards
+ASSET_ACCTS_NEW = {
+    PM    : [FAM, PM],
+    LOAN  : [FAM, LOAN],
+    LIQ   : [FAM, LIQ],
+    REW   : [FAM, REW],
+    OPEN  : [FAM, INVEST, OPEN],
+    RRSP  : [FAM, INVEST, RRSP],
+    TFSA  : [FAM, INVEST, TFSA],
+    HOUSE : [FAM, HOUSE]
+}
+
 # column index in the Google sheets
 ASSET_COLS = {
     DATE  : 'B',
     AU    : 'U',
     AG    : 'T',
+    PM    : 'S',
     CASH  : 'R',
+    LOAN  : 'Q',
     BANK  : 'Q',
+    LIQ   : 'P',
     REW   : 'O',
     RESP  : 'O',
     OPEN  : 'L',
@@ -84,7 +100,11 @@ class UpdateAssets(UpdateBudget):
         int_year = get_int_year( p_year, ASSETS_DATA[BASE_YEAR] )
         end_date = current_quarter_end(int_year, start_month)
 
-        p_session.get_account_assets(ASSET_ACCTS, end_date, p_data=data_qtr)
+        asset_accounts = ASSET_ACCTS_NEW
+        # use slightly different accounts for 2019 onwards
+        if int_year < 2019:
+            asset_accounts = ASSET_ACCTS
+        p_session.get_account_assets(asset_accounts, end_date, p_data=data_qtr)
         data_qtr[YR] = p_year
         data_qtr[QTR] = str(p_qtr)
 
