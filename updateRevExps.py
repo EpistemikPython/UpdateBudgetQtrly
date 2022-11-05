@@ -40,7 +40,7 @@ EXP_ACCTS = {
     CONT : ["EXP_CONTINGENT"],
     NEC  : ["EXP_NECESSARY"]
 }
-DEDNS_BASE = 'DEDNS_Employment'
+DEDNS_BASE = 'DEDNS_Income'
 DEDN_ACCTS = {
     "Mark" : [DEDNS_BASE, 'Mark'],
     "Lulu" : [DEDNS_BASE, 'Lulu'],
