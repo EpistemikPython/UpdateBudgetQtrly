@@ -8,7 +8,7 @@
 __author__       = 'Mark Sattolo'
 __author_email__ = 'epistemik@gmail.com'
 __created__ = '2020-03-31'
-__updated__ = '2023-01-08'
+__updated__ = '2023-08-31'
 
 from sys import exc_info, path, argv
 from abc import ABC, abstractmethod
@@ -148,6 +148,9 @@ class UpdateBudget(ABC):
     def record_update(self):
         ru_result = self._ggl_update.read_sheets_data(RECORD_RANGE)
         current_row = int(ru_result[0][0])
+        # skip header rows
+        if current_row % 100 == 0:
+            current_row += 1
         self._lgr.debug(F"current row = {current_row}\n")
 
         update_info = self.__class__.__name__ + " - " + self.timespan + " - " + self.mode
