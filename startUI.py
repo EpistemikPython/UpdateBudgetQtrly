@@ -3,12 +3,13 @@
 #
 # startUI.py -- run the UI for the update functions
 #
-# Copyright (c) 2019-22 Mark Sattolo <epistemik@gmail.com>
+# Copyright (c) 2024 Mark Sattolo <epistemik@gmail.com>
 
-__author__       = "Mark Sattolo"
-__author_email__ = "epistemik@gmail.com"
+__author_name__    = "Mark Sattolo"
+__author_email__   = "epistemik@gmail.com"
+__python_version__ = "3.6+"
 __created__ = "2019-03-30"
-__updated__ = "2022-06-05"
+__updated__ = "2024-01-05"
 
 from sys import path
 from PyQt5.QtWidgets import (QApplication, QComboBox, QVBoxLayout, QGroupBox, QDialog, QFileDialog,
@@ -25,10 +26,11 @@ TIMEFRAME:str = "Time Frame"
 UPDATE_DOMAINS = [CURRENT_YRS, RECENT_YRS, MID_YRS, EARLY_YRS, ALL_YEARS] + [year for year in UPDATE_YEARS]
 UPDATE_FXNS = [update_rev_exps_main, update_assets_main, update_balance_main]
 CHOICE_FXNS = {
-    ALL          : ALL ,
-    BAL          : UPDATE_FXNS[2] ,
-    ASSET+'s'    : UPDATE_FXNS[1] ,
-    "Rev & Exps" : UPDATE_FXNS[0]
+    BAL+' & '+ASSET+'s' : UPDATE_FXNS[1:] ,
+    ALL                 : UPDATE_FXNS ,
+    BAL                 : UPDATE_FXNS[2] ,
+    ASSET+'s'           : UPDATE_FXNS[1] ,
+    "Rev & Exps"        : UPDATE_FXNS[0]
 }
 UI_DEFAULT_LOG_LEVEL = logging.INFO
 
@@ -75,7 +77,7 @@ class UpdateBudgetUI(QDialog):
         layout = QFormLayout()
 
         self.cb_script = QComboBox()
-        self.cb_script.addItems([x for x in CHOICE_FXNS])
+        self.cb_script.addItems([x for x in CHOICE_FXNS.keys()])
         # self.cb_script.currentIndexChanged.connect(partial(self.script_change))
         layout.addRow(QLabel("Script:"), self.cb_script)
 
@@ -166,16 +168,17 @@ class UpdateBudgetUI(QDialog):
         if self.ch_rsp.isChecked(): cl_params.append("--resp_save")
         ui_lgr.info( repr(cl_params) )
 
-        main_fxn = CHOICE_FXNS[exe]
-        if callable(main_fxn):
-            ui_lgr.info("Calling main function...")
-            response = main_fxn(cl_params)
-        elif main_fxn == ALL:
-            ui_lgr.info("main_fxn == ALL")
+        main_run = CHOICE_FXNS[exe]
+        ui_lgr.info(f"functions to run = {main_run}")
+        if callable(main_run):
+            ui_lgr.info(f"Calling update {exe}...")
+            response = main_run(cl_params)
+        elif isinstance(main_run, list):
+            ui_lgr.info(f"updates to run = {exe}")
             # use 'with' to ensure threads are cleaned up properly
-            with confut.ThreadPoolExecutor(max_workers = len(UPDATE_FXNS)) as executor:
+            with confut.ThreadPoolExecutor(max_workers = len(main_run)) as executor:
                 # send each update function to a separate thread
-                running_threads = {executor.submit(self.run_function, fxn, cl_params):fxn for fxn in UPDATE_FXNS}
+                running_threads = {executor.submit(self.run_function, fxn, cl_params):fxn for fxn in main_run}
                 ui_lgr.info(F"running threads = {repr(running_threads)}")
                 for completed_thread in confut.as_completed(running_threads):
                     submitted_fxn = repr(running_threads[completed_thread])
@@ -188,7 +191,7 @@ class UpdateBudgetUI(QDialog):
                         ui_lgr.debug(F"Update function '{submitted_fxn}' has finished with {type(data)} data")
             response = lg_ctrl.get_saved_info()
         else:
-            msg = F"Problem with main??!! '{main_fxn}'"
+            msg = F"Problem with functions??!! '{exe}'"
             ui_lgr.error(msg)
             response = msg
 
