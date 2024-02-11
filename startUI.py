@@ -9,7 +9,7 @@ __author_name__    = "Mark Sattolo"
 __author_email__   = "epistemik@gmail.com"
 __python_version__ = "3.6+"
 __created__ = "2019-03-30"
-__updated__ = "2024-01-05"
+__updated__ = "2024-02-07"
 
 from sys import path
 from PyQt5.QtWidgets import (QApplication, QComboBox, QVBoxLayout, QGroupBox, QDialog, QFileDialog,
@@ -38,6 +38,7 @@ UI_DEFAULT_LOG_LEVEL = logging.INFO
 # noinspection PyAttributeOutsideInit
 class UpdateBudgetUI(QDialog):
     """UI for updating my 'Budget Quarterly' Google spreadsheet with information from a Gnucash file."""
+
     def __init__(self):
         super().__init__()
         self.title = "Update Budget UI"
@@ -68,9 +69,7 @@ class UpdateBudgetUI(QDialog):
         layout.addWidget(self.gb_main)
         layout.addWidget(self.response_box)
         layout.addWidget(button_box)
-
         self.setLayout(layout)
-        self.show()
 
     def create_group_box(self):
         self.gb_main = QGroupBox("Parameters:")
@@ -78,7 +77,6 @@ class UpdateBudgetUI(QDialog):
 
         self.cb_script = QComboBox()
         self.cb_script.addItems([x for x in CHOICE_FXNS.keys()])
-        # self.cb_script.currentIndexChanged.connect(partial(self.script_change))
         layout.addRow(QLabel("Script:"), self.cb_script)
 
         self.gnc_file_btn = QPushButton("Get Gnucash file")
@@ -152,6 +150,7 @@ class UpdateBudgetUI(QDialog):
 
     def button_click(self):
         """Assemble the necessary parameters and call each selected update choice in a separate thread."""
+
         ui_lgr.info(F"Clicked '{self.exe_btn.text()}'.")
         exe = self.cb_script.currentText()
         ui_lgr.info(F"Script is '{exe}'.")
@@ -160,8 +159,7 @@ class UpdateBudgetUI(QDialog):
             self.response_box.append(">>> MUST select a Gnucash File!")
             return
 
-        cl_params = ['-g' + self.gnc_file, '-m' + self.cb_mode.currentText(),
-                     '-t' + self.cb_domain.currentText(), '-l' + str(self.log_level)]
+        cl_params = ['-g' + self.gnc_file, '-m' + self.cb_mode.currentText(), '-t' + self.cb_domain.currentText(), '-l' + str(self.log_level)]
 
         if self.ch_ggl.isChecked(): cl_params.append("--ggl_save")
         if self.ch_gnc.isChecked(): cl_params.append("--gnc_save")
@@ -197,11 +195,10 @@ class UpdateBudgetUI(QDialog):
 
         reply = {"response":response}
         self.response_box.append( json.dumps(reply, indent=4) )
-
 # END class UpdateBudgetUI
 
 
-def ui_main():
+def run_ui():
     app = QApplication(argv)
     dialog = UpdateBudgetUI()
     dialog.show()
@@ -211,5 +208,5 @@ def ui_main():
 if __name__ == "__main__":
     lg_ctrl = MhsLogger(UpdateBudgetUI.__name__, con_level = UI_DEFAULT_LOG_LEVEL, suffix = DEFAULT_LOG_SUFFIX)
     ui_lgr = lg_ctrl.get_logger()
-    ui_main()
+    run_ui()
     exit()
