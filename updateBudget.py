@@ -9,7 +9,7 @@ __author_name__    = 'Mark Sattolo'
 __author_email__   = 'epistemik@gmail.com'
 __python_version__ = "3.6+"
 __created__ = '2020-03-31'
-__updated__ = '2024-01-05'
+__updated__ = '2024-07-02'
 
 from sys import exc_info, path, argv
 from abc import ABC, abstractmethod
@@ -206,11 +206,18 @@ class UpdateBudget(ABC):
             goe_msg = repr(goe)
             self._lgr.error(goe_msg)
             self.response = {F"go() EXCEPTION = {goe_msg}"}
+            raise goe
+        finally:
+            # check if the google thread is active and wait if necessary
+            if self._ggl_thrd and self._ggl_thrd.is_alive():
+                self._lgr.info("wait for the thread to finish")
+                self._ggl_thrd.join()
 
         # check if the google thread is active and wait if necessary
         if self._ggl_thrd and self._ggl_thrd.is_alive():
             self._lgr.info("wait for the thread to finish")
             self._ggl_thrd.join()
+
         self._lgr.info(">>> PROGRAM ENDED.\n")
         return self.response
 
@@ -234,7 +241,7 @@ def set_args() -> ArgumentParser:
     required.add_argument('-m', '--mode', required = True, choices = [TEST, SHEET_1, SHEET_2],
                           help = "SEND to Google Sheet (1 or 2) OR just TEST")
     required.add_argument('-t', '--timespan', required = True,
-                          help = F"update a year or years in the range {BASE_UPDATE_YEAR}..{now_dt.year}")
+                          help = f"update a year or years in the range {BASE_UPDATE_YEAR}..{now_dt.year}")
     # optional arguments
     arg_parser.add_argument('-q', '--quarter', choices = ["1", "2", "3", "4"], help = "quarter to update: 1..4")
     arg_parser.add_argument('-l', '--level', type = int, default = lg.INFO, help = "set LEVEL of logging output")
