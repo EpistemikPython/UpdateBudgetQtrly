@@ -4,12 +4,13 @@
 # updateBalance.py -- use the Gnucash and Google APIs to update the 'Balance' sheet
 #                     in my BudgetQtrly document for today or for a specified year or years
 #
-# Copyright (c) 2019-21 Mark Sattolo <epistemik@gmail.com>
+# Copyright (c) 2024 Mark Sattolo <epistemik@gmail.com>
 #
-__author__       = "Mark Sattolo"
-__author_email__ = "epistemik@gmail.com"
+__author__         = "Mark Sattolo"
+__author_email__   = "epistemik@gmail.com"
+__python_version__ = "3.6+"
 __created__ = "2019-04-13"
-__updated__ = "2022-01-04"
+__updated__ = "2024-07-09"
 
 from updateAssets import ASSETS_DATA, ASSET_COLS
 from updateBudget import *
@@ -37,6 +38,9 @@ BASE_MTHLY_ROW:int = BASE_TOTAL_WORTH_ROW - 1
 BALANCE_ACCTS = {
     HOUSE   : [FAM, HOUSE] ,
     LIAB    : [FAM, LIAB]  ,
+    CC      : [FAM, LIAB, CC]    ,
+    KIA     : [FAM, LIAB, KIA]   ,
+    SLINE   : [FAM, LIAB, SLINE] ,
     TRUST   : [TRUST] ,
     CHAL    : [CHAL]  , # chalet
     FAM     : [FAM]   , # family
@@ -44,7 +48,8 @@ BALANCE_ACCTS = {
     LIQ     : [FAM, LIQ] , # Liquid
     PM      : [FAM, PM]  , # Precious Metals
     REW     : [FAM, REW] , # Rewards
-    LOAN    : [FAM, LOAN]
+    LOAN    : [FAM, LOAN],
+    CAR     : [FAM, CAR]
 }
 
 # column index in the Google sheets
@@ -101,14 +106,17 @@ class UpdateBalance(UpdateBudget):
             elif item == HOUSE:
                 self.fill_google_cell(BAL_MTHLY_COLS[TODAY], BAL_TODAY_RANGES[item], acct_sum)
             elif item == LIAB:
-                self.fill_google_cell(BAL_MTHLY_COLS[TODAY], BAL_TODAY_RANGES[item], acct_sum)
+                liab_sum = f"= {str(self.get_balance(BALANCE_ACCTS[CC], tdate))} {str(self.get_balance(BALANCE_ACCTS[KIA], tdate))}" \
+                           f" {str(self.get_balance(BALANCE_ACCTS[SLINE], tdate))}"
+                self._lgr.info(f"liab sum = '{liab_sum}'")
+                self.fill_google_cell(BAL_MTHLY_COLS[TODAY], BAL_TODAY_RANGES[item], liab_sum)
             else:
                 # need family assets EXCLUDING the previous items, which are reported separately
                 asset_sums[item] = acct_sum
 
         # report the family amount as the sum of the individual accounts
         family_sum = "= " + str(asset_sums[INVEST]) + " + " + str(asset_sums[LIQ]) + " + " + str(asset_sums[LOAN]) + " + " + str(asset_sums[REW]) \
-                     + " + " + str(asset_sums[PM])
+                     + " + " + str(asset_sums[PM]) + " + " + str(asset_sums[CAR])
         self._lgr.debug(F"Adjusted assets on {now_dt} = '{family_sum}'")
         self.fill_google_cell(BAL_MTHLY_COLS[TODAY], BAL_TODAY_RANGES[FAM], family_sum)
 
