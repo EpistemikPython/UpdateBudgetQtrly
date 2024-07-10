@@ -9,7 +9,7 @@ __author_name__    = 'Mark Sattolo'
 __author_email__   = 'epistemik@gmail.com'
 __python_version__ = "3.6+"
 __created__ = '2020-03-31'
-__updated__ = '2024-07-02'
+__updated__ = '2024-07-08'
 
 from sys import exc_info, path, argv
 from abc import ABC, abstractmethod
@@ -36,12 +36,12 @@ UPDATE_INTERVAL = {
     CURRENT_YRS : UPDATE_YEARS[:2]
 }
 
-SHEET_1:str   = SHEET + " 1"
-SHEET_2:str   = SHEET + " 2"
+SHEET_1:str   = f"{SHEET}1"
+SHEET_2:str   = f"{SHEET}2"
 BASE_YEAR:str = BASE + YR
 YEAR_SPAN:str = BASE_YEAR + SPAN
 QTR_SPAN:str  = QTR + SPAN
-HDR_SPAN:str  = "Header" + SPAN
+HDR_SPAN:str  = f"Header{SPAN}"
 
 RECORD_SHEET    = "Record"
 RECORD_RANGE    = F"'{RECORD_SHEET}'!A1"
@@ -64,7 +64,7 @@ def get_timespan(timespan:str, lgr:lg.Logger) -> list:
 class UpdateBudget(ABC):
     """
     update my 'Budget Quarterly' Google spreadsheet with information from a Gnucash file
-    -- contains common code for the three options of updating Rev&Exps, Assets, Balances
+    -- contains common code for the three options of updating Rev&Exps, Assets, Balance
     """
     def __init__(self, args:list, p_logname:str):
         self.process_input_parameters(args)
@@ -186,18 +186,18 @@ class UpdateBudget(ABC):
             self._lgr.info(F"google response file = {save_to_json(rf_name, self.response, ts = self.filetime)}")
 
     def go(self) -> dict:
-        """ENTRY POINT for accessing UpdateBudget functions."""
+        """>> ENTRY POINT for accessing UpdateBudget functions."""
         years = get_timespan(self.timespan, self._lgr)
+        sending = SHEET in self.mode
         self._lgr.info(F"timespan to find = {years}")
         try:
-            # READ the required Gnucash data
             self.prepare_gnucash_data(years)
 
-            # package the Gnucash data in the update format required by Google sheets
-            self.prepare_google_data(years)
+            if sending or self.save_ggl:
+                # package the Gnucash data in the format required by Google sheets
+                self.prepare_google_data(years)
 
-            # check if SENDING data
-            if SHEET in self.mode:
+            if sending:
                 self.start_google_thread()
             else:
                 self.response = {"Response" : self._lg_ctrl.get_saved_info()}
@@ -213,11 +213,6 @@ class UpdateBudget(ABC):
                 self._lgr.info("wait for the thread to finish")
                 self._ggl_thrd.join()
 
-        # check if the google thread is active and wait if necessary
-        if self._ggl_thrd and self._ggl_thrd.is_alive():
-            self._lgr.info("wait for the thread to finish")
-            self._ggl_thrd.join()
-
         self._lgr.info(">>> PROGRAM ENDED.\n")
         return self.response
 
@@ -228,7 +223,6 @@ class UpdateBudget(ABC):
     @abstractmethod
     def fill_google_data(self, p_years):
         pass
-
 # END class UpdateBudget
 
 
