@@ -2,14 +2,15 @@
 # coding=utf-8
 #
 # updateAssets.py -- use the Gnucash and Google APIs to update the Assets
-#                    in my BudgetQtrly document for a specified year or quarter
+#                    in my BudgetQtrly document for a specified period of time
 #
-# Copyright (c) 2019-21 Mark Sattolo <epistemik@gmail.com>
+# Copyright (c) 2024 Mark Sattolo <epistemik@gmail.com>
 #
-__author__       = "Mark Sattolo"
-__author_email__ = "epistemik@gmail.com"
+__author__         = "Mark Sattolo"
+__author_email__   = "epistemik@gmail.com"
+__python_version__ = "3.6+"
 __created__ = "2019-04-06"
-__updated__ = "2021-07-10"
+__updated__ = "2024-07-09"
 
 from updateBudget import *
 
@@ -53,7 +54,8 @@ ASSET_ACCTS_NEW = {
     OPEN  : [FAM, INVEST, OPEN],
     RRSP  : [FAM, INVEST, RRSP],
     TFSA  : [FAM, INVEST, TFSA],
-    HOUSE : [FAM, HOUSE]
+    HOUSE : [FAM, HOUSE],
+    CAR   : [FAM, CAR],
 }
 
 # column index in the Google sheets
@@ -72,7 +74,8 @@ ASSET_COLS = {
     RRSP  : 'M',
     TFSA  : 'N',
     HOUSE : 'I',
-    TOTAL : 'H'
+    TOTAL : 'H',
+    CAR   : 'R'
 }
 
 
