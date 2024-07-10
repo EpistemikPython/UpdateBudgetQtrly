@@ -1,8 +1,7 @@
-##############################################################################################################################
+########################################################################################################################################
 # coding=utf-8
 #
-# updateAssets.py -- use the Gnucash and Google APIs to update the Assets
-#                    in my BudgetQtrly document for a specified period of time
+# updateAssets.py -- use the Gnucash and Google APIs to update the Assets in my BudgetQtrly document for a specified period of time
 #
 # Copyright (c) 2024 Mark Sattolo <epistemik@gmail.com>
 #
@@ -10,7 +9,7 @@ __author__         = "Mark Sattolo"
 __author_email__   = "epistemik@gmail.com"
 __python_version__ = "3.6+"
 __created__ = "2019-04-06"
-__updated__ = "2024-07-09"
+__updated__ = "2024-07-10"
 
 from updateBudget import *
 
@@ -30,7 +29,7 @@ ASSETS_DATA = {
     HDR_SPAN : 3
 }
 
-# path to the account in the Gnucash file
+# original paths to accounts in the Gnucash file
 ASSET_ACCTS = {
     AU    : [FAM, PM, "Au"],
     AG    : [FAM, PM, "Ag"],
@@ -45,7 +44,7 @@ ASSET_ACCTS = {
 }
 
 # moved the Loans account to a new position in Gnucash right under Family
-# and also ignore some of the not very useful sub-accounts in the list of assets, from 2019 onwards
+# also ignore some of the not very useful sub-accounts in the list of assets, from 2019 onwards
 ASSET_ACCTS_NEW = {
     PM    : [FAM, PM],
     LOAN  : [FAM, LOAN],
@@ -85,9 +84,11 @@ class UpdateAssets(UpdateBudget):
         super().__init__(args, p_logname)
 
         # Google sheet to update
-        self.dest = QTR_ASTS_2_SHEET
+        self.dest = self.mode
         if '1' in self.mode:
             self.dest = QTR_ASTS_SHEET
+        elif '2' in self.mode:
+            self.dest = QTR_ASTS_2_SHEET
         self._lgr.debug(F"dest = {self.dest}")
 
     def fill_gnucash_data(self, p_session:GnucashSession, p_qtr:int, p_year:str, data_qtr:dict) -> dict:
@@ -138,7 +139,6 @@ class UpdateAssets(UpdateBudget):
                     if key == REW and target_year < 2016:
                         continue
                     self._ggl_update.fill_cell(self.dest, ASSET_COLS[key], dest_row, item[key])
-
 # END class UpdateAssets
 
 
