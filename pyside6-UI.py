@@ -9,7 +9,7 @@ __author_name__    = "Mark Sattolo"
 __author_email__   = "epistemik@gmail.com"
 __python_version__ = "3.6+"
 __created__ = "2024-07-01"
-__updated__ = "2024-07-02"
+__updated__ = "2024-07-10"
 
 from sys import path
 from PySide6.QtWidgets import (QApplication, QComboBox, QVBoxLayout, QGroupBox, QDialog, QFileDialog,
@@ -46,11 +46,9 @@ class UpdateBudgetUI(QDialog):
         self.width  = 600
         self.height = 800
         self.gnc_file = ""
-        self.init_ui()
         self._lgr = log_control.get_logger()
         log_control.show( F"{self.title} runtime = {get_current_time()}" )
 
-    def init_ui(self):
         self.setWindowTitle(self.title)
         self.setGeometry(self.left, self.top, self.width, self.height)
         self.log_level = UI_DEFAULT_LOG_LEVEL
@@ -80,7 +78,7 @@ class UpdateBudgetUI(QDialog):
         layout.addRow(QLabel("Script:"), self.cb_script)
 
         self.gnc_file_btn = QPushButton("Get Gnucash file")
-        self.gnc_file_btn.clicked.connect(partial(self.open_file_name_dialog))
+        self.gnc_file_btn.clicked.connect(self.open_file_name_dialog)
         layout.addRow(QLabel("Gnucash File:"), self.gnc_file_btn)
 
         self.cb_mode = QComboBox()
@@ -111,7 +109,7 @@ class UpdateBudgetUI(QDialog):
 
         self.exe_btn = QPushButton("Go!")
         self.exe_btn.setStyleSheet("QPushButton {font-weight: bold; color: red; background-color: yellow;}")
-        self.exe_btn.clicked.connect(partial(self.button_click))
+        self.exe_btn.clicked.connect(self.button_click)
         layout.addRow(QLabel("EXECUTE:"), self.exe_btn)
 
         self.gb_main.setLayout(layout)
@@ -131,8 +129,9 @@ class UpdateBudgetUI(QDialog):
             self.log_level = num
             self._lgr.debug(F"logging level changed to {num}.")
 
-    def selection_change(self, cb:QComboBox, label:str):
-        self._lgr.debug(F"ComboBox '{label}' selection changed to '{cb.currentText()}'.")
+    # 'partial' always passes the index to the function as an extra param...!
+    def selection_change(self, cb:QComboBox, label:str, indx:int):
+        self._lgr.info(F"ComboBox '{label}' selection changed to: {cb.currentText()} [{indx}].")
 
     def run_function(self, thread_fxn, p_params:list):
         fxn_param = repr(thread_fxn)
@@ -198,8 +197,7 @@ class UpdateBudgetUI(QDialog):
             self._lgr.error(msg)
             response = msg
 
-        reply = {"response":response}
-        self.response_box.append( json.dumps(reply, indent=4) )
+        self.response_box.append( json.dumps({"RESPONSE\n":response}, indent=4) )
 # END class UpdateBudgetUI
 
 
@@ -219,9 +217,9 @@ if __name__ == "__main__":
     except Exception as ex:
         log_control.show(F"Problem: {repr(ex)}.")
         code = 66
-
-    if dialog:
-        dialog.close()
-    if app:
-        app.exit(code)
+    finally:
+        if dialog:
+            dialog.close()
+        if app:
+            app.exit(code)
     exit(code)
