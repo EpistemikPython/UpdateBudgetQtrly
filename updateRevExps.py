@@ -4,17 +4,17 @@
 # updateRevExps.py -- use the Gnucash and Google APIs to update the Revenue and Expenses
 #                     in my BudgetQtrly document for a specified year or quarter
 #
-# Copyright (c) 2019-21 Mark Sattolo <epistemik@gmail.com>
+# Copyright (c) 2024 Mark Sattolo <epistemik@gmail.com>
 #
-__author__       = 'Mark Sattolo'
-__author_email__ = 'epistemik@gmail.com'
+__author__         = 'Mark Sattolo'
+__author_email__   = 'epistemik@gmail.com'
+__python_version__ = "3.6+"
 __created__ = '2019-03-30'
-__updated__ = '2021-07-10'
+__updated__ = '2024-07-12'
 
 from updateBudget import *
 
 base_run_file = get_base_filename(__file__)
-# print(base_run_file)
 
 REVEXPS_DATA = {
     # first data row in the sheet
@@ -79,7 +79,7 @@ class UpdateRevExps(UpdateBudget):
         self._lgr.error("NO root account!")
         return ""
 
-    def fill_gnucash_data(self, p_session:GnucashSession, p_qtr:int, p_year:str, data_qtr:dict) -> dict:
+    def fill_gnucash_data(self, p_session:GnucashSession, p_qtr:int, p_year:str) -> dict:
         root_acct = p_session.get_root_acct()
         start_month = (p_qtr * 3) - 2
         int_year = get_int_year( p_year, REVEXPS_DATA[BASE_YEAR] )
@@ -97,6 +97,7 @@ class UpdateRevExps(UpdateBudget):
         # a copy of the above list with just the period start dates
         period_starts = [e[0] for e in period_list]
 
+        data_qtr = {}
         self.get_revenue(root_acct, period_starts, period_list, data_qtr)
         data_qtr[YR] = p_year
         data_qtr[QTR] = str(p_qtr)
@@ -223,13 +224,12 @@ class UpdateRevExps(UpdateBudget):
                     if key in (REV, BAL, CONT):
                         dest = self.all_inc_dest
                     self._ggl_update.fill_cell(dest, REV_EXP_COLS[key], dest_row, item[key])
-
 # END class UpdateRevExps
 
 
 def update_rev_exps_main(args:list) -> dict:
     rev_exp = UpdateRevExps(args, base_run_file)
-    return rev_exp.go()
+    return rev_exp.go("Revs & Exps")
 
 
 if __name__ == "__main__":
