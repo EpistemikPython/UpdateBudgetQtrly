@@ -9,9 +9,9 @@ __author_name__    = 'Mark Sattolo'
 __author_email__   = 'epistemik@gmail.com'
 __python_version__ = "3.6+"
 __created__ = '2020-03-31'
-__updated__ = '2024-07-08'
+__updated__ = '2024-07-12'
 
-from sys import exc_info, path, argv
+from sys import path, argv
 from abc import ABC, abstractmethod
 from argparse import ArgumentParser
 path.append("/home/marksa/git/Python/utils")
@@ -118,23 +118,19 @@ class UpdateBudget(ABC):
             for year in p_years:
                 for i in range(4): # ALL quarters since updating an entire year
                     self._lgr.debug(F"filling {year}-Q{i+1}")
-                    data_quarter = {}
-                    self.fill_gnucash_data(gnc_session, i+1, year, data_quarter)
-
-            # no save needed as just reading
-            gnc_session.end_session(False)
+                    self.fill_gnucash_data(gnc_session, i+1, year)
 
             if self.save_gnc:
                 fname = F"{self.__class__.__name__}_gnc-data-{self.timespan}"
                 self._lgr.info(F"gnucash data file = {save_to_json(fname, self._gnucash_data, ts = self.filetime)}")
 
-        except Exception as ex:
-            ex_msg = F"prepare_gnucash_data() EXCEPTION: {repr(ex)}!"
-            tb = exc_info()[2]
-            self._lgr.error(ex_msg, tb)
+        except Exception as pgdex:
+            self._lgr.exception(repr(pgdex))
+            raise pgdex
+        finally:
             if gnc_session:
-                gnc_session.check_end_session(locals())
-            raise ex.with_traceback(tb)
+                # no save needed as just reading
+                gnc_session.end_session()
 
     def prepare_google_data(self, p_years:list):
         """Fill the Google data list."""
@@ -185,11 +181,11 @@ class UpdateBudget(ABC):
             rf_name = F"{self.__class__.__name__}_response{self.target_name}"
             self._lgr.info(F"google response file = {save_to_json(rf_name, self.response, ts = self.filetime)}")
 
-    def go(self) -> dict:
+    def go(self, label:str="Budget") -> dict:
         """>> ENTRY POINT for accessing UpdateBudget functions."""
         years = get_timespan(self.timespan, self._lgr)
+        self._lgr.info(f">>> Updating {label.upper()}.  Mode = '{self.mode}'.  timespan to find = {years}")
         sending = SHEET in self.mode
-        self._lgr.info(F"timespan to find = {years}")
         try:
             self.prepare_gnucash_data(years)
 
@@ -204,7 +200,7 @@ class UpdateBudget(ABC):
 
         except Exception as goe:
             goe_msg = repr(goe)
-            self._lgr.error(goe_msg)
+            self._lgr.exception(goe_msg)
             self.response = {F"go() EXCEPTION = {goe_msg}"}
             raise goe
         finally:
@@ -217,7 +213,7 @@ class UpdateBudget(ABC):
         return self.response
 
     @abstractmethod
-    def fill_gnucash_data(self, gnc_session, param, year, data_quarter):
+    def fill_gnucash_data(self, gnc_session, param, year):
         pass
 
     @abstractmethod
@@ -227,8 +223,7 @@ class UpdateBudget(ABC):
 
 
 def set_args() -> ArgumentParser:
-    arg_parser = ArgumentParser(description = "Update various tabs of my 'Budget-qtrly' Google Sheet",
-                                prog = "updateBudget.py")
+    arg_parser = ArgumentParser(description = "Update various tabs of my 'Budget-qtrly' Google Sheet", prog = "python3 updateBudget.py")
     # required arguments
     required = arg_parser.add_argument_group("REQUIRED")
     required.add_argument('-g', '--gnucash_file', required = True, help = "path & filename of the Gnucash file to use")
