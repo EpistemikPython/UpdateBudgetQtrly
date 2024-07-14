@@ -10,7 +10,7 @@ __author__         = "Mark Sattolo"
 __author_email__   = "epistemik@gmail.com"
 __python_version__ = "3.6+"
 __created__ = "2019-04-13"
-__updated__ = "2024-07-09"
+__updated__ = "2024-07-12"
 
 from updateAssets import ASSETS_DATA, ASSET_COLS
 from updateBudget import *
@@ -92,7 +92,7 @@ class UpdateBalance(UpdateBudget):
         return self._gnc_session.get_total_balance(bal_path, p_date)
 
     def fill_today(self):
-        """Get Balance data for TODAY: LIABS, House, FAMILY, CHALET, TRUST."""
+        """Get Balance data for TODAY: LIAB, House, FAMILY, CHALET, TRUST."""
         self._lgr.debug(get_current_time())
         # calls using 'today' ARE NOT off by one day??
         tdate = now_dt - ONE_DAY
@@ -106,6 +106,7 @@ class UpdateBalance(UpdateBudget):
             elif item == HOUSE:
                 self.fill_google_cell(BAL_MTHLY_COLS[TODAY], BAL_TODAY_RANGES[item], acct_sum)
             elif item == LIAB:
+                # return a string with the individual amounts
                 liab_sum = f"= {str(self.get_balance(BALANCE_ACCTS[CC], tdate))} {str(self.get_balance(BALANCE_ACCTS[KIA], tdate))}" \
                            f" {str(self.get_balance(BALANCE_ACCTS[SLINE], tdate))}"
                 self._lgr.info(f"liab sum = '{liab_sum}'")
@@ -114,10 +115,10 @@ class UpdateBalance(UpdateBudget):
                 # need family assets EXCLUDING the previous items, which are reported separately
                 asset_sums[item] = acct_sum
 
-        # report the family amount as the sum of the individual accounts
+        # report as a string with the individual amounts
         family_sum = "= " + str(asset_sums[INVEST]) + " + " + str(asset_sums[LIQ]) + " + " + str(asset_sums[LOAN]) + " + " + str(asset_sums[REW]) \
                      + " + " + str(asset_sums[PM]) + " + " + str(asset_sums[CAR])
-        self._lgr.debug(F"Adjusted assets on {now_dt} = '{family_sum}'")
+        self._lgr.info(F"Adjusted assets on {now_dt} = '{family_sum}'")
         self.fill_google_cell(BAL_MTHLY_COLS[TODAY], BAL_TODAY_RANGES[FAM], family_sum)
 
     # TODO: fill in reference for Assets for div-3 months in K row
@@ -148,8 +149,7 @@ class UpdateBalance(UpdateBudget):
                 self._lgr.debug("Update reference to Assets sheet for Mar, June, Sep or Dec")
                 # have to update the CELL REFERENCE to current year/qtr ASSETS
                 year_row = ASSETS_DATA[BASE_ROW] \
-                           + year_span( now_dt.year, ASSETS_DATA[BASE_YEAR], ASSETS_DATA[YEAR_SPAN], ASSETS_DATA[HDR_SPAN],
-                                        self._lgr )
+                           + year_span( now_dt.year, ASSETS_DATA[BASE_YEAR], ASSETS_DATA[YEAR_SPAN], ASSETS_DATA[HDR_SPAN], self._lgr )
                 int_qtr = (month_end.month // 3) - 1
                 self._lgr.debug(F"int_qtr = {int_qtr}")
                 dest_row = year_row + (int_qtr * ASSETS_DATA.get(QTR_SPAN))
@@ -208,7 +208,8 @@ class UpdateBalance(UpdateBudget):
         yr_span = year_span( year, BALANCE_DATA[BASE_YEAR], BALANCE_DATA[YEAR_SPAN], BALANCE_DATA[HDR_SPAN] )
         self.fill_google_cell( BAL_MTHLY_COLS[LIAB][YR], BALANCE_DATA[BASE_ROW] + yr_span, str(liab_sum) )
 
-    def fill_gnucash_data(self, p_session:GnucashSession, p_qtr:int, p_year:str, data_qtr:dict):
+    def fill_gnucash_data(self, p_session:GnucashSession, p_qtr:int, p_year:str):
+        """Not needed for updating Balance"""
         self._gnc_session = p_session
 
     def fill_google_cell(self, p_col:str, p_row:int, p_val:FILL_CELL_VAL):
@@ -221,8 +222,6 @@ class UpdateBalance(UpdateBudget):
                              Balance data for TODAY: LIABS, House, FAMILY, XCHALET, TRUST
             IF PREVIOUS YEAR: LIABS for ALL NON-completed months; FAMILY for ALL non-3 NON-completed months in year
         """
-        self._lgr.info(F"timespan = {p_years}\n")
-
         for yr in p_years:
             year = get_int_year( yr, BALANCE_DATA[BASE_YEAR] )
             if year == now_dt.year:
@@ -231,13 +230,12 @@ class UpdateBalance(UpdateBudget):
                 self.fill_previous_year()
             else:
                 self.fill_year_end_liabs(year)
-
 # END class UpdateBalance
 
 
 def update_balance_main(args:list) -> dict:
     balance = UpdateBalance(args, base_run_file)
-    return balance.go()
+    return balance.go("Balance")
 
 
 if __name__ == "__main__":
