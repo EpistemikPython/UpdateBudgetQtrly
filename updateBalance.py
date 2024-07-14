@@ -107,8 +107,8 @@ class UpdateBalance(UpdateBudget):
                 self.fill_google_cell(BAL_MTHLY_COLS[TODAY], BAL_TODAY_RANGES[item], acct_sum)
             elif item == LIAB:
                 # return a string with the individual amounts
-                liab_sum = f"= {str(self.get_balance(BALANCE_ACCTS[CC], tdate))} {str(self.get_balance(BALANCE_ACCTS[KIA], tdate))}" \
-                           f" {str(self.get_balance(BALANCE_ACCTS[SLINE], tdate))}"
+                liab_sum = f"= {str(self.get_balance(BALANCE_ACCTS[CC], tdate))} + {str(self.get_balance(BALANCE_ACCTS[KIA], tdate))}" \
+                           f" + {str(self.get_balance(BALANCE_ACCTS[SLINE], tdate))}"
                 self._lgr.info(f"liab sum = '{liab_sum}'")
                 self.fill_google_cell(BAL_MTHLY_COLS[TODAY], BAL_TODAY_RANGES[item], liab_sum)
             else:
@@ -116,8 +116,8 @@ class UpdateBalance(UpdateBudget):
                 asset_sums[item] = acct_sum
 
         # report as a string with the individual amounts
-        family_sum = "= " + str(asset_sums[INVEST]) + " + " + str(asset_sums[LIQ]) + " + " + str(asset_sums[LOAN]) + " + " + str(asset_sums[REW]) \
-                     + " + " + str(asset_sums[PM]) + " + " + str(asset_sums[CAR])
+        family_sum = f"= {str(asset_sums[INVEST])} + {str(asset_sums[LIQ])} + {str(asset_sums[LOAN])} + {str(asset_sums[REW])}" \
+                     f" + {str(asset_sums[PM])} + {str(asset_sums[CAR])}"
         self._lgr.info(F"Adjusted assets on {now_dt} = '{family_sum}'")
         self.fill_google_cell(BAL_MTHLY_COLS[TODAY], BAL_TODAY_RANGES[FAM], family_sum)
 
@@ -148,8 +148,7 @@ class UpdateBalance(UpdateBudget):
             else:
                 self._lgr.debug("Update reference to Assets sheet for Mar, June, Sep or Dec")
                 # have to update the CELL REFERENCE to current year/qtr ASSETS
-                year_row = ASSETS_DATA[BASE_ROW] \
-                           + year_span( now_dt.year, ASSETS_DATA[BASE_YEAR], ASSETS_DATA[YEAR_SPAN], ASSETS_DATA[HDR_SPAN], self._lgr )
+                year_row = ASSETS_DATA[BASE_ROW] + year_span( now_dt.year, ASSETS_DATA[BASE_YEAR], ASSETS_DATA[YEAR_SPAN], ASSETS_DATA[HDR_SPAN], self._lgr )
                 int_qtr = (month_end.month // 3) - 1
                 self._lgr.debug(F"int_qtr = {int_qtr}")
                 dest_row = year_row + (int_qtr * ASSETS_DATA.get(QTR_SPAN))
