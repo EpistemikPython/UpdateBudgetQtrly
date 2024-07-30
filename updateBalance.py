@@ -102,7 +102,7 @@ class UpdateBalance(UpdateBudget):
             if item == TRUST:
                 self.fill_google_cell(BAL_MTHLY_COLS[TODAY], BAL_TODAY_RANGES[item], acct_sum)
             elif item == CHAL:
-                self.fill_google_cell(BAL_MTHLY_COLS[TODAY], BAL_TODAY_RANGES[item], acct_sum)
+                self.fill_google_cell(BAL_MTHLY_COLS[TODAY], BAL_TODAY_RANGES[item], (acct_sum/Decimal(2))) # our half of cottage value
             elif item == HOUSE:
                 self.fill_google_cell(BAL_MTHLY_COLS[TODAY], BAL_TODAY_RANGES[item], acct_sum)
             elif item == LIAB:
