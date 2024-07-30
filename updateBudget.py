@@ -146,7 +146,7 @@ class UpdateBudget(ABC):
         ru_result = self._ggl_update.read_sheets_data(RECORD_RANGE)
         current_row = int(ru_result[0][0])
         # skip header rows
-        if current_row % 100 == 0:
+        if current_row % 50 == 0:
             current_row += 1
         self._lgr.debug(F"current row = {current_row}\n")
 
@@ -160,7 +160,7 @@ class UpdateBudget(ABC):
         self._ggl_update.fill_cell(RECORD_SHEET, RECORD_INFO_COL, current_row, update_info)
 
         # update the row tally
-        self._ggl_update.fill_cell(RECORD_SHEET, RECORD_DATE_COL, 1, str(current_row + 1))
+        self._ggl_update.fill_cell(RECORD_SHEET, 'A', 1, str(current_row + 1))
 
     def start_google_thread(self):
         self._lgr.debug("before creating thread")
