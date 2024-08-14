@@ -8,9 +8,9 @@
 #
 __author__         = "Mark Sattolo"
 __author_email__   = "epistemik@gmail.com"
-__python_version__ = "3.6+"
+__python_version__ = "3.10+"
 __created__ = "2019-04-13"
-__updated__ = "2024-07-12"
+__updated__ = "2024-08-14"
 
 from updateAssets import ASSETS_DATA, ASSET_COLS
 from updateBudget import *
@@ -118,14 +118,15 @@ class UpdateBalance(UpdateBudget):
         # report as a string with the individual amounts
         family_sum = f"= {str(asset_sums[INVEST])} + {str(asset_sums[LIQ])} + {str(asset_sums[LOAN])} + {str(asset_sums[REW])}" \
                      f" + {str(asset_sums[PM])} + {str(asset_sums[CAR])}"
-        self._lgr.info(F"Adjusted assets on {now_dt} = '{family_sum}'")
+        self._lgr.info(f"Adjusted assets on {now_dt} = '{family_sum}'")
         self.fill_google_cell(BAL_MTHLY_COLS[TODAY], BAL_TODAY_RANGES[FAM], family_sum)
 
-    # TODO: fill in reference for Assets for div-3 months in K row
     def fill_current_year(self):
         """
-        CURRENT YEAR: fill_today() AND: LIABS for ALL completed month_ends;
-                                        FAMILY for ALL 'non-div-3' completed month_ends in year
+        CURRENT YEAR: fill_today() AND:
+          LIABS for ALL completed month_ends
+          FAMILY assets for ALL 'non-div-3' completed month_ends in year
+          reference to Assets sheet for 'div-3' months (MAR,JUN,SEP,DEC)
         """
         self.fill_today()
         self._lgr.debug(get_current_time())
@@ -161,8 +162,9 @@ class UpdateBalance(UpdateBudget):
 
     def fill_previous_year(self):
         """
-        PREVIOUS YEAR: LIABS for ALL NON-completed months;
-                       FAMILY assets for ALL 'non-div-3' NON-completed months in year
+        PREVIOUS YEAR:
+          LIABS for ALL NON-completed months;
+          FAMILY assets for ALL 'non-div-3' NON-completed months in year
         """
         self._lgr.debug(get_current_time())
 
@@ -217,9 +219,13 @@ class UpdateBalance(UpdateBudget):
     def fill_google_data(self, p_years:list):
         """
         for each of the specified years:
-            IF CURRENT YEAR: TODAY & LIABS for ALL completed months; FAMILY for ALL non-3 completed months in year
-                             Balance data for TODAY: LIABS, House, FAMILY, XCHALET, TRUST
-            IF PREVIOUS YEAR: LIABS for ALL NON-completed months; FAMILY for ALL non-3 NON-completed months in year
+            IF CURRENT YEAR:
+              TODAY & LIABS for ALL completed months
+              FAMILY assets for ALL non-div-3 completed months in year
+              Balance data for TODAY: LIABS, House, FAMILY, CHALET, TRUST
+            IF PREVIOUS YEAR:
+              LIABS for ALL NON-completed months
+              FAMILY assets for ALL non-div-3 NON-completed months in year
         """
         for yr in p_years:
             year = get_int_year( yr, BALANCE_DATA[BASE_YEAR] )
