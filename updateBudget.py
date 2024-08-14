@@ -7,9 +7,9 @@
 
 __author_name__    = 'Mark Sattolo'
 __author_email__   = 'epistemik@gmail.com'
-__python_version__ = "3.6+"
+__python_version__ = "3.10+"
 __created__ = '2020-03-31'
-__updated__ = '2024-07-12'
+__updated__ = '2024-08-13'
 
 from sys import path, argv
 from abc import ABC, abstractmethod
@@ -77,12 +77,12 @@ class UpdateBudget(ABC):
 
         self._lg_ctrl = MhsLogger(log_name, con_level = self.level, file_time = self.filetime, suffix = DEFAULT_LOG_SUFFIX)
         self._lgr = self._lg_ctrl.get_logger()
-        self._lgr.info(F"Runtime = {get_current_time()}")
+        self._lgr.info(f"Started = {get_current_time()}")
 
         self._gnucash_data = []
         self._ggl_update = MhsSheetAccess(self._lgr)
         self._ggl_thrd = None
-        self.response  = None
+        self.response = {"Started":f"{get_current_time()}"}
         self._lgr.debug(F"Gnucash file = {self._gnucash_file}; Domain = {self.timespan} & Mode = {self.mode}")
 
     # noinspection PyAttributeOutsideInit
@@ -90,8 +90,7 @@ class UpdateBudget(ABC):
         args = set_args().parse_args(argl)
 
         if not osp.isfile(args.gnucash_file):
-            msg = F"File path '{args.gnucash_file}' DOES NOT exist! Exiting..."
-            raise Exception(msg)
+            raise Exception(f"File path '{args.gnucash_file}' DOES NOT exist! Exiting...")
         self._gnucash_file = args.gnucash_file
 
         self.timespan = args.timespan
@@ -125,7 +124,7 @@ class UpdateBudget(ABC):
                 self._lgr.info(F"gnucash data file = {save_to_json(fname, self._gnucash_data, ts = self.filetime)}")
 
         except Exception as pgdex:
-            self._lgr.exception(repr(pgdex))
+            self._lgr.exception(pgdex)
             raise pgdex
         finally:
             if gnc_session:
@@ -199,9 +198,7 @@ class UpdateBudget(ABC):
                 self.response = {"Response" : self._lg_ctrl.get_saved_info()}
 
         except Exception as goe:
-            goe_msg = repr(goe)
-            self._lgr.exception(goe_msg)
-            self.response = {F"go() EXCEPTION = {goe_msg}"}
+            self._lgr.exception(goe)
             raise goe
         finally:
             # check if the google thread is active and wait if necessary
@@ -242,8 +239,7 @@ def set_args() -> ArgumentParser:
 
 
 def test_google_read():
-    logger = get_simple_logger(UpdateBudget.__name__)
-    ggl_updater = MhsSheetAccess(logger)
+    ggl_updater = MhsSheetAccess()
     result = ggl_updater.test_read(RECORD_RANGE)
     print(result)
     print(result[0][0])
@@ -251,7 +247,8 @@ def test_google_read():
 
 if __name__ == "__main__":
     if len(argv) > 1:
-        set_args().parse_args(argv[1:])
+        # test the submitted arguments
+        print( repr(set_args().parse_args(argv[1:])) )
     else:
         test_google_read()
     exit()
