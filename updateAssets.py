@@ -7,9 +7,9 @@
 #
 __author__         = "Mark Sattolo"
 __author_email__   = "epistemik@gmail.com"
-__python_version__ = "3.6+"
+__python_version__ = "3.10+"
 __created__ = "2019-04-06"
-__updated__ = "2024-07-12"
+__updated__ = "2024-08-13"
 
 from updateBudget import *
 
@@ -42,19 +42,22 @@ ASSET_ACCTS = {
     HOUSE : [FAM, HOUSE]
 }
 
+# >> from 2019 onwards
 # moved the Loans account to a new position in Gnucash right under Family
-# also ignore some of the not very useful sub-accounts in the list of assets, from 2019 onwards
+# also ignore some of the not very useful sub-accounts in the list of assets,
 ASSET_ACCTS_NEW = {
     PM    : [FAM, PM],
     LOAN  : [FAM, LOAN],
     LIQ   : [FAM, LIQ],
-    REW   : [FAM, REW],
+    REW   : [FAM, REW], # Rewards
     OPEN  : [FAM, INVEST, OPEN],
     RRSP  : [FAM, INVEST, RRSP],
     TFSA  : [FAM, INVEST, TFSA],
-    HOUSE : [FAM, HOUSE],
-    CAR   : [FAM, CAR],
+    HOUSE : [FAM, HOUSE]
 }
+
+# have the CAR account from 2024 onwards
+ASSET_ACCTS_CURRENT = ASSET_ACCTS_NEW | { CAR: [FAM, CAR] }
 
 # column index in the Google sheets
 ASSET_COLS = {
@@ -104,9 +107,11 @@ class UpdateAssets(UpdateBudget):
 
         data_qtr = {}
         asset_accounts = ASSET_ACCTS_NEW
-        # using slightly different accounts for 2019 onwards
+        # had slightly different accounts before 2019
         if int_year < 2019:
             asset_accounts = ASSET_ACCTS
+        elif int_year > 2023:
+            asset_accounts = ASSET_ACCTS_CURRENT
         p_session.get_account_assets(asset_accounts, end_date, p_data=data_qtr)
         data_qtr[YR] = p_year
         data_qtr[QTR] = str(p_qtr)
