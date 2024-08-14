@@ -7,9 +7,9 @@
 
 __author_name__    = "Mark Sattolo"
 __author_email__   = "epistemik@gmail.com"
-__python_version__ = "3.6+"
+__python_version__ = "3.10+"
 __created__ = "2024-07-01"
-__updated__ = "2024-07-12"
+__updated__ = "2024-08-13"
 
 from sys import path
 from PySide6.QtWidgets import (QApplication, QComboBox, QVBoxLayout, QGroupBox, QDialog, QFileDialog,
@@ -40,9 +40,9 @@ class UpdateBudgetUI(QDialog):
     def __init__(self):
         super().__init__()
         self.title = "Update Budget UI"
-        self.left = 120
-        self.top  = 160
-        self.width  = 600
+        self.left = 20
+        self.top  = 120
+        self.width  = 620
         self.height = 800
         self.gnc_file = ""
         self._lgr = log_control.get_logger()
