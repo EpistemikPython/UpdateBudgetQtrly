@@ -9,7 +9,7 @@ __author_name__    = "Mark Sattolo"
 __author_email__   = "epistemik@gmail.com"
 __python_version__ = "3.10+"
 __created__ = "2024-07-01"
-__updated__ = "2024-08-13"
+__updated__ = "2024-08-17"
 
 from sys import path
 from PySide6.QtWidgets import (QApplication, QComboBox, QVBoxLayout, QGroupBox, QDialog, QFileDialog,
@@ -24,7 +24,7 @@ from updateBalance import update_balance_main
 TIMEFRAME:str = "Time Frame"
 UPDATE_DOMAINS = [CURRENT_YRS, RECENT_YRS, MID_YRS, EARLY_YRS, ALL_YEARS] + [year for year in UPDATE_YEARS]
 UPDATE_FXNS = [update_rev_exps_main, update_assets_main, update_balance_main]
-CHOICE_FXNS = {
+FXNS_TABLE = {
     BAL+' & '+ASSET+'s' : UPDATE_FXNS[1:] ,
     ALL                 : UPDATE_FXNS ,
     BAL                 : UPDATE_FXNS[2] ,
@@ -46,7 +46,7 @@ class UpdateBudgetUI(QDialog):
         self.height = 800
         self.gnc_file = ""
         self._lgr = log_control.get_logger()
-        log_control.show( F"{self.title} runtime = {get_current_time()}" )
+        log_control.show( f"{self.title} runtime = {get_current_time()}" )
 
         self.setWindowTitle(self.title)
         self.setGeometry(self.left, self.top, self.width, self.height)
@@ -73,7 +73,7 @@ class UpdateBudgetUI(QDialog):
         layout = QFormLayout()
 
         self.cb_script = QComboBox()
-        self.cb_script.addItems([x for x in CHOICE_FXNS.keys()])
+        self.cb_script.addItems(FXNS_TABLE.keys())
         layout.addRow(QLabel("Script:"), self.cb_script)
 
         self.gnc_file_btn = QPushButton("Get Gnucash file")
@@ -125,17 +125,17 @@ class UpdateBudgetUI(QDialog):
         num, ok = QInputDialog.getInt(self, "Logging Level", "Enter a value (0-60)", value=self.log_level, minValue=0, maxValue=60)
         if ok:
             self.log_level = num
-            self._lgr.debug(F"logging level changed to {num}.")
+            self._lgr.debug(f"logging level changed to {num}.")
 
     # ? 'partial' always passes the index of the chosen label as an extra param...!
     def selection_change(self, cb:QComboBox, label:str, indx:int):
-        self._lgr.debug(F"ComboBox '{label}' selection changed to: {cb.currentText()} [{indx}].")
+        self._lgr.debug(f"ComboBox '{label}' selection changed to: {cb.currentText()} [{indx}].")
 
     def button_click(self):
         """Assemble the necessary parameters and call each selected update choice separately."""
-        self._lgr.info(F"Clicked '{self.exe_btn.text()}'.")
+        self._lgr.info(f"Clicked '{self.exe_btn.text()}'.")
         exe = self.cb_script.currentText()
-        self._lgr.info(F"Script is '{exe}'.")
+        self._lgr.info(f"Script is '{exe}'.")
 
         if not self.gnc_file:
             self.response_box.append(">>> MUST select a Gnucash File!")
@@ -148,17 +148,17 @@ class UpdateBudgetUI(QDialog):
         if self.ch_rsp.isChecked(): cl_params.append("--resp_save")
         self._lgr.info( repr(cl_params) )
 
-        main_run = CHOICE_FXNS[exe]
-        self._lgr.info(F"updates to run = '{exe}'")
+        main_run = FXNS_TABLE[exe]
+        self._lgr.info(f"updates to run = '{exe}'")
         if callable(main_run):
-            self._lgr.info(F"Calling {exe}...")
+            self._lgr.info(f"Calling {exe}...")
             response = main_run(cl_params)
             self.response_box.append(json.dumps({f"{main_run}\n":response}, indent = 4))
         elif isinstance(main_run, list):
             indx = 0
             try:
                 for bc_exec in main_run:
-                    self._lgr.info(F"Calling '{repr(bc_exec)}' ...")
+                    self._lgr.info(f"Calling '{repr(bc_exec)}' ...")
                     response = bc_exec(cl_params)
                     self.response_box.append(json.dumps({f"{main_run[indx]}\n":response}, indent = 4))
                     indx += 1
@@ -168,7 +168,7 @@ class UpdateBudgetUI(QDialog):
                 self.response_box.append(msg)
                 raise bcex
         else:
-            msg = F"Problem with functions??!! '{exe}'"
+            msg = f"Problem with functions??!! '{exe}'"
             self._lgr.error(msg)
             self.response_box.append(msg)
 # END class UpdateBudgetUI
@@ -188,7 +188,7 @@ if __name__ == "__main__":
         log_control.show(">> User interruption.")
         code = 13
     except Exception as mex:
-        log_control.show(F"Problem: {repr(mex)}.")
+        log_control.show(f"Problem: {repr(mex)}.")
         code = 66
     finally:
         if dialog:
