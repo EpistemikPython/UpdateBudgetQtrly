@@ -9,7 +9,7 @@ __author_name__    = 'Mark Sattolo'
 __author_email__   = 'epistemik@gmail.com'
 __python_version__ = "3.10+"
 __created__ = '2020-03-31'
-__updated__ = '2024-08-13'
+__updated__ = '2024-09-01'
 
 from sys import path, argv
 from abc import ABC, abstractmethod
@@ -22,12 +22,14 @@ from gncUtils import *
 path.append("/home/marksa/git/Python/google/sheets")
 from sheetAccess import *
 
-UPDATE_YEARS = ['2024','2023','2022','2021','2020','2019','2018','2017','2016','2015','2014','2013','2012','2011','2010','2009','2008']
-BASE_UPDATE_YEAR = UPDATE_YEARS[-1]
-CURRENT_YRS:str  = F"{UPDATE_YEARS[0]}-{UPDATE_YEARS[1]}"
-RECENT_YRS:str   = F"{UPDATE_YEARS[0]}-{UPDATE_YEARS[3]}"
-MID_YRS:str      = F"{UPDATE_YEARS[4]}-{UPDATE_YEARS[7]}"
-EARLY_YRS:str    = F"{UPDATE_YEARS[8]}-{BASE_UPDATE_YEAR}"
+UPDATE_YEARS:list = [str(y) for y in range(get_current_year(), 2007, -1)]
+print(f"UPDATE_YEARS = {UPDATE_YEARS}")
+BASE_UPDATE_YEAR:str = UPDATE_YEARS[-1]
+print(f"BASE_UPDATE_YEAR = {BASE_UPDATE_YEAR}")
+CURRENT_YRS:str  = f"{UPDATE_YEARS[0]}-{UPDATE_YEARS[1]}"
+RECENT_YRS:str   = f"{UPDATE_YEARS[0]}-{UPDATE_YEARS[3]}"
+MID_YRS:str      = f"{UPDATE_YEARS[4]}-{UPDATE_YEARS[7]}"
+EARLY_YRS:str    = f"{UPDATE_YEARS[8]}-{BASE_UPDATE_YEAR}"
 UPDATE_INTERVAL = {
     ALL_YEARS   : UPDATE_YEARS,
     EARLY_YRS   : UPDATE_YEARS[8:],
@@ -44,7 +46,7 @@ QTR_SPAN:str  = QTR + SPAN
 HDR_SPAN:str  = f"Header{SPAN}"
 
 RECORD_SHEET    = "Record"
-RECORD_RANGE    = F"'{RECORD_SHEET}'!A1"
+RECORD_RANGE    = f"'{RECORD_SHEET}'!A1"
 RECORD_DATE_COL = 'A'
 RECORD_TIME_COL = 'B'
 RECORD_GNC_COL  = 'C'
@@ -58,7 +60,7 @@ def get_timespan(timespan:str, lgr:lg.Logger) -> list:
     if timespan in UPDATE_YEARS:
         return [timespan]
     lgr.warning(F"INVALID YEAR: {timespan}")
-    return UPDATE_YEARS[0]
+    return [UPDATE_YEARS[0]]
 
 
 class UpdateBudget(ABC):
@@ -142,8 +144,16 @@ class UpdateBudget(ABC):
             self._lgr.info(F"google data file = {save_to_json(fname, self._ggl_update.get_data(), ts = self.filetime)}")
 
     def record_update(self):
-        ru_result = self._ggl_update.read_sheets_data(RECORD_RANGE)
-        current_row = int(ru_result[0][0])
+        try:
+            ru_result = self._ggl_update.read_sheets_data(RECORD_RANGE)
+            self._lgr.info(f"ru_result = {ru_result}")
+            current_row = int(ru_result[0][0])
+        except ValueError as ve:
+            self._lgr.exception(ve)
+            current_row = 1001
+            self._lgr.warning(">> update record row at 1001")
+        except Exception as rue:
+            raise rue
         # skip header rows
         if current_row % 50 == 0:
             current_row += 1
@@ -162,11 +172,18 @@ class UpdateBudget(ABC):
         self._ggl_update.fill_cell(RECORD_SHEET, 'A', 1, str(current_row + 1))
 
     def start_google_thread(self):
-        self._lgr.debug("before creating thread")
-        self._ggl_thrd = threading.Thread(target = self.send_google_data)
-        self._lgr.debug("before running thread")
-        self._ggl_thrd.start()
-        self._lgr.info(F"thread '{str(self)}' started at {get_current_time()}")
+        try:
+            self._lgr.debug("before creating thread")
+            self._ggl_thrd = threading.Thread(target = self.send_google_data)
+            self._lgr.debug("before running thread")
+            self._ggl_thrd.start()
+            self._lgr.info(F"thread '{str(self)}' started at {get_current_time()}")
+        except Exception as sgte:
+            self._lgr.exception(sgte)
+            raise sgte
+        finally:
+            if self._ggl_thrd and self._ggl_thrd.is_alive():
+                self._ggl_thrd.join(timeout = 6.66)
 
     def send_google_data(self):
         self._ggl_update.begin_session()
