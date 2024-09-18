@@ -10,11 +10,9 @@ __author__         = 'Mark Sattolo'
 __author_email__   = 'epistemik@gmail.com'
 __python_version__ = "3.6+"
 __created__ = '2019-03-30'
-__updated__ = '2024-07-12'
+__updated__ = '2024-09-16'
 
 from updateBudget import *
-
-base_run_file = get_base_filename(__file__)
 
 REVEXPS_DATA = {
     # first data row in the sheet
@@ -228,7 +226,7 @@ class UpdateRevExps(UpdateBudget):
 
 
 def update_rev_exps_main(args:list) -> dict:
-    rev_exp = UpdateRevExps(args, base_run_file)
+    rev_exp = UpdateRevExps(args, get_base_filename(__file__))
     return rev_exp.go("Revs & Exps")
 
 

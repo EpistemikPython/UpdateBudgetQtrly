@@ -10,12 +10,10 @@ __author__         = "Mark Sattolo"
 __author_email__   = "epistemik@gmail.com"
 __python_version__ = "3.10+"
 __created__ = "2019-04-13"
-__updated__ = "2024-08-14"
+__updated__ = "2024-09-16"
 
 from updateAssets import ASSETS_DATA, ASSET_COLS
 from updateBudget import *
-
-base_run_file = get_base_filename(__file__)
 
 BALANCE_DATA = {
     # first data row in the sheet
@@ -239,7 +237,7 @@ class UpdateBalance(UpdateBudget):
 
 
 def update_balance_main(args:list) -> dict:
-    balance = UpdateBalance(args, base_run_file)
+    balance = UpdateBalance(args, get_base_filename(__file__))
     return balance.go("Balance")
 
 

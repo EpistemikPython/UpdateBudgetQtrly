@@ -9,11 +9,9 @@ __author__         = "Mark Sattolo"
 __author_email__   = "epistemik@gmail.com"
 __python_version__ = "3.10+"
 __created__ = "2019-04-06"
-__updated__ = "2024-08-13"
+__updated__ = "2024-09-16"
 
 from updateBudget import *
-
-base_run_file = get_base_filename(__file__)
 
 ASSETS_DATA = {
     # first data row in the sheet
@@ -144,7 +142,7 @@ class UpdateAssets(UpdateBudget):
 
 
 def update_assets_main(args:list) -> dict:
-    assets = UpdateAssets(args, base_run_file)
+    assets = UpdateAssets(args, get_base_filename(__file__))
     return assets.go("Assets")
 
 
