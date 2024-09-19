@@ -5,11 +5,11 @@
 #
 # Copyright (c) 2024 Mark Sattolo <epistemik@gmail.com>
 
-__author_name__    = 'Mark Sattolo'
-__author_email__   = 'epistemik@gmail.com'
+__author_name__    = "Mark Sattolo"
+__author_email__   = "epistemik@gmail.com"
 __python_version__ = "3.10+"
-__created__ = '2020-03-31'
-__updated__ = '2024-09-01'
+__created__ = "2020-03-31"
+__updated__ = "2024-09-17"
 
 from sys import path, argv
 from abc import ABC, abstractmethod
@@ -23,9 +23,7 @@ path.append("/home/marksa/git/Python/google/sheets")
 from sheetAccess import *
 
 UPDATE_YEARS:list = [str(y) for y in range(get_current_year(), 2007, -1)]
-print(f"UPDATE_YEARS = {UPDATE_YEARS}")
 BASE_UPDATE_YEAR:str = UPDATE_YEARS[-1]
-print(f"BASE_UPDATE_YEAR = {BASE_UPDATE_YEAR}")
 CURRENT_YRS:str  = f"{UPDATE_YEARS[0]}-{UPDATE_YEARS[1]}"
 RECENT_YRS:str   = f"{UPDATE_YEARS[0]}-{UPDATE_YEARS[3]}"
 MID_YRS:str      = f"{UPDATE_YEARS[4]}-{UPDATE_YEARS[7]}"
@@ -45,12 +43,13 @@ YEAR_SPAN:str = BASE_YEAR + SPAN
 QTR_SPAN:str  = QTR + SPAN
 HDR_SPAN:str  = f"Header{SPAN}"
 
-RECORD_SHEET    = "Record"
-RECORD_RANGE    = f"'{RECORD_SHEET}'!A1"
-RECORD_DATE_COL = 'A'
-RECORD_TIME_COL = 'B'
-RECORD_GNC_COL  = 'C'
-RECORD_INFO_COL = 'D'
+RECORD_SHEET:str    = "Record"
+RECORD_RANGE:str    = f"'{RECORD_SHEET}'!A1"
+RECORD_DATE_COL:str = 'A'
+RECORD_TIME_COL:str = 'B'
+RECORD_GNC_COL:str  = 'C'
+RECORD_INFO_COL:str = 'D'
+RECORD_HDR_SPAN:int = 50
 
 DEFAULT_LOG_SUFFIX = "gncout"
 
@@ -72,9 +71,8 @@ class UpdateBudget(ABC):
         self.process_input_parameters(args)
 
         # get info for log names
-        base_name = get_base_filename(self._gnucash_file)
         self.target_name = F"-{self.timespan}"
-        log_name = p_logname + '_' + base_name + self.target_name
+        log_name = p_logname + '_' + get_base_filename(self._gnucash_file) + self.target_name
         self.filetime = dt.now().strftime(FILE_DATETIME_FORMAT)
 
         self._lg_ctrl = MhsLogger(log_name, con_level = self.level, file_time = self.filetime, suffix = DEFAULT_LOG_SUFFIX)
@@ -85,6 +83,8 @@ class UpdateBudget(ABC):
         self._ggl_update = MhsSheetAccess(self._lgr)
         self._ggl_thrd = None
         self.response = {"Started":f"{get_current_time()}"}
+
+        self._lgr.debug(f"UPDATE_YEARS = {UPDATE_YEARS} \t BASE_UPDATE_YEAR = {BASE_UPDATE_YEAR}")
         self._lgr.debug(F"Gnucash file = {self._gnucash_file}; Domain = {self.timespan} & Mode = {self.mode}")
 
     # noinspection PyAttributeOutsideInit
@@ -155,7 +155,7 @@ class UpdateBudget(ABC):
         except Exception as rue:
             raise rue
         # skip header rows
-        if current_row % 50 == 0:
+        if current_row % RECORD_HDR_SPAN == 0:
             current_row += 1
         self._lgr.debug(F"current row = {current_row}\n")
 
@@ -237,10 +237,11 @@ class UpdateBudget(ABC):
 
 
 def set_args() -> ArgumentParser:
-    arg_parser = ArgumentParser(description = "Update various tabs of my 'Budget-qtrly' Google Sheet", prog = "python3 updateBudget.py")
+    arg_parser = ArgumentParser(description = "Update various tabs of my 'Budget-qtrly' Google Sheet",
+                                prog = f"python3 {get_filename(argv[0])}")
     # required arguments
     required = arg_parser.add_argument_group("REQUIRED")
-    required.add_argument('-g', '--gnucash_file', required = True, help = "path & filename of the Gnucash file to use")
+    required.add_argument('-g', '--gnucash_file', required = True, help = "path to the Gnucash file to use")
     required.add_argument('-m', '--mode', required = True, choices = [TEST, SHEET_1, SHEET_2],
                           help = "SEND to Google Sheet (1 or 2) OR just TEST")
     required.add_argument('-t', '--timespan', required = True,
