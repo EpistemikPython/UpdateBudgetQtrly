@@ -9,7 +9,7 @@ __author_name__    = "Mark Sattolo"
 __author_email__   = "epistemik@gmail.com"
 __python_version__ = "3.10+"
 __created__ = "2024-07-01"
-__updated__ = "2024-08-17"
+__updated__ = "2024-09-17"
 
 from sys import path
 from PySide6.QtWidgets import (QApplication, QComboBox, QVBoxLayout, QGroupBox, QDialog, QFileDialog,
@@ -31,7 +31,7 @@ FXNS_TABLE = {
     ASSET+'s'           : UPDATE_FXNS[1] ,
     "Rev & Exps"        : UPDATE_FXNS[0]
 }
-UI_DEFAULT_LOG_LEVEL = logging.INFO
+UI_DEFAULT_LOG_LEVEL:int = logging.INFO
 
 
 # noinspection PyAttributeOutsideInit
@@ -45,12 +45,14 @@ class UpdateBudgetUI(QDialog):
         self.width  = 620
         self.height = 800
         self.gnc_file = ""
+
         self._lgr = log_control.get_logger()
-        log_control.show( f"{self.title} runtime = {get_current_time()}" )
+        self._lgr.log(UI_DEFAULT_LOG_LEVEL, f"{self.title} runtime = {get_current_time()}" )
 
         self.setWindowTitle(self.title)
         self.setGeometry(self.left, self.top, self.width, self.height)
-        self.log_level = UI_DEFAULT_LOG_LEVEL
+
+        self.selected_loglevel = UI_DEFAULT_LOG_LEVEL
         self.create_group_box()
 
         self.response_box = QTextEdit()
@@ -73,7 +75,7 @@ class UpdateBudgetUI(QDialog):
         layout = QFormLayout()
 
         self.cb_script = QComboBox()
-        self.cb_script.addItems(FXNS_TABLE.keys())
+        self.cb_script.addItems( list(FXNS_TABLE.keys()) )
         layout.addRow(QLabel("Script:"), self.cb_script)
 
         self.gnc_file_btn = QPushButton("Get Gnucash file")
@@ -122,9 +124,9 @@ class UpdateBudgetUI(QDialog):
             self.gnc_file_btn.setText(gnc_file_display)
 
     def get_log_level(self):
-        num, ok = QInputDialog.getInt(self, "Logging Level", "Enter a value (0-60)", value=self.log_level, minValue=0, maxValue=60)
+        num, ok = QInputDialog.getInt(self, "Logging Level", "Enter a value (0-60)", value=self.selected_loglevel, minValue=0, maxValue=60)
         if ok:
-            self.log_level = num
+            self.selected_loglevel = num
             self._lgr.debug(f"logging level changed to {num}.")
 
     # ? 'partial' always passes the index of the chosen label as an extra param...!
@@ -141,7 +143,7 @@ class UpdateBudgetUI(QDialog):
             self.response_box.append(">>> MUST select a Gnucash File!")
             return
 
-        cl_params = ['-g' + self.gnc_file, '-m' + self.cb_mode.currentText(), '-t' + self.cb_domain.currentText(), '-l' + str(self.log_level)]
+        cl_params = ['-g'+self.gnc_file, '-m'+self.cb_mode.currentText(), '-t'+self.cb_domain.currentText(), '-l'+str(self.selected_loglevel)]
 
         if self.ch_ggl.isChecked(): cl_params.append("--ggl_save")
         if self.ch_gnc.isChecked(): cl_params.append("--gnc_save")
@@ -185,10 +187,13 @@ if __name__ == "__main__":
         dialog.show()
         app.exec()
     except KeyboardInterrupt:
-        log_control.show(">> User interruption.")
+        log_control.exception(">> User interruption.")
         code = 13
+    except ValueError:
+        log_control.error(">> Value error.")
+        code = 27
     except Exception as mex:
-        log_control.show(f"Problem: {repr(mex)}.")
+        log_control.exception(f"Problem: {repr(mex)}.")
         code = 66
     finally:
         if dialog:
