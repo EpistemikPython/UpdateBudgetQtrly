@@ -1,7 +1,8 @@
 ##############################################################################################################################
 # coding=utf-8
 #
-# pyside6-UI.py -- run the UI for the update functions using the PySide6 Qt library
+# pyside6-UI.py
+#   -- run the UI for the update functions using the PySide6 Qt library
 #
 # Copyright (c) 2024 Mark Sattolo <epistemik@gmail.com>
 
@@ -9,11 +10,11 @@ __author_name__    = "Mark Sattolo"
 __author_email__   = "epistemik@gmail.com"
 __python_version__ = "3.10+"
 __created__ = "2024-07-01"
-__updated__ = "2024-09-17"
+__updated__ = "2024-10-07"
 
 from sys import path
-from PySide6.QtWidgets import (QApplication, QComboBox, QVBoxLayout, QGroupBox, QDialog, QFileDialog,
-                               QPushButton, QFormLayout, QDialogButtonBox, QLabel, QTextEdit, QCheckBox, QInputDialog)
+from PySide6.QtWidgets import (QApplication, QComboBox, QVBoxLayout, QGroupBox, QDialog, QFileDialog, QLabel, QCheckBox,
+                               QPushButton, QFormLayout, QDialogButtonBox, QTextEdit, QInputDialog, QMessageBox)
 from functools import partial
 path.append("/home/marksa/git/Python/utils")
 from updateBudget import *
@@ -108,23 +109,25 @@ class UpdateBudgetUI(QDialog):
         self.pb_logging.clicked.connect(self.get_log_level)
         layout.addRow(QLabel("Logging"), self.pb_logging)
 
-        self.exe_btn = QPushButton("Go!")
-        self.exe_btn.setStyleSheet("QPushButton {font-weight: bold; color: red; background-color: yellow;}")
-        self.exe_btn.clicked.connect(self.button_click)
-        layout.addRow(QLabel("EXECUTE:"), self.exe_btn)
+        self.exec_btn = QPushButton("Go!")
+        self.exec_btn.setStyleSheet("QPushButton {font-weight: bold; color: red; background-color: yellow;}")
+        self.exec_btn.clicked.connect(self.button_click)
+        layout.addRow(QLabel("EXECUTE:"), self.exec_btn)
 
         self.gb_main.setLayout(layout)
 
     def open_file_name_dialog(self):
         file_name, _ = QFileDialog.getOpenFileName( self, "Get Gnucash Files", osp.join(BASE_GNUCASH_FOLDER, "bak-files" + osp.sep),
-                                                    "Gnucash Files (*.gnc *.gnucash);;All Files (*)", options = QFileDialog.Option.DontUseNativeDialog )
+                                                    "Gnucash Files (*.gnc *.gnucash);;All Files (*)",
+                                                    options = QFileDialog.Option.DontUseNativeDialog )
         if file_name:
             self.gnc_file = file_name
             gnc_file_display = get_filename(file_name)
             self.gnc_file_btn.setText(gnc_file_display)
 
     def get_log_level(self):
-        num, ok = QInputDialog.getInt(self, "Logging Level", "Enter a value (0-60)", value=self.selected_loglevel, minValue=0, maxValue=60)
+        num, ok = QInputDialog.getInt(self, "Logging Level", "Enter a value (0-60)",
+                                      value=self.selected_loglevel, minValue=0, maxValue=60)
         if ok:
             self.selected_loglevel = num
             self._lgr.debug(f"logging level changed to {num}.")
@@ -135,39 +138,36 @@ class UpdateBudgetUI(QDialog):
 
     def button_click(self):
         """Assemble the necessary parameters and call each selected update choice separately."""
-        self._lgr.info(f"Clicked '{self.exe_btn.text()}'.")
-        exe = self.cb_script.currentText()
-        self._lgr.info(f"Script is '{exe}'.")
-
+        self._lgr.info(f"Clicked '{self.exec_btn.text()}'.")
         if not self.gnc_file:
-            self.response_box.append(">>> MUST select a Gnucash File!")
+            msg_box = QMessageBox()
+            msg_box.setIcon(QMessageBox.Icon.Warning)
+            msg_box.setText("MUST select a Gnucash file!")
+            msg_box.exec()
             return
 
-        cl_params = ['-g'+self.gnc_file, '-m'+self.cb_mode.currentText(), '-t'+self.cb_domain.currentText(), '-l'+str(self.selected_loglevel)]
-
+        cl_params = [ '-g' + self.gnc_file, '-m' + self.cb_mode.currentText(), '-t' + self.cb_domain.currentText(),
+                      '-l' + str(self.selected_loglevel) ]
         if self.ch_ggl.isChecked(): cl_params.append("--ggl_save")
         if self.ch_gnc.isChecked(): cl_params.append("--gnc_save")
         if self.ch_rsp.isChecked(): cl_params.append("--resp_save")
-        self._lgr.info( repr(cl_params) )
+        self._lgr.info(f"parameters = {repr(cl_params)}")
 
-        main_run = FXNS_TABLE[exe]
+        exe = self.cb_script.currentText()
         self._lgr.info(f"updates to run = '{exe}'")
+        main_run = FXNS_TABLE[exe]
         if callable(main_run):
             self._lgr.info(f"Calling {exe}...")
             response = main_run(cl_params)
             self.response_box.append(json.dumps({f"{main_run}\n":response}, indent = 4))
         elif isinstance(main_run, list):
-            indx = 0
             try:
                 for bc_exec in main_run:
                     self._lgr.info(f"Calling '{repr(bc_exec)}' ...")
                     response = bc_exec(cl_params)
-                    self.response_box.append(json.dumps({f"{main_run[indx]}\n":response}, indent = 4))
-                    indx += 1
+                    self.response_box.append(json.dumps({f"{bc_exec}\n":response}, indent = 4))
             except Exception as bcex:
-                msg = f"{main_run[indx]} generated EXCEPTION:\n{repr(bcex)}"
-                self._lgr.exception(msg)
-                self.response_box.append(msg)
+                self.response_box.append(f"EXCEPTION:\n{repr(bcex)}")
                 raise bcex
         else:
             msg = f"Problem with functions??!! '{exe}'"
@@ -186,14 +186,14 @@ if __name__ == "__main__":
         dialog = UpdateBudgetUI()
         dialog.show()
         app.exec()
-    except KeyboardInterrupt:
-        log_control.exception(">> User interruption.")
+    except KeyboardInterrupt as mki:
+        log_control.exception(mki)
         code = 13
-    except ValueError:
-        log_control.error(">> Value error.")
+    except ValueError as mve:
+        log_control.error(mve)
         code = 27
     except Exception as mex:
-        log_control.exception(f"Problem: {repr(mex)}.")
+        log_control.exception(mex)
         code = 66
     finally:
         if dialog:
