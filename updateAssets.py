@@ -3,13 +3,13 @@
 #
 # updateAssets.py -- use the Gnucash and Google APIs to update the Assets in my BudgetQtrly document for a specified period of time
 #
-# Copyright (c) 2024 Mark Sattolo <epistemik@gmail.com>
+# Copyright (c) 2025 Mark Sattolo <epistemik@gmail.com>
 #
 __author__         = "Mark Sattolo"
 __author_email__   = "epistemik@gmail.com"
 __python_version__ = "3.10+"
 __created__ = "2019-04-06"
-__updated__ = "2024-09-16"
+__updated__ = "2025-08-01"
 
 from updateBudget import *
 
@@ -84,12 +84,12 @@ class UpdateAssets(UpdateBudget):
         super().__init__(args, p_logname)
 
         # Google sheet to update or just testing
-        self.dest = self.mode
-        if '1' in self.mode:
+        self.dest = self.target
+        if '1' in self.target:
             self.dest = QTR_ASTS_SHEET
-        elif '2' in self.mode:
+        elif '2' in self.target:
             self.dest = QTR_ASTS_2_SHEET
-        self._lgr.debug(F"dest = {self.dest}")
+        self._lgr.debug(f"dest = {self.dest}")
 
     def fill_gnucash_data(self, p_session:GnucashSession, p_qtr:int, p_year:str):
         """
@@ -98,7 +98,7 @@ class UpdateAssets(UpdateBudget):
         :param       p_qtr: 1..4 for quarter to update
         :param      p_year: year to update
         """
-        self._lgr.debug(F"find Assets in {p_session.get_file_name()} for {p_year}-Q{p_qtr}")
+        self._lgr.debug(f"find Assets in {p_session.get_file_name()} for {p_year}-Q{p_qtr}")
         start_month = (p_qtr * 3) - 2
         int_year = get_int_year( p_year, ASSETS_DATA[BASE_YEAR] )
         end_date = current_quarter_end(int_year, start_month)
@@ -122,14 +122,14 @@ class UpdateAssets(UpdateBudget):
         Fill the Google data list.
         :param p_years: timespan to update
         """
-        self._lgr.info(F"timespan = {p_years}\n")
+        self._lgr.info(f"timespan = {p_years}\n")
         # get the row from Year and Quarter value in each item
         for item in self._gnucash_data:
             target_year = get_int_year( item[YR], ASSETS_DATA[BASE_YEAR] )
             year_row = ASSETS_DATA[BASE_ROW] + year_span( target_year, ASSETS_DATA[BASE_YEAR], ASSETS_DATA[YEAR_SPAN], ASSETS_DATA[HDR_SPAN] )
             int_qtr = int(item[QTR])
             dest_row = year_row + ( (int_qtr - 1) * ASSETS_DATA[QTR_SPAN] )
-            self._lgr.info(F"{item[YR]}-Q{item[QTR]} dest row = {dest_row}\n")
+            self._lgr.info(f"{item[YR]}-Q{item[QTR]} dest row = {dest_row}\n")
             for key in item:
                 if key not in (QTR,YR):
                     # FOR YEAR 2015 OR EARLIER: GET RESP INSTEAD OF Rewards for COLUMN O

@@ -4,13 +4,13 @@
 # updateRevExps.py -- use the Gnucash and Google APIs to update the Revenue and Expenses
 #                     in my BudgetQtrly document for a specified year or quarter
 #
-# Copyright (c) 2024 Mark Sattolo <epistemik@gmail.com>
+# Copyright (c) 2025 Mark Sattolo <epistemik@gmail.com>
 #
-__author__         = 'Mark Sattolo'
-__author_email__   = 'epistemik@gmail.com'
+__author__         = "Mark Sattolo"
+__author_email__   = "epistemik@gmail.com"
 __python_version__ = "3.6+"
-__created__ = '2019-03-30'
-__updated__ = '2024-09-16'
+__created__ = "2019-03-30"
+__updated__ = "2025-08-01"
 
 from updateBudget import *
 
@@ -64,11 +64,11 @@ class UpdateRevExps(UpdateBudget):
         # Google sheet to update
         self.all_inc_dest = ALL_INC_2_SHEET
         self.nec_inc_dest = NEC_INC_2_SHEET
-        if '1' in self.mode:
+        if '1' in self.target:
             self.all_inc_dest = ALL_INC_SHEET
             self.nec_inc_dest = NEC_INC_SHEET
-        self._lgr.debug(F"all_inc_dest = {self.all_inc_dest}")
-        self._lgr.debug(F"nec_inc_dest = {self.nec_inc_dest}\n")
+        self._lgr.debug(f"all_inc_dest = {self.all_inc_dest}")
+        self._lgr.debug(f"nec_inc_dest = {self.nec_inc_dest}\n")
 
     def fill_splits(self, root_acct:Account, account_path:list, period_starts:list, periods:list) -> str:
         self._lgr.debug(get_current_time())
@@ -99,11 +99,11 @@ class UpdateRevExps(UpdateBudget):
         self.get_revenue(root_acct, period_starts, period_list, data_qtr)
         data_qtr[YR] = p_year
         data_qtr[QTR] = str(p_qtr)
-        self._lgr.debug(F"\n\t\tTOTAL Revenue for {p_year}-Q{p_qtr} = ${period_list[0][4] * -1}")
+        self._lgr.debug(f"\n\t\tTOTAL Revenue for {p_year}-Q{p_qtr} = ${period_list[0][4] * -1}")
 
         period_list[0][4] = ZERO
         self.get_expenses(root_acct, period_starts, period_list, int_year, data_qtr)
-        self._lgr.debug(F"\n\t\tTOTAL Expenses for {p_year}-Q{p_qtr} = {period_list[0][4]}\n")
+        self._lgr.debug(f"\n\t\tTOTAL Expenses for {p_year}-Q{p_qtr} = {period_list[0][4]}\n")
 
         self.get_deductions(root_acct, period_starts, period_list, int_year, data_qtr)
 
@@ -129,12 +129,12 @@ class UpdateRevExps(UpdateBudget):
             periods[0][3] = ZERO
             self._lgr.debug('set periods')
             acct_base = REV_ACCTS[item]
-            self._lgr.debug(F"acct_base = {acct_base}")
+            self._lgr.debug(f"acct_base = {acct_base}")
             acct_name = self.fill_splits(root_acct, acct_base, period_starts, periods)
 
             sum_revenue = (periods[0][2] + periods[0][3]) * (-1)
             str_rev += sum_revenue.to_eng_string() + (' + ' if item != EMPL else '')
-            self._lgr.debug(F"{acct_name} Revenue for period = ${sum_revenue}")
+            self._lgr.debug(f"{acct_name} Revenue for period = ${sum_revenue}")
 
         data_qtr[REV] = str_rev
         return str_rev
@@ -161,7 +161,7 @@ class UpdateRevExps(UpdateBudget):
 
             sum_deductions = periods[0][2] + periods[0][3]
             str_dedns += sum_deductions.to_eng_string() + (' + ' if item != "ML" else '')
-            self._lgr.debug(F"{acct_name} {EMPL} Deductions for {p_year}-Q{data_qtr[QTR]} = ${sum_deductions}")
+            self._lgr.debug(f"{acct_name} {EMPL} Deductions for {p_year}-Q{data_qtr[QTR]} = ${sum_deductions}")
 
         data_qtr[DEDNS] = str_dedns
         return str_dedns
@@ -189,7 +189,7 @@ class UpdateRevExps(UpdateBudget):
             sum_expenses = periods[0][2] + periods[0][3]
             str_expenses = sum_expenses.to_eng_string()
             data_qtr[item] = str_expenses
-            self._lgr.debug(F"{acct_name.split('_')[-1]} Expenses for {p_year}-Q{data_qtr[QTR]} = ${str_expenses}")
+            self._lgr.debug(f"{acct_name.split('_')[-1]} Expenses for {p_year}-Q{data_qtr[QTR]} = ${str_expenses}")
             str_total += str_expenses + ' + '
 
         return str_total
@@ -207,15 +207,15 @@ class UpdateRevExps(UpdateBudget):
             others are just the string from the item
         :param p_years: timespan to update
         """
-        self._lgr.info(F"timespan = {p_years}\n")
+        self._lgr.info(f"timespan = {p_years}\n")
         # get the row from Year and Quarter value in each item
         for item in self._gnucash_data:
-            self._lgr.debug(F"item = {item}")
+            self._lgr.debug(f"item = {item}")
             target_year = get_int_year( item[YR], REVEXPS_DATA[BASE_YEAR] )
             year_row = REVEXPS_DATA[BASE_ROW]\
                        + year_span(target_year, REVEXPS_DATA[BASE_YEAR], REVEXPS_DATA[YEAR_SPAN], REVEXPS_DATA[HDR_SPAN], self._lgr)
             dest_row = year_row + ( (get_int_quarter(item[QTR]) - 1) * REVEXPS_DATA[QTR_SPAN] )
-            self._lgr.debug(F"{item[YR]}-Q{item[QTR]} dest row = {dest_row}\n")
+            self._lgr.debug(f"{item[YR]}-Q{item[QTR]} dest row = {dest_row}\n")
             for key in item:
                 if key not in (YR,QTR):
                     dest = self.nec_inc_dest

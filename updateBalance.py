@@ -4,13 +4,13 @@
 # updateBalance.py -- use the Gnucash and Google APIs to update the 'Balance' sheet
 #                     in my BudgetQtrly document for today or for a specified year or years
 #
-# Copyright (c) 2024 Mark Sattolo <epistemik@gmail.com>
+# Copyright (c) 2025 Mark Sattolo <epistemik@gmail.com>
 #
 __author__         = "Mark Sattolo"
 __author_email__   = "epistemik@gmail.com"
 __python_version__ = "3.10+"
 __created__ = "2019-04-13"
-__updated__ = "2024-09-16"
+__updated__ = "2025-08-01"
 
 from updateAssets import ASSETS_DATA, ASSET_COLS
 from updateBudget import *
@@ -77,9 +77,9 @@ class UpdateBalance(UpdateBudget):
 
         # Google sheet to update
         self.dest = BAL_2_SHEET
-        if '1' in self.mode:
+        if '1' in self.target:
             self.dest = BAL_1_SHEET
-        self._lgr.debug(F"dest = {self.dest}")
+        self._lgr.debug(f"dest = {self.dest}")
 
         self._gnc_session = None
 
@@ -131,7 +131,7 @@ class UpdateBalance(UpdateBudget):
 
         for i in range(now_dt.month - 1):
             month_end = date(now_dt.year, i + 2, 1) - ONE_DAY
-            self._lgr.debug(F"month_end = {month_end}")
+            self._lgr.debug(f"month_end = {month_end}")
 
             row = BASE_MTHLY_ROW + month_end.month
             # fill LIABS
@@ -142,14 +142,14 @@ class UpdateBalance(UpdateBudget):
             if month_end.month % 3 != 0:
                 acct_sum = self.get_balance(BALANCE_ACCTS[FAM], month_end)
                 adjusted_assets = acct_sum - liab_sum
-                self._lgr.debug(F"Adjusted assets on {month_end} = {adjusted_assets.to_eng_string()}")
+                self._lgr.debug(f"Adjusted assets on {month_end} = {adjusted_assets.to_eng_string()}")
                 self.fill_google_cell(BAL_MTHLY_COLS[FAM], row, adjusted_assets)
             else:
                 self._lgr.debug("Update reference to Assets sheet for Mar, June, Sep or Dec")
                 # have to update the CELL REFERENCE to current year/qtr ASSETS
                 year_row = ASSETS_DATA[BASE_ROW] + year_span( now_dt.year, ASSETS_DATA[BASE_YEAR], ASSETS_DATA[YEAR_SPAN], ASSETS_DATA[HDR_SPAN], self._lgr )
                 int_qtr = (month_end.month // 3) - 1
-                self._lgr.debug(F"int_qtr = {int_qtr}")
+                self._lgr.debug(f"int_qtr = {int_qtr}")
                 dest_row = year_row + (int_qtr * ASSETS_DATA.get(QTR_SPAN))
                 val_num = '1' if '1' in self.dest else '2'
                 value = "='Assets " + val_num + "'!" + ASSET_COLS[TOTAL] + str(dest_row)
@@ -169,7 +169,7 @@ class UpdateBalance(UpdateBudget):
         year = now_dt.year - 1
         for mth in range(12 - now_dt.month):
             dte = date(year, mth + now_dt.month + 1, 1) - ONE_DAY
-            self._lgr.debug(F"date = {dte}")
+            self._lgr.debug(f"date = {dte}")
 
             row = BASE_MTHLY_ROW + dte.month
             # fill LIABS
@@ -180,7 +180,7 @@ class UpdateBalance(UpdateBudget):
             if dte.month % 3 != 0:
                 acct_sum = self.get_balance(BALANCE_ACCTS[FAM], dte)
                 adjusted_assets = acct_sum - liab_sum
-                self._lgr.debug(F"Adjusted assets on {dte} = ${adjusted_assets.to_eng_string()}")
+                self._lgr.debug(f"Adjusted assets on {dte} = ${adjusted_assets.to_eng_string()}")
                 self.fill_google_cell(BAL_MTHLY_COLS[FAM], row, adjusted_assets)
 
             # fill the date in Month column
@@ -200,7 +200,7 @@ class UpdateBalance(UpdateBudget):
 
     def fill_year_end_liabs(self, year:int):
         year_end = date(year, 12, 31)
-        self._lgr.debug(F"year_end = {year_end}")
+        self._lgr.debug(f"year_end = {year_end}")
 
         # fill LIABS
         liab_sum = self.get_balance(BALANCE_ACCTS[LIAB], year_end)
