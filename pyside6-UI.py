@@ -2,15 +2,15 @@
 # coding=utf-8
 #
 # pyside6-UI.py
-#   -- run the UI for the update functions using the PySide6 Qt library
+#   -- access the Google Sheet update functions using a UI built with the PySide6 Qt library
 #
-# Copyright (c) 2024 Mark Sattolo <epistemik@gmail.com>
+# Copyright (c) 2025 Mark Sattolo <epistemik@gmail.com>
 
 __author_name__    = "Mark Sattolo"
 __author_email__   = "epistemik@gmail.com"
 __python_version__ = "3.10+"
 __created__ = "2024-07-01"
-__updated__ = "2024-10-07"
+__updated__ = "2025-08-01"
 
 from sys import path
 from PySide6.QtWidgets import (QApplication, QComboBox, QVBoxLayout, QGroupBox, QDialog, QFileDialog, QLabel, QCheckBox,
@@ -37,7 +37,7 @@ UI_DEFAULT_LOG_LEVEL:int = logging.INFO
 
 # noinspection PyAttributeOutsideInit
 class UpdateBudgetUI(QDialog):
-    """UI for updating my 'Budget Quarterly' Google spreadsheet with information from a Gnucash file."""
+    """UI for updating my 'Budget Quarterly' Google sheet with information from a Gnucash file."""
     def __init__(self):
         super().__init__()
         self.title = "Update Budget UI"
@@ -83,10 +83,10 @@ class UpdateBudgetUI(QDialog):
         self.gnc_file_btn.clicked.connect(self.open_file_name_dialog)
         layout.addRow(QLabel("Gnucash File:"), self.gnc_file_btn)
 
-        self.cb_mode = QComboBox()
-        self.cb_mode.addItems([TEST,SHEET_1,SHEET_2])
-        self.cb_mode.currentIndexChanged.connect(partial(self.selection_change, self.cb_mode, MODE))
-        layout.addRow(QLabel(MODE+':'), self.cb_mode)
+        self.cb_target = QComboBox()
+        self.cb_target.addItems([TEST, SHEET_1, SHEET_2])
+        self.cb_target.currentIndexChanged.connect(partial(self.selection_change, self.cb_target, TARGET))
+        layout.addRow(QLabel(TARGET+':'), self.cb_target)
 
         self.cb_domain = QComboBox()
         self.cb_domain.addItems(UPDATE_DOMAINS)
@@ -146,7 +146,7 @@ class UpdateBudgetUI(QDialog):
             msg_box.exec()
             return
 
-        cl_params = [ '-g' + self.gnc_file, '-m' + self.cb_mode.currentText(), '-t' + self.cb_domain.currentText(),
+        cl_params = [ '-g' + self.gnc_file, '-m' + self.cb_target.currentText(), '-t' + self.cb_domain.currentText(),
                       '-l' + str(self.selected_loglevel) ]
         if self.ch_ggl.isChecked(): cl_params.append("--ggl_save")
         if self.ch_gnc.isChecked(): cl_params.append("--gnc_save")
